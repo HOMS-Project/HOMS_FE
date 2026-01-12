@@ -1,0 +1,77 @@
+
+.contract-container {
+    padding: 24px;
+    background-color: #f0f2f5;
+    min-height: 100vh;
+}
+
+.contract-card {
+    max-width: 800px;
+    margin: 0 auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.contract-header, .party-info, .contract-terms {
+    margin-bottom: 24px;
+}
+
+.party-info h4, .contract-terms h4 {
+    border-bottom: 1px solid #e8e8e8;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.signature-section {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 40px;
+    text-align: center;
+}
+
+.signature-block {
+    width: 45%;
+}
+
+.signature-image {
+    height: 100px; 
+    display: flex;
+    align-items: center; 
+    justify-content: center; 
+    margin-bottom: 8px; 
+    border-bottom: none
+}
+
+.signature-text {
+    font-family: 'Dancing Script', cursive;
+    font-size: 28px; 
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+    line-height: 1; 
+    display: inline-block; 
+}
+
+.signature-image-display {
+    max-height: 80px; 
+    max-width: 100%;   
+    object-fit: contain; 
+    border-bottom: none
+}
+
+.agreement-section {
+    margin-top: 32px;
+    text-align: center;
+}
+
+.action-buttons {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+}

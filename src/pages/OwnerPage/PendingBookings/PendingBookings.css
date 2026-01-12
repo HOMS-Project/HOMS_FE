@@ -1,0 +1,22 @@
+.pending-bookings-container {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 0 16px;
+}
+.pending-bookings-container h1 {
+    margin-bottom: 24px;
+}
+.pending-booking-card .ant-card-head {
+    background-color: #fafafa;
+}
+.booking-request-details {
+    margin-top: 16px;
+    font-size: 0.9em;
+    color: #555;
+}
+.booking-request-details p {
+    margin-bottom: 6px;
+}
+.booking-request-details strong {
+    color: #333;
+}

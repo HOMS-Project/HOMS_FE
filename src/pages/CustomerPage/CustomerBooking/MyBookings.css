@@ -1,0 +1,74 @@
+/* file: src/pages/Customer/MyBookings/MyBookings.css */
+
+.my-bookings-container {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 0 16px;
+}
+
+.my-bookings-container h1 {
+    margin-bottom: 24px;
+    font-size: 2em;
+    color: #333;
+}
+
+.booking-card-item .ant-card-body {
+    padding: 16px;
+}
+
+.booking-card-item .ant-card-meta-title {
+    margin-bottom: 4px !important; /* Override Ant Design margin */
+    font-size: 1.1em;
+}
+.booking-card-item .ant-card-meta-description {
+     color: #555;
+}
+
+
+.booking-details p {
+    margin-bottom: 8px;
+    font-size: 0.95em;
+    color: #444;
+}
+
+.booking-details p strong {
+    margin-right: 5px;
+    color: #111;
+}
+
+/* Ensure actions are spaced correctly */
+.booking-card-item .ant-card-actions {
+    display: flex;
+    justify-content: space-around; /* Space out buttons */
+    align-items: center;
+}
+
+.booking-card-item .ant-card-actions > li {
+   flex: 1 1 auto; /* Allow buttons to take space but not shrink too much */
+   text-align: center;
+   margin: 12px 4px !important; /* Adjust spacing */
+}
+
+.booking-card-item .ant-card-actions > li > span {
+    display: inline-block; /* Ensure button fits well */
+}
+
+/* Style specific tags */
+.ant-tag-processing {
+    color: #1890ff;
+    background: #e6f7ff;
+    border-color: #91d5ff;
+}
+.ant-tag-warning {
+    color: #faad14;
+    background: #fffbe6;
+    border-color: #ffe58f;
+}
+
+/* Loading and Empty states */
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+}
