@@ -1,0 +1,578 @@
+import React, { useState } from 'react';
+import { Layout, Row, Col, Button, Form, Input, Select, Card, Rate, Space, Menu, Drawer, App, Avatar } from 'antd';
+import {
+    PhoneOutlined,
+    MailOutlined,
+    EnvironmentOutlined,
+    FacebookOutlined,
+    InstagramOutlined,
+    LinkedinOutlined,
+    TwitterOutlined,
+    ArrowRightOutlined,
+    CheckCircleOutlined,
+    ClockCircleOutlined,
+    SafetyOutlined,
+    TeamOutlined,
+    HomeOutlined,
+    ShoppingOutlined,
+    ShoppingCartOutlined,
+    MenuOutlined,
+    CloseOutlined,
+    UserOutlined
+} from '@ant-design/icons';
+import './LandingPage.css';
+import AppHeader from '../../../components/header/header';
+import AppFooter from '../../../components/footer/footer';
+
+const { Header, Content, Footer } = Layout;
+const { TextArea } = Input;
+const { Option } = Select;
+
+const LandingPage = () => {
+    const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+
+    const handleContactClick = () => {
+        document.getElementById('contact-section').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const handleGetStarted = () => {
+        document.getElementById('hero-form').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const menuItems = [
+        { label: 'Trang Chủ', key: 'home', onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
+        { label: 'Dịch Vụ', key: 'services', onClick: () => document.getElementById('services-section').scrollIntoView({ behavior: 'smooth' }) },
+        { label: 'Quy Trình', key: 'process', onClick: () => document.getElementById('process-section').scrollIntoView({ behavior: 'smooth' }) },
+        { label: 'Đánh Giá', key: 'testimonials', onClick: () => document.getElementById('testimonials-section').scrollIntoView({ behavior: 'smooth' }) },
+    ];
+
+    const testimonialsData = [
+        {
+            id: 1,
+            name: 'Nguyễn Văn A',
+            text: 'Dịch vụ chuyên nhân, giá cả hợp lý. Đội ngũ rất tận tâm và chu đáo trong suốt quá trình chuyển.',
+            rating: 5,
+            service: 'Chuyển nhà trọn gói',
+            avatar: 'https://xsgames.co/randomusers/avatar.php?g=male' // Ảnh mẫu
+        },
+        {
+            id: 2,
+            name: 'Trần Thị B',
+            text: 'Nhanh chóng, an toàn và đúng giờ. Đồ đạc được vận chuyển không hề hư hỏng.',
+            rating: 5,
+            service: 'Chuyển văn phòng',
+            avatar: 'https://xsgames.co/randomusers/avatar.php?g=male' // Ảnh mẫu
+        },
+        {
+            id: 3,
+            name: 'Phạm Minh C',
+            text: 'Giá cả rất cạnh tranh, dịch vụ tuyệt vời. Tôi sẽ giới thiệu cho bạn bè và gia đình.',
+            rating: 5,
+            service: 'Chuyển đồ đạc',
+            avatar: 'https://xsgames.co/randomusers/avatar.php?g=male' // Ảnh mẫu
+        },
+    ];
+
+    const servicesData = [
+        {
+            id: 1,
+            icon: <HomeOutlined />,
+            title: 'Chuyển nhà trọn gói',
+            description: 'Dịch vụ chuyển nhà toàn diện với đội ngũ chuyên nghiệp'
+        },
+        {
+            id: 2,
+            icon: <ShoppingOutlined />,
+            title: 'Chuyển văn phòng',
+            description: 'Chuyển văn phòng an toàn, nhanh chóng, không ảnh hưởng kinh doanh'
+        },
+        {
+            id: 3,
+            icon: <ShoppingCartOutlined />,
+            title: 'Chuyển đồ đạc',
+            description: 'Vận chuyển đồ đạc riêng lẻ với bảo hiểm toàn diện'
+        },
+        {
+            id: 4,
+            icon: <ShoppingOutlined />,
+            title: 'Thuê xe tải',
+            description: 'Dịch vụ thuê xe tải linh hoạt theo nhu cầu của bạn'
+        },
+    ];
+
+    const whyChooseUsData = [
+        {
+            id: 1,
+            icon: <SafetyOutlined />,
+            title: 'Bảo hiểm đồ đạc',
+            description: 'Toàn bộ hàng hoá được bảo hiểm 100%'
+        },
+        {
+            id: 2,
+            icon: <CheckCircleOutlined />,
+            title: 'Giá đảm bảo',
+            description: 'Giá cố định, không phí ẩn'
+        },
+        {
+            id: 3,
+            icon: <ClockCircleOutlined />,
+            title: 'Đúng giờ',
+            description: 'Cam kết hoàn thành đúng thời hạn'
+        },
+        {
+            id: 4,
+            icon: <TeamOutlined />,
+            title: 'Đội ngũ chuyên nghiệp',
+            description: 'Nhân viên được đào tạo chuyên sâu'
+        },
+    ];
+
+    const processData = [
+        {
+            id: 1,
+            number: '1',
+            title: 'Tiếp nhận',
+            description: 'Gọi hoặc đặt lịch trực tuyến'
+        },
+        {
+            id: 2,
+            number: '2',
+            title: 'Khảo sát',
+            description: 'Đánh giá khối lượng và khoảng cách'
+        },
+        {
+            id: 3,
+            number: '3',
+            title: 'Nghiệm thu',
+            description: 'Kiểm tra tài sản trước chuyển'
+        },
+        {
+            id: 4,
+            number: '4',
+            title: 'Triển khai',
+            description: 'Chuyển an toàn đến địa điểm mới'
+        },
+    ];
+
+    return (
+        <Layout className="landing-page">
+            {/* Header */}
+            <AppHeader className="landing-header" />
+
+            <Content className="landing-content">
+                {/* Hero Section */}
+                <section id="hero-section" className="hero-section">
+                    <div className="hero-overlay"></div>
+
+                    <div className="container" style={{ position: 'relative', zIndex: 2, height: '100%' }}>
+                        <Row align="middle" style={{ height: '100%' }}>
+                            <Col xs={24} md={22} lg={22} className="hero-text">
+
+                                <div className="hero-text-content">
+                                    <h1 className="hero-title">HOMS</h1>
+                                    <h2 className="hero-subtitle">
+                                        Chuyển nhà tận tâm,<br />
+                                        An tâm trọn vẹn.
+                                    </h2>
+                                    <p className="hero-description">
+                                        Dịch vụ chuyển nhà chuyên nghiệp với đội ngũ tận tâm, giá cạnh tranh và bảo hiểm toàn diện.
+                                    </p>
+                                </div>
+
+                                <div className="quick-quote-bar">
+                                    {/* Thay đổi gutter để khoảng cách các ô gần nhau hơn */}
+                                    <Row gutter={[10, 10]} align="middle">
+
+                                        {/* Ô NHẬP LIỆU 1 - Giảm width từ 9 xuống 7 */}
+                                        <Col xs={24} sm={7}>
+                                            <div className="input-group green-theme">
+                                                <div className="label-row">
+                                                    <EnvironmentOutlined className="label-icon" />
+                                                    <span className="input-label">Chuyển từ</span>
+                                                </div>
+                                                <Input
+                                                    placeholder="Quận/Huyện..."
+                                                    allowClear
+                                                    className="custom-input-field"
+                                                />
+                                            </div>
+                                        </Col>
+
+                                        {/* MŨI TÊN - Tăng width lên 2 và dùng Flex để căn giữa tuyệt đối */}
+                                        <Col xs={0} sm={2} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                            <div className="arrow-wrapper">
+                                                <ArrowRightOutlined />
+                                            </div>
+                                        </Col>
+
+                                        {/* Ô NHẬP LIỆU 2 - Giảm width từ 9 xuống 7 */}
+                                        <Col xs={24} sm={7}>
+                                            <div className="input-group green-theme">
+                                                <div className="label-row">
+                                                    <EnvironmentOutlined className="label-icon" />
+                                                    <span className="input-label">Chuyển đến</span>
+                                                </div>
+                                                <Input
+                                                    placeholder="Quận/Huyện..."
+                                                    allowClear
+                                                    className="custom-input-field"
+                                                />
+                                            </div>
+                                        </Col>
+
+                                        {/* NÚT BẤM - Tăng width lên 6 để cân đối với phần còn lại */}
+                                        <Col xs={24} sm={6} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                            <Button
+                                                type="primary"
+                                                className="quote-btn-small"
+                                            >
+                                                Xem giá dự kiến
+                                            </Button>
+                                        </Col>
+                                    </Row>
+                                </div>
+                                <p className="price-disclaimer">
+                                    * Giá chỉ mang tính tham khảo !
+                                </p>
+                            </Col>
+                        </Row>
+                    </div>
+                </section>
+
+                {/* Services Section */}
+                <section id="services-section" className="services-section">
+                    <div className="section-container">
+                        <h2 className="section-title">Dịch Vụ Vận Chuyển Tận Tâm</h2>
+                        <h2 className="section-title">Giải Pháp Giọn Nhà Thông Minh</h2>
+
+                        <Row gutter={[24, 24]}>
+                            {servicesData.map((service) => (
+                                <Col key={service.id} xs={24} sm={12} md={12} lg={12}>
+                                    <Card
+                                        className="service-card"
+                                        hoverable
+                                        style={{
+                                            borderRadius: '12px',
+                                            border: '1px solid #E0E0E0',
+                                            textAlign: 'center',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                    >
+                                        <div className="service-icon" style={{
+                                            fontSize: '48px',
+                                            color: '#2D4F36',
+                                            marginBottom: '16px'
+                                        }}>
+                                            {service.icon}
+                                        </div>
+                                        <h3 style={{ color: '#2D4F36', marginBottom: '12px' }}>
+                                            {service.title}
+                                        </h3>
+                                        <p style={{ color: '#666', fontSize: '14px' }}>
+                                            {service.description}
+                                        </p>
+                                    </Card>
+                                </Col>
+                            ))}
+                        </Row>
+                    </div>
+                </section>
+
+                {/* Why Choose Us Section */}
+                <section className="why-choose-us-section">
+                    <div className="section-container">
+                        <h2 className="section-title">Tại Sao Chọn Chúng Tôi?</h2>
+
+                        <Row gutter={[24, 24]}>
+                            {whyChooseUsData.map((item) => (
+                                <Col key={item.id} xs={24} sm={12} md={6}>
+                                    <Card
+                                        className="why-card"
+                                        style={{
+                                            textAlign: 'center',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            background: '#F5F5F5',
+                                            transition: 'all 0.3s ease',
+                                            height: '100%'
+                                        }}
+                                    >
+                                        <div style={{
+                                            fontSize: '40px',
+                                            color: '#2D4F36',
+                                            marginBottom: '16px'
+                                        }}>
+                                            {item.icon}
+                                        </div>
+                                        <h3 style={{ color: '#2D4F36', marginBottom: '12px' }}>
+                                            {item.title}
+                                        </h3>
+                                        <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>
+                                            {item.description}
+                                        </p>
+                                    </Card>
+                                </Col>
+                            ))}
+                        </Row>
+                    </div>
+                </section>
+
+                {/* Process Section */}
+                {/* Process Section */}
+                <section id="process-section" className="process-section">
+                    <div className="section-container">
+                        <h2 className="section-title">Các Bước Vận Chuyển</h2>
+
+                        {/* Mảng màu nền cho 4 bước */}
+                        <div className="process-grid">
+                            {processData.map((step, index) => {
+                                // Logic màu sắc
+                                const bgColors = ['#FFFFFF', '#C0CFB2', '#8BA888', '#44624A'];
+                                const textColors = ['#2D4F36', '#2D4F36', '#fff', '#fff']; // 2 bước cuối nền đậm nên chữ trắng
+                                const numberColors = ['#2D4F36', '#2D4F36', '#2D4F36', '#fff']; // Màu số thứ tự
+                                const numberBg = ['#F5F5F5', '#fff', '#fff', '#2D4F36']; // Nền của vòng tròn số
+
+                                return (
+                                    <React.Fragment key={step.id}>
+                                        <div className="process-item-wrapper">
+                                            {/* Thẻ Card */}
+                                            <div
+                                                className="process-card-horizontal"
+                                                style={{
+                                                    backgroundColor: bgColors[index],
+                                                    color: textColors[index]
+                                                }}
+                                            >
+                                                {/* Số thứ tự bên trái */}
+                                                <div
+                                                    className="process-number-left"
+                                                    style={{
+                                                        color: index === 3 ? '#2D4F36' : '#fff', // Riêng bước 4 đảo màu
+                                                        backgroundColor: index === 3 ? '#fff' : '#2D4F36'
+                                                    }}
+                                                >
+                                                    {step.number}
+                                                </div>
+
+                                                {/* Nội dung bên phải (Title & Des) */}
+                                                <div className="process-content-right">
+                                                    <h3 style={{
+                                                        color: textColors[index],
+                                                        marginBottom: '4px'
+                                                    }}>
+                                                        {step.title}
+                                                    </h3>
+                                                    <p style={{
+                                                        color: textColors[index],
+                                                        opacity: 0.9,
+                                                        fontSize: '13px',
+                                                        margin: 0
+                                                    }}>
+                                                        {step.description}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Nét đứt (---) chỉ hiện ở giữa cột 1 và 2 */}
+                                            {(index === 0 || index === 2) && (
+                                                <div className="process-dash">
+                                                    ---
+                                                </div>
+                                            )}
+
+                                            {/* Nét đứt dọc (giả lập kết nối xuống) - Hiện sau phần tử thứ 2 */}
+                                            {index === 1 && <div className="vertical-dash-connector">|</div>}
+                                        </div>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </section>
+
+                {/* Testimonials Section */}
+                <section id="testimonials-section" className="testimonials-section">
+                    <div className="section-container">
+                        <h2 className="section-title" style={{ color: 'white', marginBottom: '60px' }}>Đánh Giá Từ Khách Hàng</h2>
+
+                        <Row gutter={[24, 24]}>
+                            {testimonialsData.map((testimonial) => (
+                                <Col key={testimonial.id} xs={24} sm={12} md={8}>
+                                    <Card
+                                        className="testimonial-card"
+                                        style={{
+                                            borderRadius: '12px',
+                                            border: 'none', // Bỏ viền để nền xanh liền mạch hơn
+                                            overflow: 'hidden', // Để phần nền xanh bo góc theo Card
+                                            padding: 0, // Reset padding mặc định nếu cần
+                                            transition: 'all 0.3s ease',
+                                        }}
+                                        bodyStyle={{ padding: '24px 24px 0 24px' }} // Padding cho phần nội dung trên
+                                    >
+                                        {/* Phần nội dung đánh giá */}
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <div style={{ marginBottom: '12px' }}>
+                                                <Rate disabled value={testimonial.rating} style={{ color: '#FFC069' }} />
+                                            </div>
+                                            <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic', minHeight: '60px' }}>
+                                                "{testimonial.text}"
+                                            </p>
+                                        </div>
+
+                                        {/* Phần thông tin tài khoản (Footer màu xanh) */}
+                                        <div style={{
+                                            backgroundColor: '#8BA888', // Màu nền yêu cầu
+                                            margin: '0 -24px', // Margin âm để tràn viền (bù lại padding của Card)
+                                            padding: '15px 24px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '15px'
+                                        }}>
+                                            {/* Avatar */}
+                                            <Avatar
+                                                size={48}
+                                                src={testimonial.avatar}
+                                                icon={<UserOutlined />}
+                                                style={{ border: '2px solid #fff' }}
+                                            />
+
+                                            {/* Tên và Dịch vụ */}
+                                            <div style={{ textAlign: 'left' }}>
+                                                <p style={{
+                                                    color: '#fff', // Chữ trắng cho nổi trên nền xanh
+                                                    fontWeight: 'bold',
+                                                    fontSize: '16px',
+                                                    margin: 0
+                                                }}>
+                                                    {testimonial.name}
+                                                </p>
+                                                <p style={{
+                                                    color: 'rgba(255, 255, 255, 0.8)',
+                                                    fontSize: '12px',
+                                                    margin: 0
+                                                }}>
+                                                    {testimonial.service}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                </Col>
+                            ))}
+                        </Row>
+                    </div>
+                </section>
+
+                {/* Contact & Map Section */}
+                <section id="contact-section" className="contact-section">
+                    <div className="section-container">
+                        {/* Wrapper tạo khung bo tròn chung */}
+                        <div className="contact-box-wrapper">
+                            <Row gutter={0} style={{ display: 'flex', flexWrap: 'wrap' }}>
+
+                                {/* --- CỘT TRÁI (FORM): Sửa thành 12 (50%) --- */}
+                                <Col xs={24} md={12} lg={12} className="contact-left">
+                                    <div className="contact-form-content">
+                                        {/* ... Nội dung Form giữ nguyên ... */}
+                                        <h2 style={{ color: '#2D4F36', marginBottom: '10px', fontSize: '28px', fontWeight: 'bold' }}>
+                                            Liên Hệ Với Chúng Tôi
+                                        </h2>
+                                        <p style={{ color: '#666', marginBottom: '30px' }}>
+                                            Để lại thông tin để được tư vấn gói dịch vụ phù hợp nhất.
+                                        </p>
+
+                                        <Form layout="vertical" size="large">
+                                            {/* ... Các trường Input giữ nguyên ... */}
+                                            <Row gutter={20}>
+                                                <Col xs={24} sm={12}>
+                                                    <Form.Item label="Họ tên">
+                                                        <Input placeholder="Nhập họ tên của bạn" />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12}>
+                                                    <Form.Item label="Số điện thoại">
+                                                        <Input placeholder="Nhập số điện thoại" />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+
+                                            <Form.Item label="Email">
+                                                <Input type="email" placeholder="Nhập email của bạn" />
+                                            </Form.Item>
+
+                                            <Form.Item label="Vì sao bạn tìm đến chúng tôi?">
+                                                <Select placeholder="Chọn lý do...">
+                                                    <Option value="google">Tìm thấy trên Google</Option>
+                                                    <Option value="facebook">Biết qua Facebook/Tiktok</Option>
+                                                    <Option value="friend">Được bạn bè giới thiệu</Option>
+                                                    <Option value="ads">Thấy quảng cáo</Option>
+                                                    <Option value="other">Khác</Option>
+                                                </Select>
+                                            </Form.Item>
+
+                                            <Form.Item>
+                                                <Button
+                                                    type="primary"
+                                                    block
+                                                    style={{
+                                                        background: '#2D4F36',
+                                                        borderColor: '#2D4F36',
+                                                        borderRadius: '8px',
+                                                        height: '45px',
+                                                        fontWeight: 'bold'
+                                                    }}
+                                                >
+                                                    Gửi Thông Tin
+                                                </Button>
+                                            </Form.Item>
+                                        </Form>
+
+                                        {/* ... Phần thông tin công ty giữ nguyên ... */}
+                                        <div className="company-contact-info">
+                                            <h4 style={{ color: '#2D4F36', marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+                                                Thông Tin Liên Hệ Trực Tiếp
+                                            </h4>
+                                            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                                <div className="info-item">
+                                                    <PhoneOutlined style={{ color: '#2D4F36', fontSize: '18px', marginRight: '10px' }} />
+                                                    <span style={{ color: '#555', fontWeight: '500' }}>Hotline: 1900 8888</span>
+                                                </div>
+                                                <div className="info-item">
+                                                    <MailOutlined style={{ color: '#2D4F36', fontSize: '18px', marginRight: '10px' }} />
+                                                    <span style={{ color: '#555', fontWeight: '500' }}>Email: contact@homs.vn</span>
+                                                </div>
+                                                <div className="info-item">
+                                                    <EnvironmentOutlined style={{ color: '#2D4F36', fontSize: '18px', marginRight: '10px' }} />
+                                                    <span style={{ color: '#555', fontWeight: '500' }}>Văn phòng: FPT University, Đà Nẵng</span>
+                                                </div>
+                                            </Space>
+                                        </div>
+                                    </div>
+                                </Col>
+
+                                {/* --- CỘT PHẢI (MAP): Sửa thành 12 (50%) --- */}
+                                <Col xs={24} md={12} lg={12} className="contact-right">
+                                    <div className="map-container">
+                                        <iframe
+                                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3835.6!2d108.2598!3d15.9751!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31420edf9f123abc%3A0xabcdef1234567890!2sFPT%20University%20Da%20Nang!5e0!3m2!1svi!2s!4v1700000000001!5m2!1svi!2s"
+                                            width="100%"
+                                            height="100%"
+                                            style={{ border: 0 }}
+                                            allowFullScreen=""
+                                            loading="lazy"
+                                            referrerPolicy="no-referrer-when-downgrade"
+                                            title="FPT University Danang Map"
+                                        ></iframe>
+                                    </div>
+                                </Col>
+                            </Row>
+                        </div>
+                    </div>
+                </section>
+            </Content>
+
+            <AppFooter className="landing-footer" />
+        </Layout>
+    );
+};
+
+export default React.memo(LandingPage);
