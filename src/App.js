@@ -5,6 +5,10 @@ import LoginPage from './pages/CustomerPage/Auth/LoginPage';
 import RegisterPage from './pages/CustomerPage/Auth/RegisterPage'
 import { UserProvider } from './contexts/UserContext';
 import ForgotPasswordPage from './pages/CustomerPage/Auth/ForgotPasswordPage'
+
+import ServicePackages from './pages/CommonPage/ServicePackages/ServicePackages';
+import Profile from './pages/CommonPage/Profile/Profile';
+
 function App() {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
   return (
@@ -19,6 +23,9 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
+
+        <Route path="/profile/*" element={<Profile />} />
+        <Route path="/booking/service" element={<ServicePackages />} />
       </Routes>
       </UserProvider>
     </BrowserRouter>
