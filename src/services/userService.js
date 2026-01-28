@@ -41,15 +41,6 @@ export const updateUserInfo = (formData) =>
     },
   });
 
-export const changePassword = async (data, token) => {
-  return api.put(
-    "/customer/change-password",
-    data, // phải là object có { currentPassword, newPassword, confirmPassword }
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      }
-    }
-  );
+export const changePassword = async (data) => {
+  return api.put("/customer/change-password", data);
 };

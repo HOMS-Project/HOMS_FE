@@ -5,6 +5,9 @@ import LoginPage from './pages/CustomerPage/Auth/LoginPage';
 import RegisterPage from './pages/CustomerPage/Auth/RegisterPage'
 import { UserProvider } from './contexts/UserContext';
 import ForgotPasswordPage from './pages/CustomerPage/Auth/ForgotPasswordPage'
+import ChangePasswordPage from './pages/CustomerPage/Auth/ChangePasswordPage';
+import VerifyOTPPage from './pages/CustomerPage/Auth/VerifyOTPPage';
+import ResetPasswordPage from './pages/CustomerPage/Auth/ResetPasswordPage';
 
 // import ServicePackages from './pages/CommonPage/ServicePackages/ServicePackages';
 import Profile from './pages/CommonPage/Profile/Profile';
@@ -22,6 +25,9 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/change-password" element={<ChangePasswordPage />} />
+        <Route path="/verify-otp" element={<VerifyOTPPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
 
         <Route path="/profile/*" element={<Profile />} />
