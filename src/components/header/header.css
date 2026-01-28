@@ -13,7 +13,13 @@
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 15px;
+  padding: 0 40px;
+  height: 100%;
+}
+.header-container-fluid {
+  width: 100%;
+  padding: 0 40px;
+  margin: 0 auto;
   height: 100%;
 }
 
@@ -107,7 +113,22 @@
 .nav-item:hover {
   color: #ffffff;
 }
-
+.login{
+  background-color: #44624A;
+  border-color: #44624A;
+  height: 40px;
+}
+.login:hover{
+background-color: #2d4231 !important;
+}
+.signup{
+  background-color: #44624A;
+  border-color: #44624A;
+  height: 40px;
+}
+.signup:hover{
+background-color: #2d4231 !important;
+}
 /* Hiệu ứng gạch chân cho Active Menu */
 .nav-item.active {
   color: #ffffff;

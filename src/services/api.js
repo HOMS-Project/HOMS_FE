@@ -28,7 +28,7 @@ export const setupInterceptors = (contextLogout) => {
         alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
         contextLogout();
         window.location.href = "/login";
-        return Promise.reject(new Error("Token expired"));
+        return Promise.reject(new Error("Token hết hạn"));
       }
 
 

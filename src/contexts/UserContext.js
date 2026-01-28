@@ -1,39 +1,23 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { getUserInfo } from "../services/profileServices";
+import { getUserInfo } from "../services/profileService";
 
 const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchUser = async () => {
-    try {
-      const res = await getUserInfo();
-      setUser(res.data);
-    } catch (err) {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = async () => {
+  const [loading, setLoading] = useState(false);
+  const logout = () => {
     setUser(null);
     localStorage.removeItem("token");
+    localStorage.removeItem("tokenExpire");
+    localStorage.removeItem("refreshToken");
   };
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      fetchUser();
-    } else {
-      setLoading(false);
-    }
-  }, []);
 
   return (
-    <UserContext.Provider value={{ user, setUser, fetchUser, logout, loading }}>
+    <UserContext.Provider
+      value={{ user, setUser, logout, loading }}
+    >
       {children}
     </UserContext.Provider>
   );
