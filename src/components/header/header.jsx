@@ -8,11 +8,11 @@ import { Avatar, Dropdown } from "antd";
 const { Header } = Layout;
 
 const AppHeader = () => {
-  
+
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
   const [activeMenu, setActiveMenu] = useState("dashboard"); // State để track menu đang active
-const { user, logout, loading } = useUser();
-if (loading) return null;
+  const { user, logout, loading } = useUser();
+  if (loading) return null;
   // Danh sách menu mới theo yêu cầu
   const navItems = [
     { key: "dashboard", label: "Bảng Điều Khiển" },
@@ -28,7 +28,7 @@ if (loading) return null;
   };
 
   return (
-    
+
     <Header className="custom-header-wrapper">
       {/* --- PHẦN 1: TOP BAR (NỀN TRẮNG) --- */}
       <div className="header-top">
@@ -70,59 +70,60 @@ if (loading) return null;
                 >
                   Liên Hệ Ngay <RightOutlined style={{ fontSize: "10px" }} />
                 </Button>
-               {!user ? (
-  <>
-    <Link to="/login">
-      <Button type="primary" className="login">
-        Đăng Nhập
-      </Button>
-    </Link>
-    <Link to="/register">
-      <Button type="primary" className="signup">
-        Đăng Kí
-      </Button>
-    </Link>
-  </>
-) : (
-<Dropdown
-  placement="bottomRight"
-  menu={{
-    items: [
-      {
-        key: "profile",
-        label: "Trang cá nhân",
-      },
-      {
-        type: "divider",
-      },
-      {
-        key: "logout",
-        label: "Đăng xuất",
-        danger: true,
-        onClick: logout,
-      },
-    ],
-  }}
->
-  <Button
-    type="text"
-    className="user-btn"
-  >
-    <Avatar
-      src={user.avatar}
-      size={32}
-      style={{ backgroundColor: "#44624A" }}
-    >
-      {user.name?.charAt(0)}
-    </Avatar>
+                {!user ? (
+                  <>
+                    <Link to="/login">
+                      <Button type="primary" className="login">
+                        Đăng Nhập
+                      </Button>
+                    </Link>
+                    <Link to="/register">
+                      <Button type="primary" className="signup">
+                        Đăng Kí
+                      </Button>
+                    </Link>
+                  </>
+                ) : (
+                  <Dropdown
+                    placement="bottomRight"
+                    menu={{
+                      items: [
+                        {
+                          key: "profile",
+                          label: "Trang cá nhân",
+                          onClick: () => { window.location.href = "/profile"; }
+                        },
+                        {
+                          type: "divider",
+                        },
+                        {
+                          key: "logout",
+                          label: "Đăng xuất",
+                          danger: true,
+                          onClick: logout,
+                        },
+                      ],
+                    }}
+                  >
+                    <Button
+                      type="text"
+                      className="user-btn"
+                    >
+                      <Avatar
+                        src={user.avatar}
+                        size={32}
+                        style={{ backgroundColor: "#44624A" }}
+                      >
+                        {user.fullName?.charAt(0)}
+                      </Avatar>
 
-    <span className="user-name">
-      {user.name}
-    </span>
-  </Button>
-</Dropdown>
+                      <span className="user-name">
+                        {user.fullName}
+                      </span>
+                    </Button>
+                  </Dropdown>
 
-)}
+                )}
 
               </div>
             </Col>

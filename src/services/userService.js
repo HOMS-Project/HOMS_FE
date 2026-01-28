@@ -1,6 +1,18 @@
 import api from './api';
 
-export const getUserInfo = () => api.get('/customer/personal-info');
+export const getUserInfo = async () => {
+  try {
+    const response = await api.get('/customer/personal-info');
+    console.log(response.data);
+    if (response.data && response.data.data) {
+      return response.data.data;
+    }
+    return response.data;
+  } catch (error) {
+    console.error('❌ [Service] Error fetching user info:', error.response?.data || error.message);
+    throw error;
+  }
+};
 export const getUserFavorites = async () => {
   try {
     console.log("🚀 [Service] Calling GET /api/customer/favorites");

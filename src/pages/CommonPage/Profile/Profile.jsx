@@ -1,13 +1,35 @@
 import React from 'react';
-import { Layout, Button } from 'antd';
+import { Layout, Button, Avatar } from 'antd';
+import { Navigate } from 'react-router-dom';
 
 import AppHeader from '../../../components/header/header';
 import AppFooter from '../../../components/footer/footer';
+import useUser from '../../../contexts/UserContext';
 import './Profile.css';
 
 const { Content } = Layout;
 
 const ProfilePage = () => {
+    const { user, loading, isAuthenticated } = useUser();
+
+    // Nếu chưa load xong, hiển thị loading
+    if (loading) {
+        return (
+            <Layout className="profile-page">
+                <AppHeader />
+                <Content style={{ textAlign: 'center', padding: '50px' }}>
+                    <p>Đang tải...</p>
+                </Content>
+                <AppFooter />
+            </Layout>
+        );
+    }
+
+    // Nếu chưa đăng nhập, redirect về login
+    if (!isAuthenticated || !user) {
+        return <Navigate to="/login" />;
+    }
+
     return (
         <Layout className="profile-page">
             <AppHeader />
@@ -28,19 +50,18 @@ const ProfilePage = () => {
 
                             <div className="profile-row">
                                 <span>Email</span>
-                                <strong>example@gmail.com</strong>
+                                <strong>{user.email || 'N/A'}</strong>
                             </div>
 
                             <div className="profile-row">
                                 <span>Số điện thoại</span>
-                                <strong>1234567890</strong>
+                                <strong>{user.phone || 'N/A'}</strong>
                             </div>
 
                             <div className="profile-row">
                                 <span>Địa chỉ</span>
                                 <strong>
-                                    26 Lê Trung Đình, Hòa Hải,
-                                    Ngũ Hành Sơn, Đà Nẵng
+                                    {user.address || '26 Lê Trung Đình, Phường Hòa Hải, Quận Ngũ Hành Sơn, TP. Đà Nẵng'}
                                 </strong>
                             </div>
 
@@ -51,12 +72,19 @@ const ProfilePage = () => {
 
                         {/* ACCOUNT INFO */}
                         <div className="profile-card profile-avatar">
-                            <img
-                                src="/images/avatar.png"
-                                alt="avatar"
-                            />
-                            <h4>Bùi Lê Việt Anh</h4>
-                            <p>Khách hàng</p>
+                            <Avatar
+                                src={user.avatar}
+                                size={128}
+                                style={{ 
+                                    backgroundColor: "#44624A",
+                                    fontSize: "48px",
+                                    fontWeight: "bold"
+                                }}
+                            >
+                                {user.fullName?.charAt(0)}
+                            </Avatar>
+                            <h4>{user.fullName || 'N/A'}</h4>
+                            <p>{user.role || 'Khách hàng'}</p>
 
                             <Button className="btn-outline">
                                 Đổi ảnh đại diện
@@ -70,22 +98,27 @@ const ProfilePage = () => {
 
                         <div className="profile-row">
                             <span>Tên người dùng</span>
-                            <strong>Bùi Lê Việt Anh</strong>
+                            <strong>{user.fullName || 'N/A'}</strong>
                         </div>
 
                         <div className="profile-row">
                             <span>Email đăng nhập</span>
-                            <strong>example@gmail.com</strong>
+                            <strong>{user.email || 'N/A'}</strong>
                         </div>
 
                         <div className="profile-row">
                             <span>Vai trò</span>
-                            <strong>Khách hàng</strong>
+                            <strong>{user.role || 'Khách hàng'}</strong>
                         </div>
 
                         <div className="profile-row">
                             <span>Ngày tạo tài khoản</span>
-                            <strong>12/01/2025</strong>
+                            <strong>
+                                {user.createdAt 
+                                    ? new Date(user.createdAt).toLocaleDateString('vi-VN')
+                                    : 'N/A'
+                                }
+                            </strong>
                         </div>
                     </div>
 

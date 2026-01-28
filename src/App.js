@@ -6,7 +6,7 @@ import RegisterPage from './pages/CustomerPage/Auth/RegisterPage'
 import { UserProvider } from './contexts/UserContext';
 import ForgotPasswordPage from './pages/CustomerPage/Auth/ForgotPasswordPage'
 
-import ServicePackages from './pages/CommonPage/ServicePackages/ServicePackages';
+// import ServicePackages from './pages/CommonPage/ServicePackages/ServicePackages';
 import Profile from './pages/CommonPage/Profile/Profile';
 
 function App() {
@@ -25,7 +25,7 @@ function App() {
 
 
         <Route path="/profile/*" element={<Profile />} />
-        <Route path="/booking/service" element={<ServicePackages />} />
+        {/* <Route path="/booking/service" element={<ServicePackages />} /> */}
       </Routes>
       </UserProvider>
     </BrowserRouter>
