@@ -1,15 +1,15 @@
 import api from './api'; 
-import { stopAutoLogout } from './autoLogout';
 export const login = (data) => api.post('/auth/login', data);
 export const register = (data) => api.post('/auth/register', data);
 export const sendOTP = (data) => api.post("/auth/send-otp", data);
 export const verifyOTP = (data) => api.post("/auth/verify-otp", data);
 export const resendOTP = (data) => api.post("/auth/resend-otp", data);
-export const forgotPassword = (data) => api.post("/auth/forgot-password", data);
+export const forgotPassword = (email) =>
+  api.post("/auth/forgot-password", { email });
+
 export const resetPassword = (token, data) => api.post(`/auth/reset-password/${token}`, data);
 let isRefreshing = false;
 let refreshSubscribers = [];
-let loggedOut = false;
 const onRefreshed = (token) => {
   console.log('[Auth] ✅ Token refreshed, notifying subscribers...');
   refreshSubscribers.forEach((callback) => callback(token));
@@ -85,13 +85,8 @@ export const refreshAccessToken = async () => {
   }
 };
   
-export const resetLoggedOut = () => {
-  loggedOut = false;
-};
+
 export const loginGoogle = (googleToken) => {
   return api.post('/auth/google-login', { token: googleToken });
   
-};
-export const assignRole = (data) => {
-  return api.post("/auth/setRole", data);
 };
