@@ -1,16 +1,24 @@
 import { Form, Input, Button, message } from "antd";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { forgotPassword } from "../../../services/authService";
 import AuthFormWrapper from "../../../components/auth/AuthFormWrapper";
 
 const ForgotPasswordForm = () => {
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const onFinish = async (values) => {
     setLoading(true);
     try {
       await forgotPassword(values.email);
-      message.success("Đã gửi mã otp vào email!");
+      message.success("Đã gửi mã OTP vào email!");
+      // Lưu email vào localStorage để dùng ở trang verify OTP
+      localStorage.setItem('resetEmail', values.email);
+      // Chuyển hướng đến trang verify OTP
+      setTimeout(() => {
+        navigate('/verify-otp');
+      }, 1000);
     } catch (err) {
       message.error(
         err.response?.data?.message || "Không tìm thấy email"

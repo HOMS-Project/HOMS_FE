@@ -1,20 +1,20 @@
 import AuthLayout from "../../../components/auth/authLayout";
 import AuthFormWrapper from "../../../components/auth/AuthFormWrapper";
-import ResetPasswordForm from "./ResetPasswordForm";
+import ChangePasswordForm from "./ChangePasswordForm";
 
-const ResetPasswordPage = () => {
+const ChangePasswordPage = () => {
   return (
     <AuthLayout>
       <AuthFormWrapper
-        title="New Password"
+        title="Create a new password. Ensure it differs from previous one for security."
         subtitle=""
         linkText=""
         linkTo=""
       >
-        <ResetPasswordForm />
+        <ChangePasswordForm />
       </AuthFormWrapper>
     </AuthLayout>
   );
 };
 
-export default ResetPasswordPage;
+export default ChangePasswordPage;

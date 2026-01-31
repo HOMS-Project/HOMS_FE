@@ -1,6 +1,6 @@
 import React from 'react';
 import { Layout, Button, Avatar } from 'antd';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 import AppHeader from '../../../components/header/header';
 import AppFooter from '../../../components/footer/footer';
@@ -11,6 +11,7 @@ const { Content } = Layout;
 
 const ProfilePage = () => {
     const { user, loading, isAuthenticated } = useUser();
+    const navigate = useNavigate();
 
     // Nếu chưa load xong, hiển thị loading
     if (loading) {
@@ -128,7 +129,10 @@ const ProfilePage = () => {
 
                         <div className="profile-row">
                             <span>Mật khẩu</span>
-                            <Button className="btn-outline">
+                            <Button 
+                                className="btn-outline"
+                                onClick={() => navigate('/change-password')}
+                            >
                                 Đổi mật khẩu
                             </Button>
                         </div>

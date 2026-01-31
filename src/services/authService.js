@@ -1,13 +1,11 @@
 import api from './api'; 
 export const login = (data) => api.post('/auth/login', data);
 export const register = (data) => api.post('/auth/register', data);
-export const sendOTP = (data) => api.post("/auth/send-otp", data);
+export const sendRegistrationOTP = (data) => api.post('/auth/send-registration-otp', data);
+export const verifyRegistrationOTP = (data) => api.post('/auth/verify-registration-otp', data);
+export const forgotPassword = (email) => api.post("/auth/forgot-password", { email });
 export const verifyOTP = (data) => api.post("/auth/verify-otp", data);
-export const resendOTP = (data) => api.post("/auth/resend-otp", data);
-export const forgotPassword = (email) =>
-  api.post("/auth/forgot-password", { email });
-
-export const resetPassword = (token, data) => api.post(`/auth/reset-password/${token}`, data);
+export const resetPassword = (data) => api.post("/auth/reset-password", data);
 let isRefreshing = false;
 let refreshSubscribers = [];
 const onRefreshed = (token) => {

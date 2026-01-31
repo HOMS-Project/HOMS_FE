@@ -1,35 +1,46 @@
 import { Form, Input, Button, message } from "antd";
 import { EyeInvisibleOutlined, EyeTwoTone } from "@ant-design/icons";
 import { useState } from "react";
-import { register } from "../../../services/authService";
+import { sendRegistrationOTP } from "../../../services/authService";
 import { useNavigate } from "react-router-dom";
 
 const PRIMARY_COLOR = "#44624A";
 
 const RegisterForm = () => {
   const [loading, setLoading] = useState(false);
-const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const onFinish = async (values) => {
     setLoading(true);
     try {
-      await register(values);
-      message.success("Đăng ký thành công! Vui lòng đăng nhập.");
-          setTimeout(() => {
-      navigate("/login");
-    }, 800);
+      // Gửi OTP về email
+      await sendRegistrationOTP(values);
+      message.success("Mã OTP đã được gửi đến email của bạn!");
+      
+      // Lưu thông tin đăng ký vào localStorage để dùng khi verify OTP
+      localStorage.setItem('registrationData', JSON.stringify({
+        fullName: values.fullName,
+        email: values.email,
+        phone: values.phone,
+        password: values.password,
+        type: 'registration' // Để phân biệt với reset password
+      }));
+      
+      // Chuyển hướng đến trang verify OTP
+      setTimeout(() => {
+        navigate("/verify-otp");
+      }, 1000);
     } catch (err) {
-  const errors = err.response?.data?.errors;
+      const errors = err.response?.data?.errors;
 
-  if (errors && errors.length > 0) {
-    errors.forEach(e => {
-      message.error(e.message);
-    });
-  } else {
-    message.error(err.response?.data?.message || "Đăng ký thất bại");
-  }
-}
-finally {
+      if (errors && errors.length > 0) {
+        errors.forEach(e => {
+          message.error(e.message);
+        });
+      } else {
+        message.error(err.response?.data?.message || "Gửi OTP thất bại");
+      }
+    } finally {
       setLoading(false);
     }
   };

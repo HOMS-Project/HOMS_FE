@@ -1,20 +1,20 @@
 import AuthLayout from "../../../components/auth/authLayout";
 import AuthFormWrapper from "../../../components/auth/AuthFormWrapper";
-import ResetPasswordForm from "./ResetPasswordForm";
+import VerifyOTPForm from "./VerifyOTPForm";
 
-const ResetPasswordPage = () => {
+const VerifyOTPPage = () => {
   return (
     <AuthLayout>
       <AuthFormWrapper
-        title="New Password"
-        subtitle=""
+        title="Verification"
+        subtitle="Enter verification code"
         linkText=""
         linkTo=""
       >
-        <ResetPasswordForm />
+        <VerifyOTPForm />
       </AuthFormWrapper>
     </AuthLayout>
   );
 };
 
-export default ResetPasswordPage;
+export default VerifyOTPPage;
