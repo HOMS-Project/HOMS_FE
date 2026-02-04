@@ -24,9 +24,9 @@ const LoginForm = () => {
     setLoading(true);
     try {
       const res = await login(values);
-      const { user, accessToken, refreshToken } = res.data.data;
+  const { user, accessToken, expiresInMs } = res.data.data;
 
-      saveAccessToken(accessToken, 30 * 60 * 1000, refreshToken);
+     saveAccessToken(accessToken, expiresInMs || 30 * 60 * 1000);
 
       setUser({
         id: user.id,
@@ -35,7 +35,7 @@ const LoginForm = () => {
       });
 
       message.success("Đăng nhập thành công!");
-      navigate("/landing");
+       setTimeout(()=>navigate("/landing"),800)  
     } catch (err) {
       message.error(err.response?.data?.message || "Đăng nhập thất bại");
     } finally {
@@ -103,9 +103,11 @@ const LoginForm = () => {
             const googleToken = credentialResponse.credential; 
 
             const res = await loginGoogle(googleToken);
-            const { user, accessToken, refreshToken } = res.data;
+          const responseData = res.data.data || res.data; 
+    
+    const { user, accessToken, expiresInMs } = responseData;
 
-            saveAccessToken(accessToken, 30 * 60 * 1000, refreshToken);
+           saveAccessToken(accessToken, expiresInMs || 30 * 60 * 1000);
 
             setUser({
               id: user.id,
@@ -114,7 +116,7 @@ const LoginForm = () => {
             });
 
             message.success("Đăng nhập Google thành công!");
-            navigate("/landing");
+        setTimeout(()=>navigate("/landing"),800)  
           } catch (err) {
             console.error(err);
             message.error("Đăng nhập Google thất bại");

@@ -1,55 +1,94 @@
-import api from './api'; 
-export const login = (data) => api.post('/auth/login', data);
-export const register = (data) => api.post('/auth/register', data);
+import api,{ pureApi } from "./api";
+
+/* ================= AUTH API ================= */
+
+export const login = (data) =>
+  api.post("/auth/login", data, { withCredentials: true });
+
+export const register = (data) => api.post("/auth/register", data);
+
 export const sendOTP = (data) => api.post("/auth/send-otp", data);
+
 export const verifyOTP = (data) => api.post("/auth/verify-otp", data);
+
 export const resendOTP = (data) => api.post("/auth/resend-otp", data);
+
 export const forgotPassword = (email) =>
   api.post("/auth/forgot-password", { email });
 
-export const resetPassword = (token, data) => api.post(`/auth/reset-password/${token}`, data);
+export const resetPassword = (token, data) =>
+  api.post(`/auth/reset-password/${token}`, data);
+
+export const loginGoogle = (googleToken) =>
+  api.post(
+    "/auth/google-login",
+    { token: googleToken },
+    { withCredentials: true },
+  );
+
+/* ================= TOKEN MANAGEMENT ================= */
+
 let isRefreshing = false;
 let refreshSubscribers = [];
+let refreshTimeout = null;
+
 const onRefreshed = (token) => {
-  console.log('[Auth] ✅ Token refreshed, notifying subscribers...');
-  refreshSubscribers.forEach((callback) => callback(token));
+  console.log("📢 [Auth] Đang cấp phát Access Token mới cho các request đang chờ...");
+  refreshSubscribers.forEach((cb) => cb(token));
   refreshSubscribers = [];
 };
 
 const addRefreshSubscriber = (callback) => {
-  console.log('[Auth] ⏳ Waiting for token refresh, subscribing...');
   refreshSubscribers.push(callback);
 };
 
-export const saveAccessToken = (accessToken, expiresInMs, refreshToken) => {
-  const expireTime = Date.now() + expiresInMs;
-  localStorage.setItem('token', accessToken);
-  localStorage.setItem('tokenExpire', expireTime.toString());
-  if (refreshToken) {
-    localStorage.setItem('refreshToken', refreshToken);
+let _accessToken = null;
+let _expireTime = 0;
+
+export const saveAccessToken = (accessToken, expiresInMs) => {
+  _accessToken = accessToken;
+  _expireTime = Date.now() + expiresInMs;
+
+  localStorage.setItem("hasSession", "true");
+
+  const expireDate = new Date(_expireTime).toLocaleTimeString();
+
+  console.group("%c🔐 [Auth] Cập nhật Token mới", "color: #2196f3; font-weight: bold;");
+  console.log(`- Expire lúc: ${expireDate}`);
+  console.groupEnd();
+
+  if (refreshTimeout) {
+    clearTimeout(refreshTimeout);
   }
-  console.log('[Auth] 💾 Access token saved. Expires in', expiresInMs, 'ms');
+
+  // Refresh trước khi hết hạn 10s
+  const delay = Math.max(expiresInMs - 10000, 5000);
+
+  console.log(`🚀 [Auth] Đã đặt lịch AUTO-REFRESH sau ${delay / 1000}s`);
+
+
 };
 
+
+/**
+ * Lấy access token hợp lệ
+ */
 export const getValidAccessToken = async () => {
-  const token = localStorage.getItem('token');
-  const expire = Number(localStorage.getItem('tokenExpire')) || 0;
   const now = Date.now();
   const threshold = 5 * 1000;
 
-  if (token && expire - now > threshold) {
-    console.log('[Auth] 🔐 Token vẫn còn hợp lệ');
-    return token;
+  if (_accessToken && _expireTime - now > threshold) {
+    return _accessToken;
   }
+
+  const hasSession = localStorage.getItem('hasSession') === 'true';
+  if (!hasSession) return null;
 
   if (isRefreshing) {
-    console.log('[Auth] 🔁 Token đang được làm mới. Đợi...');
-    return new Promise((resolve) => {
-      addRefreshSubscriber(resolve);
-    });
+    return new Promise(resolve => addRefreshSubscriber(resolve));
   }
 
-  console.log('[Auth] ⚠️ Token gần hết hạn hoặc đã hết. Làm mới...');
+  // 🔥 CHỖ QUAN TRỌNG
   isRefreshing = true;
 
   try {
@@ -57,36 +96,51 @@ export const getValidAccessToken = async () => {
     onRefreshed(newToken);
     return newToken;
   } catch (err) {
-    console.error('[Auth] ❌ Lỗi khi làm mới token:', err);
-    return null;
+    throw err;
   } finally {
     isRefreshing = false;
-    console.log('[Auth] 🔚 Đã kết thúc quá trình refresh');
   }
 };
 
+
+
+/**
+ * Refresh access token
+ */
 export const refreshAccessToken = async () => {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) {
-    console.warn('[Auth] ❌ Không tìm thấy refresh token');
-    return null;
-  }
+  console.log("📡 [Auth] Gửi request REFRESH TOKEN...");
 
   try {
-    console.log('[Auth] 🔄 Gửi request refresh-token...');
-    const response = await api.post('/auth/refresh-token', { refreshToken });
-    const { accessToken, expiresIn } = response.data;
-    saveAccessToken(accessToken, expiresIn, refreshToken);
-    console.log('[Auth] ✅ Đã làm mới accessToken');
+    const res = await pureApi.post(
+      "/auth/refresh",
+      {},
+      { withCredentials: true }
+    );
+
+    const { accessToken, expiresInMs } = res.data.data || res.data;
+
+    console.log("%c♻️ [Auth] REFRESH THÀNH CÔNG", "color: #4caf50; font-weight: bold;");
+    
+    saveAccessToken(accessToken, expiresInMs);
     return accessToken;
   } catch (error) {
-    console.error('[Auth] ❌ Refresh token thất bại:', error);
-    return null;
+    console.error(
+      "🚫 [Auth] REFRESH TOKEN THẤT BẠI (Session hết hạn)",
+      error.response?.data || error.message
+    );
+    throw error;
   }
 };
-  
 
-export const loginGoogle = (googleToken) => {
-  return api.post('/auth/google-login', { token: googleToken });
-  
+/* ================= LOGOUT ================= */
+
+export const logout = async () => {
+  try {
+    await api.post('/auth/logout', {}, { withCredentials: true });
+  } finally {
+    _accessToken = null;
+    _expireTime = 0;
+    localStorage.removeItem('hasSession'); 
+    
+  }
 };

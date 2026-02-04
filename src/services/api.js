@@ -1,36 +1,42 @@
-// api.js
 import axios from 'axios';
 import { getValidAccessToken } from './authService';
 
-const api = axios.create({
+// Instance này KHÔNG có interceptor - dùng để refresh hoặc gọi endpoint public
+export const pureApi = axios.create({
   baseURL: process.env.REACT_APP_API_URL,
-  withCredentials: false,
+  withCredentials: true,
 });
 
-// Hàm gắn interceptor
+// Instance này CÓ interceptor - dùng cho toàn bộ logic nghiệp vụ
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL,
+  withCredentials: true,
+});
+
+const PUBLIC_ENDPOINTS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/google-login',
+  '/ai/chat' 
+];
+
 export const setupInterceptors = (contextLogout) => {
   api.interceptors.request.use(
     async (config) => {
-      if (
-        config.url.includes('/auth/login') ||
-        config.url.includes('/auth/register') ||
-        config.url.includes('/auth/refresh') || 
-        config.url.includes('/forgot-password') ||
-        config.url.includes('/reset-password') ||
-        config.url.includes('/ai/chat')||
-        config.url.includes('/auth/google-login')
-      ) {
-        return config;
-      }
+      const isPublic = PUBLIC_ENDPOINTS.some(endpoint => config.url.includes(endpoint));
+      
+      if (isPublic) return config;
 
+      // Lấy token (đã xử lý logic đợi refresh bên trong authService)
       const token = await getValidAccessToken();
+      
       if (!token) {
-        alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        contextLogout();
-        window.location.href = "/login";
-        return Promise.reject(new Error("Token hết hạn"));
+        contextLogout(); 
+        return Promise.reject(new Error('Session expired'));
       }
-
 
       config.headers.Authorization = `Bearer ${token}`;
       return config;

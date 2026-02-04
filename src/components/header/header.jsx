@@ -114,11 +114,11 @@ const AppHeader = () => {
                         size={32}
                         style={{ backgroundColor: "#44624A" }}
                       >
-                        {user.fullName?.charAt(0)}
+                        {user.fullName?.charAt(0)||user.name?.charAt(0)}
                       </Avatar>
 
                       <span className="user-name">
-                        {user.fullName}
+                        {user.fullName || user.name}
                       </span>
                     </Button>
                   </Dropdown>
