@@ -3,7 +3,6 @@ import api from './api';
 export const getUserInfo = async () => {
   try {
     const response = await api.get('/customer/personal-info');
-    console.log(response.data);
     if (response.data && response.data.data) {
       return response.data.data;
     }
