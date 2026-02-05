@@ -4,39 +4,42 @@ import { getValidAccessToken } from './authService';
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL,
-  withCredentials: false,
+  withCredentials: true,
 });
-
+const PUBLIC_ENDPOINTS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/logout',
+  '/forgot-password',
+  '/verify-otp',
+  '/send-registration-otp',
+  '/verify-registration-otp',
+  '/reset-password',
+  '/ai/chat',
+  '/auth/google-login'
+];
 // Hàm gắn interceptor
 export const setupInterceptors = (contextLogout) => {
   api.interceptors.request.use(
     async (config) => {
-      if (
-        config.url.includes('/auth/login') ||
-        config.url.includes('/auth/register') ||
-        config.url.includes('/auth/refresh') || 
-        config.url.includes('/forgot-password') ||
-        config.url.includes('/verify-otp') ||
-        config.url.includes('/send-registration-otp') ||
-        config.url.includes('/verify-registration-otp') ||
-        config.url.includes('/reset-password') ||
-        config.url.includes('/ai/chat')||
-        config.url.includes('/auth/google-login')
-      ) {
+     const isPublicPage = PUBLIC_ENDPOINTS.some(endpoint => config.url.endsWith(endpoint));
+      if(isPublicPage){
         return config;
       }
-
+      try{
       const token = await getValidAccessToken();
-      if (!token) {
-        alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        contextLogout();
-        window.location.href = "/login";
-        return Promise.reject(new Error("Token hết hạn"));
-      }
-
-
+if (!token) {
+          console.warn("⚠️ No valid token found, logging out...");
+          contextLogout();
+          return Promise.reject(new Error("Token không hợp lệ hoặc đã hết hạn"));
+        }
       config.headers.Authorization = `Bearer ${token}`;
       return config;
+    }catch (error) {
+        contextLogout();
+        return Promise.reject(error);
+      }
     },
     (error) => Promise.reject(error)
   );

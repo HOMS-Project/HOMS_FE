@@ -4,6 +4,8 @@ import { MenuOutlined, SearchOutlined, RightOutlined } from "@ant-design/icons";
 import "./header.css";
 import { Link } from "react-router-dom";
 import useUser from "../../contexts/UserContext";
+import { useNavigate } from "react-router-dom";
+
 import { Avatar, Dropdown } from "antd";
 const { Header } = Layout;
 
@@ -12,6 +14,8 @@ const AppHeader = () => {
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
   const [activeMenu, setActiveMenu] = useState("dashboard"); // State để track menu đang active
   const { user, logout, loading } = useUser();
+  const navigate = useNavigate();
+
   if (loading) return null;
   // Danh sách menu mới theo yêu cầu
   const navItems = [
@@ -91,7 +95,7 @@ const AppHeader = () => {
                         {
                           key: "profile",
                           label: "Trang cá nhân",
-                          onClick: () => { window.location.href = "/profile"; }
+                         onClick: () => navigate("/profile")
                         },
                         {
                           type: "divider",
@@ -114,11 +118,11 @@ const AppHeader = () => {
                         size={32}
                         style={{ backgroundColor: "#44624A" }}
                       >
-                        {user.fullName?.charAt(0)}
+                        {user.fullName?.charAt(0) || user.name?.charAt(0) }
                       </Avatar>
 
                       <span className="user-name">
-                        {user.fullName}
+                        {user.fullName || user.name}
                       </span>
                     </Button>
                   </Dropdown>

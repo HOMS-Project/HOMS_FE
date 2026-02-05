@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect,useCallback } from "react";
 import { setupInterceptors } from "../services/api";
 import { getUserInfo } from "../services/userService";
 
@@ -9,14 +9,11 @@ export const UserProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
-  const logout = () => {
+const logout = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem("token");
-    localStorage.removeItem("tokenExpire");
-    localStorage.removeItem("refreshToken");
-  };
-
+    localStorage.removeItem("hasSession");
+  }, []);
   // Khởi tạo user từ token khi app mount
   useEffect(() => {
     const initializeUser = async () => {
@@ -25,8 +22,8 @@ export const UserProvider = ({ children }) => {
         setupInterceptors(logout);
         
         // Kiểm tra token có tồn tại
-        const token = localStorage.getItem("token");
-        if (token) {
+        const hasSession = localStorage.getItem("hasSession") === "true";
+        if (hasSession) {
           // Lấy thông tin user từ API
           const userData = await getUserInfo();
           setUser(userData);
@@ -41,7 +38,7 @@ export const UserProvider = ({ children }) => {
     };
 
     initializeUser();
-  }, []);
+  }, [logout]);
 
   return (
     <UserContext.Provider
@@ -54,7 +51,7 @@ export const UserProvider = ({ children }) => {
         setIsAuthenticated
       }}
     >
-      {children}
+      {!loading && children}
     </UserContext.Provider>
   );
 };

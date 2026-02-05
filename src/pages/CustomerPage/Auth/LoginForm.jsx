@@ -16,26 +16,25 @@ const PRIMARY_COLOR = "#44624A";
 const LoginForm = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const { setUser } = useUser();
+  const { setUser, setIsAuthenticated } = useUser();
   const navigate = useNavigate();
-
+const handleLoginSuccess = (userData, accessToken, expiresInMs) => {
+    saveAccessToken(accessToken, expiresInMs || 30 * 60 * 1000);
+    setUser(userData);
+    setIsAuthenticated(true);
+    message.success("Đăng nhập thành công!");
+    setTimeout(() => navigate("/landing"), 800);
+  };
   // ===== NORMAL LOGIN =====
   const onFinish = async (values) => {
     setLoading(true);
     try {
       const res = await login(values);
-      const { user, accessToken, refreshToken } = res.data.data;
+      const { user, accessToken, expiresInMs } = res.data.data;
 
-      saveAccessToken(accessToken, 30 * 60 * 1000, refreshToken);
+      handleLoginSuccess(user, accessToken, expiresInMs);
 
-      setUser({
-        id: user.id,
-        name: user.fullName,
-        role: user.role,
-      });
 
-      message.success("Đăng nhập thành công!");
-      navigate("/landing");
     } catch (err) {
       message.error(err.response?.data?.message || "Đăng nhập thất bại");
     } finally {
@@ -103,18 +102,9 @@ const LoginForm = () => {
             const googleToken = credentialResponse.credential; 
 
             const res = await loginGoogle(googleToken);
-            const { user, accessToken, refreshToken } = res.data;
-
-            saveAccessToken(accessToken, 30 * 60 * 1000, refreshToken);
-
-            setUser({
-              id: user.id,
-              name: user.fullName,
-              role: user.role,
-            });
-
-            message.success("Đăng nhập Google thành công!");
-            navigate("/landing");
+            const responseData = res.data.data || res.data; 
+             const { user, accessToken, expiresInMs } = responseData;
+            handleLoginSuccess(user, accessToken, expiresInMs);
           } catch (err) {
             console.error(err);
             message.error("Đăng nhập Google thất bại");
