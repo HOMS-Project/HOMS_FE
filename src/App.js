@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import LandingPage from './pages/CommonPage/LandingPage/LandingPage';
+import About from './pages/CommonPage/About/About';
 import LoginPage from './pages/CustomerPage/Auth/LoginPage';
 import RegisterPage from './pages/CustomerPage/Auth/RegisterPage'
 import { UserProvider } from './contexts/UserContext';
@@ -9,33 +10,36 @@ import ChangePasswordPage from './pages/CustomerPage/Auth/ChangePasswordPage';
 import VerifyOTPPage from './pages/CustomerPage/Auth/VerifyOTPPage';
 import ResetPasswordPage from './pages/CustomerPage/Auth/ResetPasswordPage';
 
-// import ServicePackages from './pages/CommonPage/ServicePackages/ServicePackages';
 import Profile from './pages/CommonPage/Profile/Profile';
+import ViewServicePackages from './pages/CommonPage/ViewServicePackages/ViewServicePackages';
+import ViewMovingOrder from './pages/CustomerPage/ViewMovingOrder/ViewMovingOrder';
 
 function App() {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
   return (
-      <GoogleOAuthProvider clientId={googleClientId}>
-       
-    <BrowserRouter>
-     <UserProvider>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/landing" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/change-password" element={<ChangePasswordPage />} />
-        <Route path="/verify-otp" element={<VerifyOTPPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <GoogleOAuthProvider clientId={googleClientId}>
 
+      <BrowserRouter>
+        <UserProvider>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/landing" element={<LandingPage />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/change-password" element={<ChangePasswordPage />} />
+            <Route path="/verify-otp" element={<VerifyOTPPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        <Route path="/profile/*" element={<Profile />} />
-        {/* <Route path="/booking/service" element={<ServicePackages />} /> */}
-      </Routes>
-      </UserProvider>
-    </BrowserRouter>
-    
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/service-packages" element={<ViewServicePackages />} />
+            <Route path="/order" element={<ViewMovingOrder />} />
+
+          </Routes>
+        </UserProvider>
+      </BrowserRouter>
+
     </GoogleOAuthProvider>
   );
 }

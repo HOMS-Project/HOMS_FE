@@ -12,6 +12,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 // import MyBookings from "../../pages/CustomerPage/CustomerBooking/MyBookings";
 
 import Profile from "../../pages/CommonPage/Profile/Profile";
+import ViewMovingOrder from "../../pages/CustomerPage/ViewMovingOrder/ViewMovingOrder";
 
 const RoutesCus = () => {
   return (
@@ -29,6 +30,7 @@ const RoutesCus = () => {
         <Route path="roommates" element={<RoommateCommunity />} /> */}
 
         <Route path="profile/*" element={<Profile />} />
+        <Route path="order/" element={<ViewMovingOrder />} />
 
       </Route>
     </Routes>
