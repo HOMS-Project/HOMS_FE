@@ -20,9 +20,9 @@ const AppHeader = () => {
   // Danh sách menu mới theo yêu cầu
   const navItems = [
     { key: "dashboard", label: "Bảng Điều Khiển", path: "/" },
-    { key: "services", label: "Các Dịch Vụ", path: "/service-packages" },
-    { key: "orders", label: "Đơn Chuyển", path: "/order" },
-    { key: "transport", label: "Phương Tiện Di Chuyển", path: "/transport" },
+    { key: "services", label: "Các Dịch Vụ", path: "/customer/service-packages" },
+    { key: "orders", label: "Đơn Chuyển", path: "/customer/order" },
+    { key: "transport", label: "Phương Tiện Di Chuyển", path: "/customer/transport" },
     { key: "about", label: "Về Chúng Tôi", path: "/about" },
   ];
 
@@ -60,7 +60,7 @@ const AppHeader = () => {
                 onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               >
                 <img
-                  src="./images/logo.png"
+                  src="/images/logo.png"
                   alt="HOMS"
                   style={{ height: "60px" }}
                 />

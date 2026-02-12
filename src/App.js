@@ -10,9 +10,7 @@ import ChangePasswordPage from './pages/CustomerPage/Auth/ChangePasswordPage';
 import VerifyOTPPage from './pages/CustomerPage/Auth/VerifyOTPPage';
 import ResetPasswordPage from './pages/CustomerPage/Auth/ResetPasswordPage';
 
-import Profile from './pages/CommonPage/Profile/Profile';
-import ViewServicePackages from './pages/CommonPage/ViewServicePackages/ViewServicePackages';
-import ViewMovingOrder from './pages/CustomerPage/ViewMovingOrder/ViewMovingOrder';
+import RoutesCus from './routes/CustomerRoutes/RoutesCus';
 
 function App() {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -32,9 +30,7 @@ function App() {
             <Route path="/verify-otp" element={<VerifyOTPPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/service-packages" element={<ViewServicePackages />} />
-            <Route path="/order" element={<ViewMovingOrder />} />
+            <Route path="/customer/*" element={<RoutesCus />} />
 
           </Routes>
         </UserProvider>

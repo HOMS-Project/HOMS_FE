@@ -1,6 +1,7 @@
 import React from 'react';
 import { Layout, Steps, Card, Row, Col, Button } from 'antd';
 import { RightOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import houseIcon from '../../../assets/images/icons/moving-truck.png'
 import officeIcon from '../../../assets/images/icons/company.png';
 import boxIcon from '../../../assets/images/icons/delivery.png';
@@ -44,6 +45,12 @@ const services = [
 ];
 
 const SelectServicePage = () => {
+    const navigate = useNavigate();
+
+    const handleServiceClick = (serviceId) => {
+        navigate('/customer/create-order', { state: { serviceId } });
+    };
+
     return (
         <Layout className="select-service-page">
             <AppHeader />
@@ -75,7 +82,12 @@ const SelectServicePage = () => {
                     <Row gutter={[24, 24]}>
                         {services.map((item) => (
                             <Col span={24} key={item.id}>
-                                <Card hoverable className="service-card">
+                                <Card 
+                                    hoverable 
+                                    className="service-card"
+                                    onClick={() => handleServiceClick(item.id)}
+                                    style={{ cursor: 'pointer' }}
+                                >
                                     <div className="service-card-content">
                                         <div className="service-icon">
                                             <img src={item.icon} alt={item.title} />
