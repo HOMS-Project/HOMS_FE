@@ -1,5 +1,7 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { Layout, Steps, Card, Row, Col, Input, Button } from "antd";
+import { BedDouble, Sofa, Armchair, Refrigerator, Tv, WashingMachine, Package, Plus, Minus, Home, ImagePlus, HelpCircle } from "lucide-react";
 import { EnvironmentOutlined, CalendarOutlined } from "@ant-design/icons";
 
 import AppHeader from "../../../components/header/header";
@@ -11,6 +13,12 @@ const { Content } = Layout;
 const { TextArea } = Input;
 
 const MovingInformationPage = () => {
+    const navigate = useNavigate();
+
+    const handleNext = () => {
+        navigate('/customer/confirm-order');
+    };
+
     return (
         <Layout className="moving-info-page">
             <AppHeader />
@@ -40,7 +48,7 @@ const MovingInformationPage = () => {
 
                 {/* LOCATION SECTION */}
                 <section className="moving-location">
-                    <h2>Chúng Tôi Cần Biết Bạn Chuyển Từ Đâu Đến Đâu</h2>
+                    <h1>Chúng Tôi Cần Biết Bạn Chuyển Từ Đâu Đến Đâu</h1>
 
                     <Row gutter={40}>
                         <Col md={10} xs={24}>
@@ -82,54 +90,138 @@ const MovingInformationPage = () => {
 
                 {/* ITEMS SECTION */}
                 <section className="moving-items">
-                    <h2>Cho Chúng Tôi Biết Bạn Cần Chuyển Những Gì</h2>
+                    <h1>Cho Chúng Tôi Biết Bạn Cần Chuyển Những Gì</h1>
 
                     <div className="upload-box">
                         <div className="upload-placeholder">
-                            <p>Chụp ảnh để AI ước tính nhanh chóng</p>
-                            <span>Hỗ trợ định dạng JPG, PNG (tối đa 20MB)</span>
+                            <div className="upload-text">
+                                <h3>Chụp ảnh để AI ước tính nhanh chóng</h3>
+                                <p>Chụp rõ từng món đồ hoặc toàn cảnh phòng để hệ thống tự động<br />ước tính khối lượng và công việc cần thiết.</p>
+                            </div>
+                            <div className="upload-input">
+                                <div className="help-icon-wrapper">
+                                    <HelpCircle size={18} className="help-icon" />
+                                    <div className="help-tooltip">
+                                        <p>Chụp ảnh rõ nét để AI có thể nhận diện chính xác các món đồ của bạn.</p>
+                                        <p>Chụp riêng các đồ cồng kềnh (tủ, giường, máy giặt…)</p>
+                                        <p>Tránh ảnh mờ, thiếu sáng <br />Có thể chụp nhiều góc cho cùng một món đồ</p>
+                                    </div>
+                                </div>
+                                <ImagePlus size={50} />
+                                <span>Hỗ trợ định dạng JPG, PNG, MP4 tối đa 200MB</span>
+                            </div>
                         </div>
                     </div>
 
                     <div className="manual-section">
-                        <h3>Hoặc nhập thủ công nếu bạn cần kiểm soát chi tiết</h3>
+                        <h2> Hoặc nhập thủ công nếu bạn cần kiểm soát chi tiết </h2>
 
-                        <Row gutter={40}>
+                        <Row gutter={60}>
+                            {/* LEFT SIDE */}
                             <Col md={12} xs={24}>
                                 <div className="house-size">
                                     <h4>Kích thước nhà</h4>
+
                                     <div className="house-options">
-                                        <div className="house-card active">2 Phòng ngủ 1 Bếp</div>
-                                        <div className="house-card">3 Phòng ngủ 1 Bếp</div>
-                                        <div className="house-card">4 Phòng ngủ 1 Bếp</div>
-                                        <div className="house-card add">+</div>
+                                        <div className="house-card active">
+                                            <Home size={40} />
+                                            <span>2 Phòng ngủ<br />1 Bếp</span>
+                                        </div>
+
+                                        <div className="house-card">
+                                            <Home size={40} />
+                                            <span>3 Phòng ngủ<br />1 Bếp</span>
+                                        </div>
+
+                                        <div className="house-card">
+                                            <Home size={40} />
+                                            <span>4 Phòng ngủ<br />1 Bếp</span>
+                                        </div>
+
+                                        <div className="house-card add">
+                                            <Plus size={40} />
+                                            <span>Thêm</span>
+                                        </div>
                                     </div>
                                 </div>
                             </Col>
 
+                            {/* RIGHT SIDE */}
                             <Col md={12} xs={24}>
                                 <div className="furniture-section">
-                                    <h4>Đồ nội thất</h4>
+                                    <div className="furniture-header">
+                                        <h4>Đồ nội thất</h4>
+                                        <div className="selected-badge">
+                                            2 Đồ vật ×
+                                        </div>
+                                    </div>
+
                                     <div className="furniture-grid">
-                                        <div className="furniture-item">Giường</div>
-                                        <div className="furniture-item">Sofa</div>
-                                        <div className="furniture-item">Tủ</div>
-                                        <div className="furniture-item">TV</div>
-                                        <div className="furniture-item">Tủ lạnh</div>
-                                        <div className="furniture-item">Máy giặt</div>
+                                        <div className="furniture-item bed">
+                                            <BedDouble size={28} />
+                                            <span>Giường</span>
+                                        </div>
+
+                                        <div className="furniture-item sofa">
+                                            <Sofa size={28} />
+                                            <span>Sofa</span>
+                                        </div>
+
+                                        <div className="furniture-item chair">
+                                            <Armchair size={28} />
+                                            <span>Ghế</span>
+                                        </div>
+
+                                        <div className="furniture-item wardrobe">
+                                            <Package size={28} />
+                                            <span>Tủ quần áo</span>
+                                        </div>
+
+                                        <div className="furniture-item fridge">
+                                            <Refrigerator size={28} />
+                                            <span>Tủ lạnh</span>
+                                        </div>
+
+                                        <div className="furniture-item tv">
+                                            <Tv size={28} />
+                                            <span>TV</span>
+                                        </div>
+
+                                        <div className="furniture-item washing">
+                                            <WashingMachine size={28} />
+                                            <span>Máy giặt</span>
+                                        </div>
+
+                                        <div className="furniture-item add">
+                                            <Plus size={28} />
+                                            <span>Thêm</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Counter */}
+                                    <div className="counter-section">
+                                        <span>Các thùng đã đóng gói</span>
+                                        <div className="counter">
+                                            <button><Minus size={18} /></button>
+                                            <span>0</span>
+                                            <button><Plus size={18} /></button>
+                                        </div>
                                     </div>
                                 </div>
                             </Col>
                         </Row>
 
+                        {/* NOTE SECTION */}
                         <div className="note-section">
-                            <h4>Ghi chú đặc biệt</h4>
-                            <TextArea rows={4} placeholder="Két sắt, server, piano..." />
+                            <TextArea
+                                rows={6}
+                                placeholder="Két sắt, server, piano..."
+                            />
                         </div>
                     </div>
 
                     <div className="next-button">
-                        <Button type="primary" size="large">
+                        <Button type="primary" size="large" onClick={handleNext}>
                             Tiếp theo
                         </Button>
                     </div>

@@ -64,8 +64,6 @@ const AppHeader = () => {
                   alt="HOMS"
                   style={{ height: "60px" }}
                 />
-                {/* Hoặc dùng text nếu chưa có ảnh thật */}
-                {/* <h2 style={{ margin: 0, color: '#2D4F36', fontWeight: 'bold' }}>HOMS</h2> */}
               </div>
             </Col>
 
