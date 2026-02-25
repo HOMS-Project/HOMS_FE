@@ -3,12 +3,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Layout, Steps, Card, Row, Col, Input, Button, DatePicker, message, Spin } from "antd";
 import { BedDouble, Sofa, Armchair, Refrigerator, Tv, WashingMachine, Package, Plus, Minus, Home, ImagePlus, HelpCircle, Building2, Monitor, Printer, FileText, Server, Laptop } from "lucide-react";
 import { EnvironmentOutlined, CalendarOutlined } from "@ant-design/icons";
+import dayjs from 'dayjs';
 
 import AppHeader from "../../../components/header/header";
 import AppFooter from "../../../components/footer/footer";
 import LocationPicker from "../../../components/LocationPicker/LocationPicker";
 import ImageUploadEstimator from "../../../components/ImageUploadEstimator";
-import { createOrder } from "../../../services/orderService";
 
 import "./style.css";
 
@@ -115,6 +115,7 @@ const MovingInformationPage = () => {
     
     // Loading and error states
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showDateNote, setShowDateNote] = useState(false);
 
     // Handle location changes from map
     const handleLocationChange = (locationData) => {
@@ -172,8 +173,24 @@ const MovingInformationPage = () => {
             return;
         }
         
+        if (!pickupLocation.lat || !pickupLocation.lng || !pickupLocation.address) {
+            message.error('Địa điểm chuyển đi không hợp lệ. Vui lòng chọn lại.');
+            return;
+        }
+        
         if (!dropoffLocation) {
             message.error('Vui lòng chọn địa điểm chuyển đến');
+            return;
+        }
+        
+        if (!dropoffLocation.lat || !dropoffLocation.lng || !dropoffLocation.address) {
+            message.error('Địa điểm chuyển đến không hợp lệ. Vui lòng chọn lại.');
+            return;
+        }
+        
+        // Check if pickup and dropoff are the same
+        if (pickupLocation.lat === dropoffLocation.lat && pickupLocation.lng === dropoffLocation.lng) {
+            message.error('Địa điểm chuyển đi và chuyển đến không thể giống nhau');
             return;
         }
         
@@ -182,15 +199,31 @@ const MovingInformationPage = () => {
             return;
         }
         
+        // Validate moving date is in the future
+        const now = dayjs();
+        const selectedMovingDate = dayjs(movingDate);
+        
+        if (selectedMovingDate.isBefore(now) || selectedMovingDate.isSame(now, 'minute')) {
+            message.error('Thời gian chuyển phải sau thời điểm hiện tại');
+            return;
+        }
+        
+        // Check if moving date is at least 2 hours from now (reasonable minimum)
+        const hoursUntilMoving = selectedMovingDate.diff(now, 'hour', true);
+        if (hoursUntilMoving < 2) {
+            message.warning('Thời gian chuyển nên cách thời điểm hiện tại ít nhất 2 giờ để chúng tôi có thể chuẩn bị');
+        }
+        
         // Check if at least some items are specified
         if (totalManualItems === 0 && packedBoxes === 0 && Object.keys(aiDetectedItems).length === 0) {
             message.warning('Vui lòng chọn đồ đạc cần chuyển hoặc tải ảnh lên để AI ước tính');
             return;
         }
         
-        // Prepare data to send to backend
+        // Prepare order data to pass to next step
         const orderData = {
             serviceId,
+            serviceName: selectedService.title,
             pickupLocation,
             dropoffLocation,
             pickupDescription,
@@ -203,35 +236,10 @@ const MovingInformationPage = () => {
             additionalNotes
         };
         
-        console.log('📦 Submitting order data:', orderData);
+        console.log('📦 Passing order data to confirmation:', orderData);
         
-        try {
-            setIsSubmitting(true);
-            
-            // Submit to backend
-            const response = await createOrder(orderData);
-            
-            console.log('✅ Order created successfully:', response);
-            
-            message.success(response.message || 'Yêu cầu dịch vụ đã được tạo thành công!');
-            
-            // Navigate to confirmation page with ticket info
-            navigate('/customer/confirm-order', { 
-                state: { 
-                    orderData,
-                    ticketInfo: response.data
-                } 
-            });
-            
-        } catch (error) {
-            console.error('❌ Error creating order:', error);
-            
-            const errorMessage = error.message || error.error || 'Có lỗi xảy ra khi tạo yêu cầu. Vui lòng thử lại.';
-            message.error(errorMessage);
-            
-        } finally {
-            setIsSubmitting(false);
-        }
+        // Navigate to confirmation page with order data
+        navigate('/customer/confirm-order', { state: { orderData } });
     };
 
     return (
@@ -280,14 +288,72 @@ const MovingInformationPage = () => {
                                     readOnly
                                 />
 
-                                <DatePicker
-                                    placeholder="Chọn thời gian"
-                                    onChange={(date) => setMovingDate(date)}
-                                    showTime
-                                    format="DD/MM/YYYY HH:mm"
-                                    className="custom-input"
-                                    style={{ width: '100%' }}
-                                />
+                                <div style={{ position: 'relative' }}>
+                                    <DatePicker
+                                        placeholder="Chọn thời gian"
+                                        onChange={(date) => setMovingDate(date)}
+                                        onFocus={() => setShowDateNote(true)}
+                                        onBlur={() => setTimeout(() => setShowDateNote(false), 200)}
+                                        showTime
+                                        format="DD/MM/YYYY HH:mm"
+                                        className="custom-input"
+                                        style={{ width: '100%' }}
+                                        disabledDate={(current) => current && current < dayjs().startOf('day')}
+                                        disabledTime={(current) => {
+                                            const now = dayjs();
+                                            if (current && dayjs(current).isSame(now, 'day')) {
+                                                return {
+                                                    disabledHours: () => [...Array(now.hour()).keys()],
+                                                    disabledMinutes: (selectedHour) => {
+                                                        if (selectedHour === now.hour()) {
+                                                            return [...Array(now.minute() + 1).keys()];
+                                                        }
+                                                        return [];
+                                                    }
+                                                };
+                                            }
+                                            return {};
+                                        }}
+                                    />
+                                    
+                                    {/* Stylish floating note */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '-75px',
+                                        left: '0',
+                                        right: '0',
+                                        backgroundColor: '#44624A',
+                                        color: 'white',
+                                        padding: '12px 16px',
+                                        borderRadius: '8px',
+                                        fontSize: '13px',
+                                        lineHeight: '1.5',
+                                        boxShadow: '0 4px 12px rgba(68, 98, 74, 0.3)',
+                                        opacity: showDateNote ? 1 : 0,
+                                        visibility: showDateNote ? 'visible' : 'hidden',
+                                        transform: showDateNote ? 'translateY(0)' : 'translateY(-10px)',
+                                        transition: 'all 0.3s ease-in-out',
+                                        zIndex: 10,
+                                        pointerEvents: 'none'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                            <span style={{ fontSize: '16px', flexShrink: 0 }}>💡</span>
+                                            <span>
+                                                Quá trình khảo sát cần được hoàn thành trước ngày chuyển ít nhất 1 ngày để chúng tôi có thời gian xử lý hồ sơ và chuẩn bị chu đáo.
+                                            </span>
+                                        </div>
+                                        {/* Arrow pointer */}
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '-6px',
+                                            left: '20px',
+                                            width: '12px',
+                                            height: '12px',
+                                            backgroundColor: '#44624A',
+                                            transform: 'rotate(45deg)',
+                                        }}></div>
+                                    </div>
+                                </div>
 
                                 <TextArea
                                     rows={3}
