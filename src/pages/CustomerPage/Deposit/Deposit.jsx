@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 import AppHeader from "../../../components/header/header";
 import AppFooter from "../../../components/footer/footer";
 import { createOrder } from "../../../services/orderService";
+import useUser from "../../../contexts/UserContext";
 
 import "./style.css";
 
@@ -16,30 +17,83 @@ const { Option } = Select;
 const Deposit = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    
-    // Get data from previous steps
-    const { orderData, surveyData, depositAmount } = location.state || {};
-    
+    const { user, isAuthenticated } = useUser();
+
+    // Get data from previous steps or from localStorage
+    const [orderData, setOrderData] = useState(location.state?.orderData || null);
+    const [surveyData, setSurveyData] = useState(location.state?.surveyData || null);
+    const [depositAmount] = useState(location.state?.depositAmount || 100000);
+
     const [paymentMethod, setPaymentMethod] = useState(null);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Check if data exists
+    // Check if data exists and user is authenticated
     useEffect(() => {
-        if (!orderData || !surveyData) {
-            message.error('Không tìm thấy thông tin đơn hàng. Vui lòng bắt đầu lại.');
-            navigate('/customer/create-moving-order');
+        // Check authentication first
+        if (!isAuthenticated) {
+            message.error('Vui lòng đăng nhập để tiếp tục');
+            navigate('/login', { state: { returnUrl: '/customer/deposit' } });
+            return;
         }
-    }, [orderData, surveyData, navigate]);
+
+        // Try to load pending order from localStorage if no data in state
+        if (!orderData || !surveyData) {
+            const pendingOrderStr = localStorage.getItem('pendingOrder');
+
+            if (pendingOrderStr) {
+                try {
+                    const pendingOrder = JSON.parse(pendingOrderStr);
+
+                    // Check if order is not too old (e.g., within 1 hour)
+                    const timestamp = pendingOrder.timestamp;
+                    const now = new Date().getTime();
+                    const oneHour = 60 * 60 * 1000;
+
+                    if (now - timestamp > oneHour) {
+                        localStorage.removeItem('pendingOrder');
+                        message.error('Phiên làm việc đã hết hạn. Vui lòng tạo yêu cầu mới.');
+                        navigate('/customer/create-moving-order');
+                        return;
+                    }
+
+                    // Load the pending order data
+                    setOrderData(pendingOrder.orderData);
+                    setSurveyData(pendingOrder.surveyData);
+
+                    message.success('Đã tải lại thông tin đơn hàng của bạn');
+
+                    // Clear from localStorage after loading
+                    localStorage.removeItem('pendingOrder');
+
+                } catch (error) {
+                    console.error('Error loading pending order:', error);
+                    localStorage.removeItem('pendingOrder');
+                    message.error('Không tìm thấy thông tin đơn hàng. Vui lòng bắt đầu lại.');
+                    navigate('/customer/create-moving-order');
+                }
+            } else {
+                message.error('Không tìm thấy thông tin đơn hàng. Vui lòng bắt đầu lại.');
+                navigate('/customer/create-moving-order');
+            }
+        }
+    }, [orderData, surveyData, navigate, isAuthenticated]);
 
     const handleSubmit = async () => {
         if (!paymentMethod || !agreedToTerms || !orderData || !surveyData) {
             return;
         }
 
+        // Double check authentication before submitting
+        if (!isAuthenticated) {
+            message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+            navigate('/login', { state: { returnUrl: '/customer/deposit' } });
+            return;
+        }
+
         try {
             setIsSubmitting(true);
-            
+
             // Combine all data for backend
             const completeOrderData = {
                 ...orderData,
@@ -47,32 +101,50 @@ const Deposit = () => {
                 paymentMethod,
                 depositAmount
             };
-            
+
             console.log('📤 Submitting complete order to backend:', completeOrderData);
-            
+
             // Create the RequestTicket in backend
             const response = await createOrder(completeOrderData);
-            
+
             console.log('✅ Order created successfully:', response);
-            
+
             message.success(response.message || 'Yêu cầu dịch vụ đã được tạo thành công!');
-            
+
+            // Clear any pending order data from localStorage
+            localStorage.removeItem('pendingOrder');
+
             // Navigate to order success page or order list
             setTimeout(() => {
-                navigate('/', { 
-                    state: { 
+                navigate('/', {
+                    state: {
                         newOrder: response.data,
                         message: 'Yêu cầu của bạn đã được gửi. Chúng tôi sẽ liên hệ sớm!'
-                    } 
+                    }
                 });
             }, 1500);
-            
+
         } catch (error) {
             console.error('❌ Error creating order:', error);
-            
+
+            // Check if it's an authentication error
+            if (error.response?.status === 401) {
+                message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                // Save current order data before redirecting
+                const tempOrderData = {
+                    orderData,
+                    surveyData,
+                    depositAmount,
+                    timestamp: new Date().getTime()
+                };
+                localStorage.setItem('pendingOrder', JSON.stringify(tempOrderData));
+                navigate('/login', { state: { returnUrl: '/customer/deposit' } });
+                return;
+            }
+
             const errorMessage = error.message || error.error || 'Có lỗi xảy ra khi tạo yêu cầu. Vui lòng thử lại.';
             message.error(errorMessage);
-            
+
         } finally {
             setIsSubmitting(false);
         }
@@ -188,7 +260,7 @@ const Deposit = () => {
                             {/* Payment Section */}
                             <div className="payment-section">
                                 <h2>Thanh toán</h2>
-                                
+
                                 <Select
                                     placeholder="Chọn phương thức thanh toán"
                                     className="payment-select"

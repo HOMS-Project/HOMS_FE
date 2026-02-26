@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Layout, Steps, Card, Row, Col, Button, Calendar, Checkbox, message } from "antd";
+import { Layout, Steps, Card, Row, Col, Button, Calendar, Checkbox, message, Modal } from "antd";
 import { Monitor, Users } from "lucide-react";
 import dayjs from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 
 import AppHeader from "../../../components/header/header";
 import AppFooter from "../../../components/footer/footer";
+import useUser from "../../../contexts/UserContext";
 
 import "./style.css";
 
@@ -17,6 +18,7 @@ const { Content } = Layout;
 const ConfirmMovingOrder = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user, isAuthenticated } = useUser();
 
     // Get order data from previous step
     const orderData = location.state?.orderData;
@@ -25,6 +27,7 @@ const ConfirmMovingOrder = () => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
     const [isConfirmed, setIsConfirmed] = useState(false);
+    const [showAuthModal, setShowAuthModal] = useState(false);
 
     // Check if orderData exists
     useEffect(() => {
@@ -135,7 +138,26 @@ const ConfirmMovingOrder = () => {
             timeSlot: timeSlots[selectedTimeIndex]
         };
 
-        console.log('📋 Passing to deposit:', { orderData, surveyData });
+        // CHECK AUTHENTICATION - if not logged in, show modal and save data
+        if (!isAuthenticated) {
+            console.log('🔒 User not authenticated, prompting login...');
+
+            // Save order data and survey data to localStorage temporarily
+            const tempOrderData = {
+                orderData,
+                surveyData,
+                depositAmount: 100000,
+                timestamp: new Date().getTime()
+            };
+
+            localStorage.setItem('pendingOrder', JSON.stringify(tempOrderData));
+
+            // Show authentication modal
+            setShowAuthModal(true);
+            return;
+        }
+
+        console.log('📋 User authenticated, proceeding to deposit');
 
         // Navigate to deposit page with all data
         navigate('/customer/deposit', {
@@ -373,6 +395,98 @@ const ConfirmMovingOrder = () => {
             </Content>
 
             <AppFooter />
+
+            {/* Authentication Required Modal */}
+            <Modal
+                open={showAuthModal}
+                onCancel={() => setShowAuthModal(false)}
+                footer={null}
+                centered
+                width={500}
+                closable={true}
+            >
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                    <div style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '50%',
+                        backgroundColor: '#fff4e6',
+                        margin: '0 auto 20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '40px'
+                    }}>
+                        🔒
+                    </div>
+
+                    <h2 style={{
+                        fontSize: '24px',
+                        fontWeight: 'bold',
+                        color: '#44624A',
+                        marginBottom: '12px'
+                    }}>
+                        Cần Đăng Nhập
+                    </h2>
+
+                    <p style={{
+                        fontSize: '16px',
+                        color: '#666',
+                        marginBottom: '24px',
+                        lineHeight: '1.6'
+                    }}>
+                        Để tiếp tục đặt cọc và hoàn tất yêu cầu dịch vụ, vui lòng đăng nhập hoặc tạo tài khoản.
+                        <br />
+                        <span style={{ fontSize: '14px', color: '#999' }}>
+                            Thông tin đơn hàng của bạn đã được lưu tạm thời.
+                        </span>
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                        <Button
+                            size="large"
+                            onClick={() => {
+                                setShowAuthModal(false);
+                                navigate('/login', {
+                                    state: { returnUrl: '/customer/deposit' }
+                                });
+                            }}
+                            style={{
+                                backgroundColor: '#44624A',
+                                color: 'white',
+                                borderColor: '#44624A',
+                                minWidth: '140px',
+                                height: '45px',
+                                fontSize: '16px',
+                                fontWeight: '500'
+                            }}
+                        >
+                            Đăng Nhập
+                        </Button>
+
+                        <Button
+                            size="large"
+                            onClick={() => {
+                                setShowAuthModal(false);
+                                navigate('/register', {
+                                    state: { returnUrl: '/customer/deposit' }
+                                });
+                            }}
+                            style={{
+                                backgroundColor: 'white',
+                                color: '#44624A',
+                                borderColor: '#44624A',
+                                minWidth: '140px',
+                                height: '45px',
+                                fontSize: '16px',
+                                fontWeight: '500'
+                            }}
+                        >
+                            Đăng Ký
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </Layout>
     );
 };
