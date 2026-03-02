@@ -1,0 +1,494 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Layout, Steps, Card, Row, Col, Button, Calendar, Checkbox, message, Modal } from "antd";
+import { Monitor, Users } from "lucide-react";
+import dayjs from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+
+import AppHeader from "../../../components/header/header";
+import AppFooter from "../../../components/footer/footer";
+import useUser from "../../../contexts/UserContext";
+
+import "./style.css";
+
+dayjs.extend(isSameOrAfter);
+
+const { Content } = Layout;
+
+const ConfirmMovingOrder = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { user, isAuthenticated } = useUser();
+
+    // Get order data from previous step
+    const orderData = location.state?.orderData;
+
+    const [selectedMethod, setSelectedMethod] = useState(null);
+    const [selectedDate, setSelectedDate] = useState(null);
+    const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
+    const [isConfirmed, setIsConfirmed] = useState(false);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+
+    // Check if orderData exists
+    useEffect(() => {
+        if (!orderData) {
+            message.error('Không tìm thấy thông tin đơn hàng. Vui lòng bắt đầu lại.');
+            navigate('/customer/create-moving-order');
+            return;
+        }
+
+        // Validate moving date is valid and in the future
+        if (!orderData.movingDate) {
+            message.error('Thông tin thời gian chuyển không hợp lệ. Vui lòng quay lại bước trước.');
+            navigate('/customer/create-moving-order');
+            return;
+        }
+
+        const movingDate = dayjs(orderData.movingDate);
+        const now = dayjs();
+
+        if (movingDate.isBefore(now)) {
+            message.error('Thời gian chuyển đã qua. Vui lòng chọn lại thời gian chuyển.');
+            navigate('/customer/create-moving-order');
+            return;
+        }
+
+        // Check if there's enough time for survey (at least 25 hours from now to allow for 24-hour gap)
+        const hoursUntilMoving = movingDate.diff(now, 'hour', true);
+        if (hoursUntilMoving < 25) {
+            message.warning('Thời gian chuyển quá gần. Để đảm bảo có thời gian khảo sát và xử lý hồ sơ, vui lòng chọn thời gian chuyển sau ít nhất 2 ngày.');
+        }
+    }, [orderData, navigate]);
+
+    const timeSlots = [
+        '09:00', '10:30', '12:00', '14:00',
+        '15:30', '17:00', '18:30', '20:00'
+    ];
+
+    const handleCancel = () => {
+        navigate('/');
+    };
+
+    const handleConfirm = () => {
+        if (!orderData) return;
+
+        // Validate all selections are made
+        if (!selectedMethod) {
+            message.error('Vui lòng chọn hình thức khảo sát');
+            return;
+        }
+
+        if (!selectedDate) {
+            message.error('Vui lòng chọn ngày khảo sát');
+            return;
+        }
+
+        if (selectedTimeIndex === null) {
+            message.error('Vui lòng chọn giờ khảo sát');
+            return;
+        }
+
+        // Prepare survey date/time
+        const surveyDateTime = dayjs(selectedDate)
+            .hour(parseInt(timeSlots[selectedTimeIndex].split(':')[0]))
+            .minute(parseInt(timeSlots[selectedTimeIndex].split(':')[1]))
+            .second(0)
+            .millisecond(0);
+
+        const now = dayjs();
+        const movingDate = dayjs(orderData.movingDate);
+
+        // Validate survey date is in the future
+        if (surveyDateTime.isBefore(now)) {
+            message.error('Thời gian khảo sát phải sau thời điểm hiện tại');
+            return;
+        }
+
+        // Check if survey date is at least 1 hour from now
+        const hoursUntilSurvey = surveyDateTime.diff(now, 'hour', true);
+        if (hoursUntilSurvey < 1) {
+            message.error('Thời gian khảo sát phải cách thời điểm hiện tại ít nhất 1 giờ');
+            return;
+        }
+
+        // Validate survey datetime is strictly before moving datetime
+        if (surveyDateTime.isSameOrAfter(movingDate)) {
+            message.error('Thời gian khảo sát phải trước thời gian chuyển nhà');
+            return;
+        }
+
+        // Calculate time gap between survey and moving
+        const hoursBetween = movingDate.diff(surveyDateTime, 'hour', true);
+
+        // Enforce minimum 24 hours (1 day) gap for paperwork
+        if (hoursBetween < 24) {
+            message.error('Thời gian khảo sát phải trước thời gian chuyển ít nhất 1 ngày (24 giờ) để xử lý hồ sơ');
+            return;
+        }
+
+        // Warning if gap is less than 48 hours (recommended)
+        if (hoursBetween < 48) {
+            message.warning('Khuyến nghị để khoảng cách ít nhất 2 ngày giữa khảo sát và chuyển nhà để chuẩn bị tốt hơn');
+        }
+
+        // Prepare survey data
+        const surveyData = {
+            type: selectedMethod.toUpperCase(), // 'ONLINE' or 'OFFLINE'
+            date: surveyDateTime.toISOString(),
+            timeSlot: timeSlots[selectedTimeIndex]
+        };
+
+        // CHECK AUTHENTICATION - if not logged in, show modal and save data
+        if (!isAuthenticated) {
+            console.log('🔒 User not authenticated, prompting login...');
+
+            // Save order data and survey data to localStorage temporarily
+            const tempOrderData = {
+                orderData,
+                surveyData,
+                depositAmount: 100000,
+                timestamp: new Date().getTime()
+            };
+
+            localStorage.setItem('pendingOrder', JSON.stringify(tempOrderData));
+
+            // Show authentication modal
+            setShowAuthModal(true);
+            return;
+        }
+
+        console.log('📋 User authenticated, proceeding to deposit');
+
+        // Navigate to deposit page with all data
+        navigate('/customer/deposit', {
+            state: {
+                orderData,
+                surveyData,
+                depositAmount: 100000 // 100,000 VND
+            }
+        });
+    };
+
+    const onDateSelect = (date) => {
+        setSelectedDate(date);
+        // Reset time selection when date changes
+        setSelectedTimeIndex(null);
+    };
+
+    // Disable past dates and dates after moving date
+    const disabledDate = (current) => {
+        if (!current || !orderData || !orderData.movingDate) return false;
+
+        const today = dayjs().startOf('day');
+        const movingDate = dayjs(orderData.movingDate);
+
+        // Disable if date is in the past
+        if (current.isBefore(today, 'day')) {
+            return true;
+        }
+
+        // Disable if date is on or after moving date
+        if (current.isAfter(movingDate, 'day') || current.isSame(movingDate, 'day')) {
+            return true;
+        }
+
+        // Disable if date is less than 24 hours before moving date
+        // This ensures the 1-day minimum gap for paperwork processing
+        const movingDateMinus24Hours = movingDate.subtract(24, 'hour');
+        if (current.isAfter(movingDateMinus24Hours.startOf('day'))) {
+            return true;
+        }
+
+        return false;
+    };
+
+    // Check if a time slot should be disabled based on current time
+    const isTimeSlotDisabled = (timeSlot) => {
+        if (!selectedDate || !orderData || !orderData.movingDate) return false;
+
+        const now = dayjs();
+        const selectedDay = dayjs(selectedDate);
+        const movingDate = dayjs(orderData.movingDate);
+        const [hours, minutes] = timeSlot.split(':').map(Number);
+        const slotTime = selectedDay.hour(hours).minute(minutes);
+
+        // Disable if slot time is in the past
+        if (slotTime.isBefore(now)) {
+            return true;
+        }
+
+        // Disable if slot time is within next hour from now
+        if (slotTime.diff(now, 'minute') < 60) {
+            return true;
+        }
+
+        // Disable if slot time is less than 24 hours before moving time
+        const hoursBetween = movingDate.diff(slotTime, 'hour', true);
+        if (hoursBetween < 24) {
+            return true;
+        }
+
+        return false;
+    };
+
+    if (!orderData) {
+        return null; // Will redirect in useEffect
+    }
+
+    return (
+        <Layout className="confirm-order-page">
+            <AppHeader />
+
+            <Content>
+                {/* HERO */}
+                <section className="confirm-hero">
+                    <h1>{orderData?.serviceName || 'Chuyển Nhà Trọn Gói'}</h1>
+                </section>
+
+                {/* STEPS */}
+                <section className="service-steps-container">
+                    <Card className="steps-card">
+                        <Steps
+                            current={2}
+                            responsive
+                            items={[
+                                { title: 'Chọn dịch vụ' },
+                                { title: 'Địa điểm & Thông tin đồ đạc' },
+                                { title: 'Xác nhận' },
+                                { title: 'Đặt cọc' },
+                            ]}
+                        />
+                    </Card>
+                </section>
+
+                {/* CONFIRMATION SECTION */}
+                <section className="confirmation-section">
+                    <h1 className="confirmation-title">Xác Nhận Để Chúng Tôi Báo Giá Chính Xác Nhất</h1>
+                    <p className="confirmation-subtitle">Chọn hình thức khảo sát</p>
+
+                    <Row gutter={40} className="survey-methods">
+                        {/* ONLINE METHOD */}
+                        <Col md={12} xs={24}>
+                            <div
+                                className={`survey-card ${selectedMethod === 'online' ? 'active' : ''}`}
+                                onClick={() => setSelectedMethod('online')}
+                            >
+                                <div className="survey-icon">
+                                    <Monitor size={80} />
+                                </div>
+                                <h3>Online (Video Call)</h3>
+                                <p>Khảo sát từ xa qua cuộc gọi video, nhanh chóng và linh hoạt, phù hợp với đa dạng đơn giản.</p>
+                            </div>
+                        </Col>
+
+                        {/* OFFLINE METHOD */}
+                        <Col md={12} xs={24}>
+                            <div
+                                className={`survey-card ${selectedMethod === 'offline' ? 'active' : ''}`}
+                                onClick={() => setSelectedMethod('offline')}
+                            >
+                                <div className="survey-icon">
+                                    <Users size={80} />
+                                </div>
+                                <h3>Offline (Khảo Sát Trực Tiếp)</h3>
+                                <p>Nhân viên đến tận nơi khảo sát, đánh giá chính xác, phù hợp với nhà lớn hoặc nhiều đồ cồng kềnh.</p>
+                            </div>
+                        </Col>
+                    </Row>
+
+                    {/* CALENDAR AND TIME SLOTS - SHOWN BELOW CARDS */}
+                    {selectedMethod && (
+                        <div className="survey-details-container">
+                            <div className="survey-details">
+                                <Calendar
+                                    fullscreen={false}
+                                    onSelect={onDateSelect}
+                                    {...(selectedDate && { value: selectedDate })}
+                                    disabledDate={disabledDate}
+                                />
+
+                                <div className="time-slots">
+                                    {timeSlots.map((time, index) => {
+                                        const isDisabled = isTimeSlotDisabled(time);
+                                        return (
+                                            <div
+                                                key={index}
+                                                className={`time-slot ${selectedTimeIndex === index ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+                                                onClick={() => !isDisabled && setSelectedTimeIndex(index)}
+                                                style={{
+                                                    cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                                    opacity: isDisabled ? 0.5 : 1
+                                                }}
+                                            >
+                                                {time}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Show time gap information when both date and time are selected */}
+                                {selectedDate && selectedTimeIndex !== null && orderData?.movingDate && (
+                                    <div style={{
+                                        marginTop: '20px',
+                                        padding: '12px 16px',
+                                        backgroundColor: '#f0f7f0',
+                                        borderLeft: '4px solid #44624A',
+                                        borderRadius: '4px',
+                                        fontSize: '13px',
+                                        color: '#333'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontWeight: '500' }}>Thời gian giữa khảo sát và chuyển nhà:</span>
+                                            <span style={{
+                                                fontWeight: 'bold',
+                                                color: '#44624A',
+                                                fontSize: '14px'
+                                            }}>
+                                                {(() => {
+                                                    const surveyDateTime = dayjs(selectedDate)
+                                                        .hour(parseInt(timeSlots[selectedTimeIndex].split(':')[0]))
+                                                        .minute(parseInt(timeSlots[selectedTimeIndex].split(':')[1]));
+                                                    const movingDate = dayjs(orderData.movingDate);
+                                                    const hoursBetween = movingDate.diff(surveyDateTime, 'hour', true);
+                                                    const days = Math.floor(hoursBetween / 24);
+                                                    const hours = Math.floor(hoursBetween % 24);
+
+                                                    if (days > 0) {
+                                                        return `${days} ngày ${hours} giờ`;
+                                                    }
+                                                    return `${hours} giờ`;
+                                                })()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="confirmation-info">
+                        <Checkbox
+                            checked={isConfirmed}
+                            onChange={(e) => setIsConfirmed(e.target.checked)}
+                            disabled={!selectedMethod || !selectedDate || selectedTimeIndex === null}
+                        >
+                            Tôi xác nhận thông tin là chính xác
+                        </Checkbox>
+                    </div>
+
+                    {/* ACTION BUTTONS */}
+                    <div className="action-buttons">
+                        <Button size="large" className="cancel-button" onClick={handleCancel}>
+                            Hủy bỏ
+                        </Button>
+                        <Button
+                            type="primary"
+                            size="large"
+                            className={`confirm-button ${!isConfirmed || !selectedMethod || !selectedDate || selectedTimeIndex === null ? 'disabled' : ''}`}
+                            onClick={handleConfirm}
+                            disabled={!isConfirmed || !selectedMethod || !selectedDate || selectedTimeIndex === null}
+                        >
+                            Xác nhận & Gửi yêu cầu
+                        </Button>
+                    </div>
+                </section>
+            </Content>
+
+            <AppFooter />
+
+            {/* Authentication Required Modal */}
+            <Modal
+                open={showAuthModal}
+                onCancel={() => setShowAuthModal(false)}
+                footer={null}
+                centered
+                width={500}
+                closable={true}
+            >
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                    <div style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '50%',
+                        backgroundColor: '#fff4e6',
+                        margin: '0 auto 20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '40px'
+                    }}>
+                        🔒
+                    </div>
+
+                    <h2 style={{
+                        fontSize: '24px',
+                        fontWeight: 'bold',
+                        color: '#44624A',
+                        marginBottom: '12px'
+                    }}>
+                        Cần Đăng Nhập
+                    </h2>
+
+                    <p style={{
+                        fontSize: '16px',
+                        color: '#666',
+                        marginBottom: '24px',
+                        lineHeight: '1.6'
+                    }}>
+                        Để tiếp tục đặt cọc và hoàn tất yêu cầu dịch vụ, vui lòng đăng nhập hoặc tạo tài khoản.
+                        <br />
+                        <span style={{ fontSize: '14px', color: '#999' }}>
+                            Thông tin đơn hàng của bạn đã được lưu tạm thời.
+                        </span>
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                        <Button
+                            size="large"
+                            onClick={() => {
+                                setShowAuthModal(false);
+                                navigate('/login', {
+                                    state: { returnUrl: '/customer/deposit' }
+                                });
+                            }}
+                            style={{
+                                backgroundColor: '#44624A',
+                                color: 'white',
+                                borderColor: '#44624A',
+                                minWidth: '140px',
+                                height: '45px',
+                                fontSize: '16px',
+                                fontWeight: '500'
+                            }}
+                        >
+                            Đăng Nhập
+                        </Button>
+
+                        <Button
+                            size="large"
+                            onClick={() => {
+                                setShowAuthModal(false);
+                                navigate('/register', {
+                                    state: { returnUrl: '/customer/deposit' }
+                                });
+                            }}
+                            style={{
+                                backgroundColor: 'white',
+                                color: '#44624A',
+                                borderColor: '#44624A',
+                                minWidth: '140px',
+                                height: '45px',
+                                fontSize: '16px',
+                                fontWeight: '500'
+                            }}
+                        >
+                            Đăng Ký
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+        </Layout>
+    );
+};
+
+export default React.memo(ConfirmMovingOrder);

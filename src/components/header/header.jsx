@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Layout, Row, Col, Button, Input, Drawer, Menu } from "antd";
 import { MenuOutlined, SearchOutlined, RightOutlined } from "@ant-design/icons";
 import "./header.css";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import useUser from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
 
@@ -15,21 +15,32 @@ const AppHeader = () => {
   const [activeMenu, setActiveMenu] = useState("dashboard"); // State để track menu đang active
   const { user, logout, loading } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  if (loading) return null;
   // Danh sách menu mới theo yêu cầu
   const navItems = [
-    { key: "dashboard", label: "Bảng Điều Khiển" },
-    { key: "services", label: "Các Dịch Vụ" },
-    { key: "orders", label: "Đơn Hàng" },
-    { key: "transport", label: "Phương Tiện Di Chuyển" },
-    { key: "about", label: "Về Chúng Tôi" },
+    { key: "dashboard", label: "Bảng Điều Khiển", path: "/" },
+    { key: "services", label: "Các Dịch Vụ", path: "/customer/service-packages" },
+    { key: "orders", label: "Đơn Chuyển", path: "/customer/order" },
+    { key: "transport", label: "Phương Tiện Di Chuyển", path: "/customer/transport" },
+    { key: "about", label: "Về Chúng Tôi", path: "/about" },
   ];
 
-  const handleMenuClick = (key) => {
+  // Update active menu based on current path
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const activeItem = navItems.find(item => item.path === currentPath);
+    if (activeItem) {
+      setActiveMenu(activeItem.key);
+    }
+  }, [location.pathname]);
+
+  const handleMenuClick = (key, path) => {
     setActiveMenu(key);
-    // Logic scroll có thể thêm vào đây tùy key
+    navigate(path);
   };
+
+  if (loading) return null;
 
   return (
 
@@ -49,12 +60,10 @@ const AppHeader = () => {
                 onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               >
                 <img
-                  src="./images/logo.png"
+                  src="/images/logo.png"
                   alt="HOMS"
                   style={{ height: "60px" }}
                 />
-                {/* Hoặc dùng text nếu chưa có ảnh thật */}
-                {/* <h2 style={{ margin: 0, color: '#2D4F36', fontWeight: 'bold' }}>HOMS</h2> */}
               </div>
             </Col>
 
@@ -95,7 +104,7 @@ const AppHeader = () => {
                         {
                           key: "profile",
                           label: "Trang cá nhân",
-                         onClick: () => navigate("/profile")
+                          onClick: () => navigate("/profile")
                         },
                         {
                           type: "divider",
@@ -118,7 +127,7 @@ const AppHeader = () => {
                         size={32}
                         style={{ backgroundColor: "#44624A" }}
                       >
-                        {user.fullName?.charAt(0) || user.name?.charAt(0) }
+                        {user.fullName?.charAt(0) || user.name?.charAt(0)}
                       </Avatar>
 
                       <span className="user-name">
@@ -153,7 +162,7 @@ const AppHeader = () => {
               <li
                 key={item.key}
                 className={`nav-item ${activeMenu === item.key ? "active" : ""}`}
-                onClick={() => handleMenuClick(item.key)}
+                onClick={() => handleMenuClick(item.key, item.path)}
               >
                 {item.label}
               </li>
@@ -175,7 +184,10 @@ const AppHeader = () => {
           selectedKeys={[activeMenu]}
           items={navItems.map((item) => ({ key: item.key, label: item.label }))}
           onClick={(e) => {
-            setActiveMenu(e.key);
+            const selectedItem = navItems.find(item => item.key === e.key);
+            if (selectedItem) {
+              handleMenuClick(e.key, selectedItem.path);
+            }
             setMobileMenuVisible(false);
           }}
           style={{ border: "none" }}
