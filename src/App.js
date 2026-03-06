@@ -11,6 +11,7 @@ import VerifyOTPPage from './pages/CustomerPage/Auth/VerifyOTPPage';
 import ResetPasswordPage from './pages/CustomerPage/Auth/ResetPasswordPage';
 
 import RoutesCus from './routes/CustomerRoutes/RoutesCus';
+import RoutesAdmin from './routes/AdminRoutes/RoutesAdmin';
 
 function App() {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -31,6 +32,7 @@ function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             <Route path="/customer/*" element={<RoutesCus />} />
+            <Route path="/admin/*" element={<RoutesAdmin />} />
 
           </Routes>
         </UserProvider>

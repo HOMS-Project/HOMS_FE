@@ -18,12 +18,18 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
   const { setUser, setIsAuthenticated } = useUser();
   const navigate = useNavigate();
-const handleLoginSuccess = (userData, accessToken, expiresInMs) => {
+  const handleLoginSuccess = (userData, accessToken, expiresInMs) => {
     saveAccessToken(accessToken, expiresInMs || 30 * 60 * 1000);
     setUser(userData);
     setIsAuthenticated(true);
     message.success("Đăng nhập thành công!");
-    setTimeout(() => navigate("/landing"), 800);
+    setTimeout(() => {
+      if (userData?.role === 'admin') {
+        navigate("/admin");
+      } else {
+        navigate("/landing");
+      }
+    }, 800);
   };
   // ===== NORMAL LOGIN =====
   const onFinish = async (values) => {
@@ -70,17 +76,17 @@ const handleLoginSuccess = (userData, accessToken, expiresInMs) => {
           iconRender={(v) => (v ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
         />
       </Form.Item>
-<Form.Item>
-  <div style={{ textAlign: "right" }}>
-    <Button
-      type="link"
-      style={{ padding: 0 }}
-      onClick={() => navigate("/forgot-password")}
-    >
-      Quên mật khẩu?
-    </Button>
-  </div>
-</Form.Item>
+      <Form.Item>
+        <div style={{ textAlign: "right" }}>
+          <Button
+            type="link"
+            style={{ padding: 0 }}
+            onClick={() => navigate("/forgot-password")}
+          >
+            Quên mật khẩu?
+          </Button>
+        </div>
+      </Form.Item>
 
       <Button
         type="primary"
@@ -99,11 +105,11 @@ const handleLoginSuccess = (userData, accessToken, expiresInMs) => {
       <GoogleLogin
         onSuccess={async (credentialResponse) => {
           try {
-            const googleToken = credentialResponse.credential; 
+            const googleToken = credentialResponse.credential;
 
             const res = await loginGoogle(googleToken);
-            const responseData = res.data.data || res.data; 
-             const { user, accessToken, expiresInMs } = responseData;
+            const responseData = res.data.data || res.data;
+            const { user, accessToken, expiresInMs } = responseData;
             handleLoginSuccess(user, accessToken, expiresInMs);
           } catch (err) {
             console.error(err);
