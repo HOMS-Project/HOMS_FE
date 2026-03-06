@@ -16,7 +16,7 @@ const AppHeader = () => {
   const { user, logout, loading } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
- const isDispatcherMode = location.pathname.startsWith("/dispatcher");
+
   // Danh sách menu mới theo yêu cầu
   const navItems = [
     { key: "dashboard", label: "Bảng Điều Khiển", path: "/customer/dashboard" },
@@ -41,10 +41,6 @@ const AppHeader = () => {
   };
 
   if (loading) return null;
- const handleLogout = () => {
-    logout();
-    navigate("/login"); 
-  };
 
   return (
 
@@ -73,21 +69,20 @@ const AppHeader = () => {
 
             {/* Giữa & Phải: Tìm kiếm + Nút Liên Hệ */}
             <Col xs={0} md={16} lg={12}>
-                        <div className="top-actions" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '15px' }}>
-               {!isDispatcherMode && (
-                  <>
-                    <Input
-                      prefix={<SearchOutlined style={{ color: "#ccc" }} />}
-                      placeholder="Chuyển nhà, báo giá..."
-                      className="header-search"
-                      bordered={false}
-                    />
-                    <Button type="primary" className="contact-btn-top" iconPosition="end">
-                      Liên Hệ Ngay <RightOutlined style={{ fontSize: "10px" }} />
-                    </Button>
-                  </>
-                )}
-                
+              <div className="top-actions">
+                <Input
+                  prefix={<SearchOutlined style={{ color: "#ccc" }} />}
+                  placeholder="Chuyển nhà, báo giá..."
+                  className="header-search"
+                  bordered={false}
+                />
+                <Button
+                  type="primary"
+                  className="contact-btn-top"
+                  iconPosition="end"
+                >
+                  Liên Hệ Ngay <RightOutlined style={{ fontSize: "10px" }} />
+                </Button>
                 {!user ? (
                   <>
                     <Link to="/login">
@@ -118,7 +113,7 @@ const AppHeader = () => {
                           key: "logout",
                           label: "Đăng xuất",
                           danger: true,
-                           onClick: handleLogout,
+                          onClick: logout,
                         },
                       ],
                     }}
@@ -147,62 +142,57 @@ const AppHeader = () => {
             </Col>
 
             {/* Mobile Menu Button (Hiện khi màn hình nhỏ) */}
-             {!isDispatcherMode && (
-              <Col xs={4} md={0} style={{ textAlign: "right" }}>
-                <Button
-                  type="text"
-                  icon={<MenuOutlined />}
-                  onClick={() => setMobileMenuVisible(true)}
-                  style={{ color: "#2D4F36" }}
-                />
-              </Col>
-            )}
+            <Col xs={4} md={0} style={{ textAlign: "right" }}>
+              <Button
+                type="text"
+                icon={<MenuOutlined />}
+                onClick={() => setMobileMenuVisible(true)}
+                style={{ color: "#2D4F36" }}
+              />
+            </Col>
           </Row>
         </div>
       </div>
 
       {/* --- PHẦN 2: BOTTOM BAR (NỀN XANH #44624A) --- */}
-       {!isDispatcherMode && (
-        <div className="header-bottom">
-          <div className="container">
-            <ul className="bottom-nav">
-              {navItems.map((item) => (
-                <li
-                  key={item.key}
-                  className={`nav-item ${activeMenu === item.key ? "active" : ""}`}
-                  onClick={() => handleMenuClick(item.key, item.path)}
-                >
-                  {item.label}
-                </li>
-              ))}
-            </ul>
-          </div>
+      <div className="header-bottom">
+        <div className="container">
+          <ul className="bottom-nav">
+            {navItems.map((item) => (
+              <li
+                key={item.key}
+                className={`nav-item ${activeMenu === item.key ? "active" : ""}`}
+                onClick={() => handleMenuClick(item.key, item.path)}
+              >
+                {item.label}
+              </li>
+            ))}
+          </ul>
         </div>
-      )}
+      </div>
+
       {/* Mobile Drawer giữ nguyên logic cũ */}
-       {!isDispatcherMode && (
-        <Drawer
-          title="Menu"
-          placement="right"
-          onClose={() => setMobileMenuVisible(false)}
-          open={mobileMenuVisible}
-          width={250}
-        >
-          <Menu
-            mode="vertical"
-            selectedKeys={[activeMenu]}
-            items={navItems.map((item) => ({ key: item.key, label: item.label }))}
-            onClick={(e) => {
-              const selectedItem = navItems.find((item) => item.key === e.key);
-              if (selectedItem) {
-                handleMenuClick(e.key, selectedItem.path);
-              }
-              setMobileMenuVisible(false);
-            }}
-            style={{ border: "none" }}
-          />
-        </Drawer>
-      )}
+      <Drawer
+        title="Menu"
+        placement="right"
+        onClose={() => setMobileMenuVisible(false)}
+        open={mobileMenuVisible}
+        width={250}
+      >
+        <Menu
+          mode="vertical"
+          selectedKeys={[activeMenu]}
+          items={navItems.map((item) => ({ key: item.key, label: item.label }))}
+          onClick={(e) => {
+            const selectedItem = navItems.find(item => item.key === e.key);
+            if (selectedItem) {
+              handleMenuClick(e.key, selectedItem.path);
+            }
+            setMobileMenuVisible(false);
+          }}
+          style={{ border: "none" }}
+        />
+      </Drawer>
     </Header>
   );
 };

@@ -23,23 +23,13 @@ const LoginForm = () => {
     setUser(userData);
     setIsAuthenticated(true);
     message.success("Đăng nhập thành công!");
-    let redirectPath = "/";
-
-    switch (userData.role) {
-      case "dispatcher":
-        redirectPath = "/dispatcher/surveys";
-        break;
-      case "customer":
-        redirectPath = "/customer/order";
-        break;
-      case "admin":
-        redirectPath = "/admin/dashboard";
-        break;
-      default:
-        redirectPath = "/landing";
-    }
-
-    setTimeout(() => navigate(redirectPath), 800);
+    setTimeout(() => {
+      if (userData?.role === 'admin') {
+        navigate("/admin");
+      } else {
+        navigate("/landing");
+      }
+    }, 800);
   };
   // ===== NORMAL LOGIN =====
   const onFinish = async (values) => {
