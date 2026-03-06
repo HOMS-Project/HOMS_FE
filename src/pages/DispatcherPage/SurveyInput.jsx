@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Table, Button, Typography, Modal, Form, Input, Checkbox, 
-  DatePicker, Row, Col, Space, message, Card, InputNumber, 
-  Select, Tag, Divider 
+import {
+  Table, Button, Typography, Modal, Form, Input, Checkbox,
+  DatePicker, Row, Col, Space, message, Card, InputNumber,
+  Select, Tag, Divider
 } from 'antd';
 import { EditOutlined, PlusOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -18,7 +18,7 @@ const SurveyInput = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [form] = Form.useForm();
-  
+
   // State để hiển thị/ẩn nhập giá trị khai báo khi chọn bảo hiểm
   const [isInsuranceChecked, setIsInsuranceChecked] = useState(false);
 
@@ -45,7 +45,7 @@ const SurveyInput = () => {
     setSelectedTicket(ticket);
     form.resetFields();
     setIsInsuranceChecked(false);
-    
+
     try {
       const res = await surveyService.getSurveyByTicket(ticket._id);
       const surveyData = res.data.data;
@@ -69,7 +69,7 @@ const SurveyInput = () => {
         });
       } else {
         // Giá trị mặc định cho form mới
-        form.setFieldsValue({ 
+        form.setFieldsValue({
           floors: 0,
           carryMeter: 0,
           distanceKm: 0,
@@ -79,13 +79,13 @@ const SurveyInput = () => {
       }
     } catch (error) {
       // Chưa có survey nào được tạo (lỗi 404 từ API getSurveyByTicket là bình thường với ticket mới)
-      form.setFieldsValue({ 
-        floors: 0, 
+      form.setFieldsValue({
+        floors: 0,
         carryMeter: 0,
-        items: [{}] 
+        items: [{}]
       });
     }
-    
+
     setIsModalOpen(true);
   };
 
@@ -108,7 +108,7 @@ const SurveyInput = () => {
         insuranceRequired: values.insuranceRequired || false,
         declaredValue: values.insuranceRequired ? (values.declaredValue || 0) : 0,
         notes: values.notes,
-        
+
         // Danh sách đồ đạc
         items: values.items?.map(item => ({
           name: item.name,
@@ -116,13 +116,13 @@ const SurveyInput = () => {
           actualWeight: item.actualWeight || 0,
           condition: item.condition || 'GOOD',
           // Backend có field này, FE gửi thêm nếu cần
-          notes: item.notes || '' 
+          notes: item.notes || ''
         })) || []
       };
 
       // Gọi PUT /api/surveys/:ticketId/complete
       await surveyService.completeSurvey(selectedTicket._id, payload);
-      
+
       message.success('Đã lưu khảo sát & Tính giá thành công!');
       setIsModalOpen(false);
       fetchTickets(); // Reload lại bảng
@@ -135,41 +135,57 @@ const SurveyInput = () => {
 
   // Cấu hình bảng
   const columns = [
-    { 
-      title: 'Mã Ticket', 
-      dataIndex: 'code', 
+    {
+      title: 'Mã Ticket',
+      dataIndex: 'code',
       fontWeight: 'bold',
       render: (text) => <Text strong>{text}</Text>
     },
-    { 
-      title: 'Khách hàng', 
-      render: (_, r) => r.customerId?.fullName || 'N/A' 
+    {
+      title: 'Khách hàng',
+      render: (_, r) => r.customerId?.fullName || 'N/A'
     },
-    { 
-      title: 'Trạng thái', 
+    {
+      title: 'Báo giá (VNĐ)',
+      render: (_, r) => {
+        if (r.pricing?.totalPrice) {
+          return <Text type="success" strong>{r.pricing.totalPrice.toLocaleString()}</Text>;
+        }
+        return <Text type="secondary">Chưa có</Text>;
+      }
+    },
+    {
+      title: 'Trạng thái',
       dataIndex: 'status',
       render: (status) => {
         let color = 'blue';
         let label = 'Chờ khảo sát';
         if (status === 'SURVEYED') { color = 'cyan'; label = 'Đã khảo sát'; }
         if (status === 'QUOTED') { color = 'green'; label = 'Đã báo giá'; }
+        if (status === 'ACCEPTED') { color = 'geekblue'; label = 'Đã chốt đơn'; }
+        if (status === 'CONVERTED') { color = 'purple'; label = 'Đã tạo HĐ'; }
         return <Tag color={color}>{label}</Tag>;
       }
     },
     {
       title: 'Thao tác',
-      render: (_, record) => (
-        <Button 
-          type="primary" 
-          style={{ background: '#44624A', borderColor: '#44624A' }} 
-          icon={<EditOutlined />} 
-          onClick={() => openSurveyModal(record)}
-        >
-          Nhập Thông Tin Khảo Sát
-        </Button>
-      )
+      render: (_, record) => {
+        const isReadOnly = ['QUOTED', 'ACCEPTED', 'CONVERTED'].includes(record.status);
+        return (
+          <Button
+            type={isReadOnly ? "default" : "primary"}
+            style={isReadOnly ? {} : { background: '#44624A', borderColor: '#44624A' }}
+            icon={isReadOnly ? <EditOutlined /> : <EditOutlined />} // Cần đổi icon sang con mắt nếu xem
+            onClick={() => openSurveyModal(record)}
+          >
+            {isReadOnly ? 'Xem Khảo Sát' : 'Nhập Khảo Sát'}
+          </Button>
+        );
+      }
     }
   ];
+
+  const isReadOnly = selectedTicket && ['QUOTED', 'ACCEPTED', 'CONVERTED'].includes(selectedTicket.status);
 
   return (
     <Card bordered={false} className="shadow-sm">
@@ -177,7 +193,7 @@ const SurveyInput = () => {
         <Title level={4} style={{ color: '#44624A', margin: 0 }}>Quản Lý Khảo Sát</Title>
         <Button onClick={fetchTickets}>Làm mới</Button>
       </div>
-      
+
       <Table columns={columns} dataSource={tickets} rowKey="_id" loading={loading} pagination={{ pageSize: 10 }} />
 
       <Modal
@@ -188,9 +204,9 @@ const SurveyInput = () => {
         centered
         title={<Title level={3} style={{ textAlign: 'center', color: '#44624A', margin: 0 }}>PHIẾU KHẢO SÁT: {selectedTicket?.code}</Title>}
       >
-        <Form form={form} layout="vertical" onFinish={handleSaveSurvey} style={{ marginTop: 20 }}>
+        <Form form={form} layout="vertical" onFinish={handleSaveSurvey} style={{ marginTop: 20 }} disabled={isReadOnly}>
           <Row gutter={24}>
-            
+
             {/* --- CỘT TRÁI: THÔNG TIN CHI TIẾT --- */}
             <Col span={9}>
               {/* 1. Địa hình & Vận chuyển */}
@@ -214,9 +230,9 @@ const SurveyInput = () => {
                     </Form.Item>
                   </Col>
                   <Col span={12}>
-                    <Form.Item 
-                      name="distanceKm" 
-                      label="Quãng đường (Km)" 
+                    <Form.Item
+                      name="distanceKm"
+                      label="Quãng đường (Km)"
                       rules={[{ required: true, message: 'Bắt buộc nhập' }]}
                     >
                       <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
@@ -243,15 +259,15 @@ const SurveyInput = () => {
                 <Form.Item name="insuranceRequired" valuePropName="checked" style={{ marginBottom: 10 }}>
                   <Checkbox onChange={(e) => setIsInsuranceChecked(e.target.checked)}>Mua bảo hiểm vận chuyển</Checkbox>
                 </Form.Item>
-                
+
                 {isInsuranceChecked && (
-                  <Form.Item 
-                    name="declaredValue" 
+                  <Form.Item
+                    name="declaredValue"
                     label="Giá trị khai báo (VNĐ)"
                     rules={[{ required: true, message: 'Nhập giá trị hàng hóa' }]}
                   >
-                    <InputNumber 
-                      style={{ width: '100%' }} 
+                    <InputNumber
+                      style={{ width: '100%' }}
                       formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                       parser={value => value.replace(/\$\s?|(,*)/g, '')}
                     />
@@ -261,9 +277,9 @@ const SurveyInput = () => {
 
               {/* 3. Đề xuất tài nguyên (Quan trọng cho tính giá) */}
               <Card size="small" title="3. Đề xuất Tài nguyên" style={{ marginTop: 16, background: '#f6ffed', borderColor: '#b7eb8f' }}>
-                <Form.Item 
-                  name="suggestedVehicle" 
-                  label="Loại xe tải đề xuất" 
+                <Form.Item
+                  name="suggestedVehicle"
+                  label="Loại xe tải đề xuất"
                   rules={[{ required: true, message: 'Vui lòng chọn xe' }]}
                 >
                   <Select placeholder="Chọn loại xe">
@@ -273,15 +289,15 @@ const SurveyInput = () => {
                     <Option value="2TON">Xe 2 Tấn</Option>
                   </Select>
                 </Form.Item>
-                <Form.Item 
-                  name="suggestedStaffCount" 
+                <Form.Item
+                  name="suggestedStaffCount"
                   label="Số lượng nhân viên"
                   rules={[{ required: true, message: 'Nhập số nhân viên' }]}
                 >
                   <InputNumber min={1} style={{ width: '100%' }} />
                 </Form.Item>
               </Card>
-              
+
               <Form.Item name="notes" label="Ghi chú thêm" style={{ marginTop: 16 }}>
                 <TextArea rows={3} placeholder="Ghi chú về địa hình, giờ giấc..." />
               </Form.Item>
@@ -330,14 +346,16 @@ const SurveyInput = () => {
                               </Form.Item>
                             </Col>
                             <Col span={2} style={{ textAlign: 'center' }}>
-                              <DeleteOutlined style={{ color: 'red', cursor: 'pointer' }} onClick={() => remove(name)} />
+                              {!isReadOnly && <DeleteOutlined style={{ color: 'red', cursor: 'pointer' }} onClick={() => remove(name)} />}
                             </Col>
                           </Row>
                         ))}
                       </div>
-                      <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} style={{ marginTop: 10 }}>
-                        Thêm đồ đạc
-                      </Button>
+                      {!isReadOnly && (
+                        <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} style={{ marginTop: 10 }}>
+                          Thêm đồ đạc
+                        </Button>
+                      )}
                     </>
                   )}
                 </Form.List>
@@ -348,15 +366,17 @@ const SurveyInput = () => {
           {/* FOOTER ACTIONS */}
           <div style={{ textAlign: 'right', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
             <Space>
-              <Button onClick={() => setIsModalOpen(false)}>Hủy Bỏ</Button>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
-                style={{ background: '#2D4F36', borderColor: '#2D4F36', minWidth: '150px' }}
-                icon={<SaveOutlined />}
-              >
-                Hoàn Tất & Tính Giá
-              </Button>
+              <Button onClick={() => setIsModalOpen(false)}>Đóng</Button>
+              {!isReadOnly && (
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  style={{ background: '#2D4F36', borderColor: '#2D4F36', minWidth: '150px' }}
+                  icon={<SaveOutlined />}
+                >
+                  Hoàn Tất & Tính Giá
+                </Button>
+              )}
             </Space>
           </div>
         </Form>

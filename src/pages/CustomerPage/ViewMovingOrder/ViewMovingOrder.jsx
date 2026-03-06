@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Layout, Table, Tag, Empty, Button, Tabs, Row, Col, Typography, Image } from "antd";
+import { Layout, Table, Tag, Empty, Button, Tabs, Row, Col, Typography, Image, Modal, message } from "antd";
 import {
     EnvironmentOutlined,
     PhoneOutlined,
+    CheckCircleOutlined,
+    CloseCircleOutlined
 } from "@ant-design/icons";
 import {
     Sofa,
@@ -24,6 +26,7 @@ import api from "../../../services/api";
 import "./style.css";
 
 const { Content } = Layout;
+const { confirm } = Modal;
 
 const ViewMovingOrder = () => {
     const { user, isAuthenticated } = useUser();
@@ -71,20 +74,22 @@ const ViewMovingOrder = () => {
     const statusColorMap = {
         "CREATED": "blue",
         "WAITING_SURVEY": "orange",
-        "SURVEYING": "cyan",
-        "WAITING_PRICING": "gold",
-        "CHECKING_PRICING": "purple",
+        "SURVEYED": "cyan",
+        "QUOTED": "green",
+        "ACCEPTED": "geekblue",
+        "CONVERTED": "purple",
         "IN_PROGRESS": "processing",
         "COMPLETED": "success",
         "CANCELLED": "error"
     };
 
     const statusLabelMap = {
-        "CREATED": "Mới tạo",
-        "WAITING_SURVEY": "Chờ khảo sát",
-        "SURVEYING": "Đang khảo sát",
-        "WAITING_PRICING": "Chờ báo giá",
-        "CHECKING_PRICING": "Khách duyệt giá",
+        "CREATED": "Chờ xác nhận lịch",
+        "WAITING_SURVEY": "Đã phân công",
+        "SURVEYED": "Đã khảo sát",
+        "QUOTED": "Đã báo giá",
+        "ACCEPTED": "Đã chốt đơn",
+        "CONVERTED": "Đã tạo HĐ",
         "IN_PROGRESS": "Đang vận chuyển",
         "COMPLETED": "Hoàn thành",
         "CANCELLED": "Đã hủy"
@@ -128,11 +133,85 @@ const ViewMovingOrder = () => {
             ),
         },
         {
+            title: "Báo giá (VNĐ)",
+            render: (_, record) => {
+                if (record.pricing?.totalPrice) {
+                    return <strong style={{ color: "#52c41a" }}>{record.pricing.totalPrice.toLocaleString()} ₫</strong>;
+                }
+                return <span style={{ color: "#aaa" }}>Chưa có</span>;
+            }
+        },
+        {
             title: "Thao tác",
-            render: () => (
-                <Button type="link" icon={<PhoneOutlined />}>
-                    Liên hệ
-                </Button>
+            render: (_, record) => (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+
+                    {/* Hành động khi đơn hàng ở trạng thái QUOTED (Chờ khách chốt) */}
+                    {record.status === 'QUOTED' && (
+                        <>
+                            <Button
+                                type="primary"
+                                style={{ background: '#52c41a', borderColor: '#52c41a', minWidth: '120px' }}
+                                icon={<CheckCircleOutlined />}
+                                onClick={async () => {
+                                    try {
+                                        // Gọi API chấp nhận báo giá
+                                        await api.put(`/request-tickets/${record._id}/accept-quote`);
+                                        message.success("Đã chấp nhận báo giá, vui lòng ký hợp đồng.");
+                                        // Chuyển tới trang Ký Hợp Đồng Mới
+                                        window.location.href = `/customer/sign-contract/${record._id}`;
+                                    } catch (err) {
+                                        message.error("Lỗi khi chấp nhận báo giá: " + (err.response?.data?.message || err.message));
+                                    }
+                                }}
+                            >
+                                Chấp nhận
+                            </Button>
+
+                            <Button
+                                danger
+                                icon={<CloseCircleOutlined />}
+                                style={{ minWidth: '120px' }}
+                                onClick={() => {
+                                    confirm({
+                                        title: 'Bạn có chắc chắn muốn từ chối báo giá này?',
+                                        content: 'Yêu cầu chuyển nhà sẽ bị hủy bỏ.',
+                                        okText: 'Từ chối & Hủy',
+                                        okType: 'danger',
+                                        cancelText: 'Quay lại',
+                                        onOk: async () => {
+                                            try {
+                                                await api.put(`/request-tickets/${record._id}/cancel`, {
+                                                    reason: 'Khách hàng từ chối báo giá'
+                                                });
+                                                message.success("Đã từ chối báo giá và hủy đơn.");
+                                                window.location.reload();
+                                            } catch (err) {
+                                                message.error("Lỗi khi hủy đơn: " + (err.response?.data?.message || err.message));
+                                            }
+                                        }
+                                    });
+                                }}
+                            >
+                                Từ chối
+                            </Button>
+                        </>
+                    )}
+
+                    {/* Hành động mặc định hoặc sau khi chốt */}
+                    {record.status !== 'QUOTED' && (
+                        <Button type="link" icon={<PhoneOutlined />}>
+                            Liên hệ
+                        </Button>
+                    )}
+
+                    {/* Hiển thị nút đặt cọc nếu giá > 1,000,000 và chưa bị huỷ */}
+                    {record.pricing?.totalPrice > 1000000 && !['CANCELLED', 'CREATED', 'WAITING_SURVEY', 'SURVEYED'].includes(record.status) && (
+                        <Button type="primary" style={{ background: '#d9363e', minWidth: '130px' }}>
+                            Thanh toán thêm
+                        </Button>
+                    )}
+                </div>
             ),
         },
     ];

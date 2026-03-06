@@ -30,12 +30,12 @@ const SurveySchedulingPage = () => {
   const [surveyors, setSurveyors] = useState([]); // Chứa danh sách Dispatchers thật
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const[selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedTicket, setSelectedTicket] = useState(null);
   const [form] = Form.useForm();
 
   const STATUS_MAP = {
     CREATED: { label: "Chờ xác nhận lịch", color: "blue" },
-    SCHEDULED: { label: "Đã phân công", color: "green" },
+    WAITING_SURVEY: { label: "Đã phân công", color: "green" },
   };
 
   const fetchData = async () => {
@@ -43,16 +43,16 @@ const SurveySchedulingPage = () => {
     try {
       // Dùng Promise.all để gọi 2 API cùng lúc cho tối ưu tốc độ
       const [resTickets, resDispatchers] = await Promise.all([
-        requestTicketService.getTickets({ status: "CREATED,SCHEDULED" }),
+        requestTicketService.getTickets({ status: "CREATED,WAITING_SURVEY" }),
         userService.getDispatchers() // Gọi API lấy user
       ]);
-      
+
       // Xử lý dữ liệu Tickets
-      const ticketsData = resTickets.data?.data || resTickets.data ||[];
+      const ticketsData = resTickets.data?.data || resTickets.data || [];
       setTickets(ticketsData);
-      
+
       // Xử lý dữ liệu Dispatchers
-      const dispatchersData = resDispatchers.data?.data || resDispatchers.data ||[];
+      const dispatchersData = resDispatchers.data?.data || resDispatchers.data || [];
       setSurveyors(dispatchersData);
 
     } catch (error) {
@@ -65,7 +65,7 @@ const SurveySchedulingPage = () => {
 
   useEffect(() => {
     fetchData();
-  },[]);
+  }, []);
 
   const openConfirmModal = (ticket) => {
     setSelectedTicket(ticket);
@@ -79,13 +79,13 @@ const SurveySchedulingPage = () => {
 
       const payload = {
         requestTicketId: selectedTicket._id,
-        surveyorId: values.surveyorId, 
-        notes: values.notes?.join(", ") || "", 
-        surveyType: surveyType !== "Chưa rõ" ? surveyType : "OFFLINE", 
-        scheduledDate: scheduledDate || new Date().toISOString(), 
+        surveyorId: values.surveyorId,
+        notes: values.notes?.join(", ") || "",
+        surveyType: surveyType !== "Chưa rõ" ? surveyType : "OFFLINE",
+        scheduledDate: scheduledDate || new Date().toISOString(),
       };
 
-      await surveyService.scheduleSurvey(payload); 
+      await surveyService.scheduleSurvey(payload);
       message.success(`Đã xác nhận và phân công khảo sát cho đơn ${selectedTicket.code}`);
       setIsModalVisible(false);
       fetchData();
@@ -113,7 +113,7 @@ const SurveySchedulingPage = () => {
     });
   };
 
-  const columns =[
+  const columns = [
     // ... Giữ nguyên cấu trúc columns của bạn
     { title: "Mã Đơn", dataIndex: "code", fontWeight: "bold" },
     { title: "Khách hàng", render: (_, r) => <div>{r.customerId?.fullName}</div> },
@@ -185,7 +185,7 @@ const SurveySchedulingPage = () => {
               <strong>{modalSurveyInfo.surveyType === 'ONLINE' ? 'Khảo sát qua Video (ONLINE)' : 'Khảo sát trực tiếp (OFFLINE)'}</strong>
             </Descriptions.Item>
             <Descriptions.Item label="Thời gian">
-              <strong style={{ color: '#d9363e'}}>
+              <strong style={{ color: '#d9363e' }}>
                 {modalSurveyInfo.scheduledDate ? dayjs(modalSurveyInfo.scheduledDate).format("HH:mm - DD/MM/YYYY") : "Chưa có"}
               </strong>
             </Descriptions.Item>
@@ -207,7 +207,7 @@ const SurveySchedulingPage = () => {
               ))}
             </Select>
           </Form.Item>
-          
+
           <Form.Item name="notes" label="Ghi chú nội bộ / Lời nhắn cho khách hàng">
             <Select mode="tags" style={{ width: "100%" }} placeholder="Nhập ghi chú và ấn Enter..." />
           </Form.Item>

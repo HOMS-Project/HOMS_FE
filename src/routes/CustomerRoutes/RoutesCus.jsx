@@ -9,6 +9,7 @@ import ConfirmMovingOrder from "../../pages/CustomerPage/ConfirmMovingOrder/Conf
 import MovingRequestContract from "../../pages/CustomerPage/MovingRequestContract/MovingRequestContract";
 import Deposit from "../../pages/CustomerPage/Deposit/Deposit";
 import Dashboard from "../../pages/CustomerPage/Dashboard/Dashboard";
+import SignContract from "../../pages/CustomerPage/SignContract/SignContract";
 // import CustomerLayout from "../../pages/CustomerPage/components/layout/CustomerLayout";
 
 const RoutesCus = () => {
@@ -25,6 +26,7 @@ const RoutesCus = () => {
       <Route path="/confirm-order" element={<ConfirmMovingOrder />} />
       <Route path="/moving-request-contract" element={<MovingRequestContract />} />
       <Route path="/deposit" element={<Deposit />} />
+      <Route path="/sign-contract/:ticketId" element={<SignContract />} />
 
       {/* </Route> */}
     </Routes>
