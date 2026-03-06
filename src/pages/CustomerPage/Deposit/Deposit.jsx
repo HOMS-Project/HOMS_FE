@@ -6,7 +6,7 @@ import dayjs from 'dayjs';
 
 import AppHeader from "../../../components/header/header";
 import AppFooter from "../../../components/footer/footer";
-import { createOrder, updateTicketStatus } from "../../../services/orderService";
+import { createOrder, updateTicketStatus,createPaymentLink } from "../../../services/orderService";
 import useUser from "../../../contexts/UserContext";
 
 import "./style.css";
@@ -80,86 +80,72 @@ const Deposit = () => {
     }, [orderData, surveyData, navigate, isAuthenticated]);
 
     const handleSubmit = async () => {
-        if (!paymentMethod || !agreedToTerms || !orderData || !surveyData) {
-            return;
+    if (!paymentMethod || !agreedToTerms || !orderData || !surveyData) return;
+
+    if (!isAuthenticated) {
+        message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        navigate('/login', { state: { returnUrl: '/customer/deposit' } });
+        return;
+    }
+
+    try {
+        setIsSubmitting(true);
+
+        const completeOrderData = {
+            ...orderData,
+            survey: surveyData,
+            paymentMethod,
+            depositAmount
+        };
+
+        // 1. Tạo đơn hàng (Ticket) trước
+        const response = await createOrder(completeOrderData);
+        const ticketId = response.data?._id;
+
+        if (!ticketId) throw new Error("Không lấy được ID đơn hàng");
+
+        // Xóa cache local
+        localStorage.removeItem('pendingOrder');
+
+        // 2. Nếu chọn thanh toán bằng thẻ/ngân hàng -> Chuyển hướng sang PayOS
+        if (paymentMethod === 'bank_transfer' || paymentMethod === 'payos') {
+            message.loading({ content: 'Đang chuyển hướng đến cổng thanh toán...', key: 'paymentRedirect' });
+            
+            const paymentRes = await createPaymentLink(ticketId, depositAmount);
+            
+            if (paymentRes?.data?.checkoutUrl) {
+                // Redirect user sang trang của PayOS
+                window.location.href = paymentRes.data.checkoutUrl;
+                return; // Dừng thực thi tại đây vì đã redirect
+            } else {
+                throw new Error("Không thể tạo link thanh toán");
+            }
+        } 
+        // 3. Xử lý các phương thức thanh toán khác (nếu có, ví dụ tiền mặt)
+        else {
+             // Dành cho các phương thức khác nếu bạn tích hợp sau
+             message.success('Yêu cầu đã được ghi nhận!');
+             navigate('/', { state: { message: 'Yêu cầu của bạn đã được gửi!' } });
         }
 
-        // Double check authentication before submitting
-        if (!isAuthenticated) {
+    } catch (error) {
+        console.error('❌ Error process deposit:', error);
+        message.destroy('paymentRedirect'); 
+        
+        if (error.response?.status === 401) {
             message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+            const tempOrderData = { orderData, surveyData, depositAmount, timestamp: new Date().getTime() };
+            localStorage.setItem('pendingOrder', JSON.stringify(tempOrderData));
             navigate('/login', { state: { returnUrl: '/customer/deposit' } });
             return;
         }
 
-        try {
-            setIsSubmitting(true);
-
-            // Combine all data for backend
-            const completeOrderData = {
-                ...orderData,
-                survey: surveyData,
-                paymentMethod,
-                depositAmount
-            };
-
-            console.log('📤 Submitting complete order to backend:', completeOrderData);
-
-            // Create the RequestTicket in backend
-            const response = await createOrder(completeOrderData);
-
-            console.log('✅ Order created successfully:', response);
-
-            message.success(response.message || 'Yêu cầu dịch vụ đã được tạo thành công!');
-
-            // Transition ticket to WAITING_SURVEY now that payment has been accepted
-            const ticketId = response.data?._id;
-            if (ticketId) {
-                try {
-                    await updateTicketStatus(ticketId, 'WAITING_SURVEY');
-                } catch (statusError) {
-                    // Non-blocking: don't prevent navigation if status update fails
-                    console.warn('Could not transition ticket to WAITING_SURVEY:', statusError);
-                }
-            }
-
-            // Clear any pending order data from localStorage
-            localStorage.removeItem('pendingOrder');
-
-            // Navigate to order success page or order list
-            setTimeout(() => {
-                navigate('/', {
-                    state: {
-                        newOrder: response.data,
-                        message: 'Yêu cầu của bạn đã được gửi. Chúng tôi sẽ liên hệ sớm!'
-                    }
-                });
-            }, 1500);
-
-        } catch (error) {
-            console.error('❌ Error creating order:', error);
-
-            // Check if it's an authentication error
-            if (error.response?.status === 401) {
-                message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-                // Save current order data before redirecting
-                const tempOrderData = {
-                    orderData,
-                    surveyData,
-                    depositAmount,
-                    timestamp: new Date().getTime()
-                };
-                localStorage.setItem('pendingOrder', JSON.stringify(tempOrderData));
-                navigate('/login', { state: { returnUrl: '/customer/deposit' } });
-                return;
-            }
-
-            const errorMessage = error.message || error.error || 'Có lỗi xảy ra khi tạo yêu cầu. Vui lòng thử lại.';
-            message.error(errorMessage);
-
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+        const errorMessage = error.message || error.error || 'Có lỗi xảy ra khi tạo yêu cầu. Vui lòng thử lại.';
+        message.error(errorMessage);
+    } finally {
+        setIsSubmitting(false);
+    }
+};
 
     if (!orderData || !surveyData) {
         return (
@@ -283,6 +269,7 @@ const Deposit = () => {
                                     <Option value="momo">Ví MoMo</Option>
                                     <Option value="vnpay">VNPay</Option>
                                     <Option value="zalopay">ZaloPay</Option>
+                                    <Option value="payos">PAYOS</Option>
                                 </Select>
 
                                 <div className="terms-checkbox">

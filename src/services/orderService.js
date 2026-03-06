@@ -127,12 +127,22 @@ export const cancelOrder = async (ticketId) => {
         normalizeApiError(error);
     }
 };
+export const createPaymentLink = async (ticketId, amount) => {
+    try {
+        const response = await api.post(`/request-tickets/${ticketId}/create-payment-link`, { amount });
+        return response.data;
+    } catch (error) {
+        console.error('Error creating payment link:', error);
+        normalizeApiError(error);
+    }
+};
 
 const orderService = {
     createOrder,
     getMyOrders,
     getOrderById,
-    cancelOrder
+    cancelOrder,
+     createPaymentLink
 };
 
 export default orderService;
