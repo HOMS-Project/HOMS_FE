@@ -4,7 +4,8 @@ import {
     EnvironmentOutlined,
     PhoneOutlined,
     CheckCircleOutlined,
-    CloseCircleOutlined
+    CloseCircleOutlined,
+    EyeOutlined
 } from "@ant-design/icons";
 import {
     Sofa,
@@ -32,6 +33,33 @@ const ViewMovingOrder = () => {
     const { user, isAuthenticated } = useUser();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isSurveyModalVisible, setIsSurveyModalVisible] = useState(false);
+    const [selectedSurvey, setSelectedSurvey] = useState(null);
+    const [selectedTicketPricing, setSelectedTicketPricing] = useState(null);
+
+    const handleViewSurvey = async (ticket) => {
+        try {
+            // Lấy khảo sát
+            const res = await api.get(`/surveys/ticket/${ticket._id}`);
+            const surveyData = res.data?.data || res.data;
+            setSelectedSurvey(surveyData);
+
+            // Cố gắng lấy báo giá chi tiết (breakdown fees)
+            try {
+                const resPricing = await api.get(`/pricing/${ticket._id}`);
+                const pricingDetail = resPricing.data?.data;
+                // Gộp thông tin pricing cơ bản và breakdown
+                setSelectedTicketPricing({ ...ticket.pricing, breakdown: pricingDetail?.breakdown });
+            } catch (err) {
+                // Nếu báo lỗi 404 (chưa có) thì vẫn dùng ticket.pricing gốc
+                setSelectedTicketPricing(ticket.pricing);
+            }
+
+            setIsSurveyModalVisible(true);
+        } catch (error) {
+            message.error("Không thể tải thông tin khảo sát: " + (error.response?.data?.message || error.message));
+        }
+    };
 
     // Fetch user shifting schedule from db
     useEffect(() => {
@@ -205,10 +233,21 @@ const ViewMovingOrder = () => {
                         </Button>
                     )}
 
+                    {/* Xem thông tin khảo sát (có báo giá r thì xem được) */}
+                    {record.pricing?.totalPrice > 0 && (
+                        <Button
+                            type="dashed"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleViewSurvey(record)}
+                        >
+                            Xem báo giá
+                        </Button>
+                    )}
+
                     {/* Hiển thị nút đặt cọc nếu giá > 1,000,000 và chưa bị huỷ */}
-                    {record.pricing?.totalPrice > 1000000 && !['CANCELLED', 'CREATED', 'WAITING_SURVEY', 'SURVEYED'].includes(record.status) && (
+                    {record.pricing?.totalPrice > 1000000 && ['ACCEPTED', 'CONVERTED'].includes(record.status) && (
                         <Button type="primary" style={{ background: '#d9363e', minWidth: '130px' }}>
-                            Thanh toán thêm
+                            Thanh toán cọc (50%)
                         </Button>
                     )}
                 </div>
@@ -239,6 +278,108 @@ const ViewMovingOrder = () => {
                         rowKey="_id"
                     />
                 </section>
+
+                <Modal
+                    title="Chi tiết khảo sát & Báo giá"
+                    open={isSurveyModalVisible}
+                    onCancel={() => setIsSurveyModalVisible(false)}
+                    footer={[<Button key="close" onClick={() => setIsSurveyModalVisible(false)}>Đóng</Button>]}
+                    width={700}
+                >
+                    {selectedSurvey && selectedTicketPricing ? (
+                        <div>
+                            <Typography.Title level={5}>1. Thông tin khảo sát</Typography.Title>
+                            <Row gutter={[16, 16]}>
+                                <Col span={12}>
+                                    <ul>
+                                        <li><strong>Quãng đường:</strong> {selectedSurvey.distanceKm} km</li>
+                                        <li><strong>Khênh vác:</strong> {selectedSurvey.carryMeter > 0 ? `${selectedSurvey.carryMeter} mét` : 'Không'}</li>
+                                        <li><strong>Tầng lầu:</strong> {selectedSurvey.floors}</li>
+                                        <li><strong>Thang máy:</strong> {selectedSurvey.hasElevator ? 'Có' : 'Không'}</li>
+                                    </ul>
+                                </Col>
+                                <Col span={12}>
+                                    <ul>
+                                        <li><strong>Tháo lắp:</strong> {selectedSurvey.needsAssembling ? 'Có' : 'Không'}</li>
+                                        <li><strong>Đóng gói:</strong> {selectedSurvey.needsPacking ? 'Có' : 'Không'}</li>
+                                        <li><strong>Bảo hiểm:</strong> {selectedSurvey.insuranceRequired ? 'Có' : 'Không'}</li>
+                                        <li><strong>Số lượng đồ (ước tính):</strong> {selectedSurvey.totalActualItems || selectedSurvey.items?.length || 0} món</li>
+                                    </ul>
+                                </Col>
+                            </Row>
+
+                            <Typography.Title level={5} style={{ marginTop: 20 }}>2. Đề xuất tài nguyên</Typography.Title>
+                            <p><strong>Loại xe:</strong> {selectedSurvey.suggestedVehicle}</p>
+                            <p><strong>Nhân sự:</strong> {selectedSurvey.suggestedStaffCount} người</p>
+
+                            <Typography.Title level={5} style={{ marginTop: 20 }}>3. Cấu thành giá chi tiết</Typography.Title>
+                            <div style={{ background: '#f5f5f5', padding: '15px', borderRadius: '8px' }}>
+                                {selectedTicketPricing?.breakdown ? (
+                                    <>
+                                        <Row justify="space-between" style={{ marginBottom: '8px', color: '#555' }}>
+                                            <Col>Phí xe tải:</Col>
+                                            <Col>{selectedTicketPricing.breakdown.vehicleFee?.toLocaleString() || 0} ₫</Col>
+                                        </Row>
+                                        <Row justify="space-between" style={{ marginBottom: '8px', color: '#555' }}>
+                                            <Col>Phí nhân công:</Col>
+                                            <Col>{selectedTicketPricing.breakdown.laborFee?.toLocaleString() || 0} ₫</Col>
+                                        </Row>
+                                        {(selectedTicketPricing.breakdown.distanceFee || 0) > 0 && (
+                                            <Row justify="space-between" style={{ marginBottom: '8px', color: '#555' }}>
+                                                <Col>Phụ phí quãng đường xa:</Col>
+                                                <Col>{selectedTicketPricing.breakdown.distanceFee?.toLocaleString() || 0} ₫</Col>
+                                            </Row>
+                                        )}
+                                        {(selectedTicketPricing.breakdown.floorFee || 0) > 0 && (
+                                            <Row justify="space-between" style={{ marginBottom: '8px', color: '#555' }}>
+                                                <Col>Phụ phí tầng lầu:</Col>
+                                                <Col>{selectedTicketPricing.breakdown.floorFee?.toLocaleString() || 0} ₫</Col>
+                                            </Row>
+                                        )}
+                                        {(selectedTicketPricing.breakdown.carryFee || 0) > 0 && (
+                                            <Row justify="space-between" style={{ marginBottom: '8px', color: '#555' }}>
+                                                <Col>Phí khuân vác nội bộ:</Col>
+                                                <Col>{selectedTicketPricing.breakdown.carryFee?.toLocaleString() || 0} ₫</Col>
+                                            </Row>
+                                        )}
+                                        {(selectedTicketPricing.breakdown.assemblingFee || 0) > 0 && (
+                                            <Row justify="space-between" style={{ marginBottom: '8px', color: '#555' }}>
+                                                <Col>Phí tháo lắp đồ đạc:</Col>
+                                                <Col>{selectedTicketPricing.breakdown.assemblingFee?.toLocaleString() || 0} ₫</Col>
+                                            </Row>
+                                        )}
+                                        {(selectedTicketPricing.breakdown.packingFee || 0) > 0 && (
+                                            <Row justify="space-between" style={{ marginBottom: '8px', color: '#555' }}>
+                                                <Col>Phí đóng gói:</Col>
+                                                <Col>{selectedTicketPricing.breakdown.packingFee?.toLocaleString() || 0} ₫</Col>
+                                            </Row>
+                                        )}
+                                        <Row justify="space-between" style={{ borderTop: '1px solid #ddd', paddingTop: '8px', marginBottom: '8px', fontWeight: 'bold' }}>
+                                            <Col>Phí cơ bản:</Col>
+                                            <Col>{selectedTicketPricing.subtotal?.toLocaleString() || 0} ₫</Col>
+                                        </Row>
+                                    </>
+                                ) : (
+                                    <Row justify="space-between" style={{ marginBottom: '8px', fontWeight: 'bold' }}>
+                                        <Col>Phí cơ bản (Xe + Quãng đường + Nhân sự):</Col>
+                                        <Col>{selectedTicketPricing.subtotal?.toLocaleString() || 0} ₫</Col>
+                                    </Row>
+                                )}
+
+                                <Row justify="space-between" style={{ marginBottom: '8px' }}>
+                                    <Col>Thuế / Phụ phí khác:</Col>
+                                    <Col><strong>{selectedTicketPricing.tax?.toLocaleString() || 0} ₫</strong></Col>
+                                </Row>
+                                <Row justify="space-between" style={{ borderTop: '2px solid #ddd', paddingTop: '8px', fontSize: '18px', fontWeight: 'bold', color: '#52c41a' }}>
+                                    <Col>Tổng cộng:</Col>
+                                    <Col>{selectedTicketPricing.totalPrice?.toLocaleString() || 0} ₫</Col>
+                                </Row>
+                            </div>
+                        </div>
+                    ) : (
+                        <Empty description="Chưa có thông tin khảo sát" />
+                    )}
+                </Modal>
 
                 {/* FURNITURE LIST */}
                 <section className="order-options-section">

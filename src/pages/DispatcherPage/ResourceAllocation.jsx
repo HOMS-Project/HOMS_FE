@@ -10,12 +10,12 @@ const { Option } = Select;
 const ResourceAllocation = () => {
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(false);
-    
+
     // Modal states
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [submitting, setSubmitting] = useState(false);
-    
+
     // Form and Resource Data
     const [form] = Form.useForm();
     const [drivers, setDrivers] = useState([]);
@@ -42,10 +42,10 @@ const ResourceAllocation = () => {
                 api.get('/customer/drivers'),
                 api.get('/customer/staff')
             ]);
-            
+
             if (driverRes.data?.success) setDrivers(driverRes.data.data);
             if (staffRes.data?.success) setStaff(staffRes.data.data);
-            
+
         } catch (error) {
             message.error('Lỗi khi tải danh sách nhân sự.');
         }
@@ -69,7 +69,7 @@ const ResourceAllocation = () => {
 
     const handleSubmit = async (values) => {
         if (!selectedInvoice) return;
-        
+
         setSubmitting(true);
         try {
             // Xe (Vehicle) sẽ được tự động tính toán và điều phối trong backend dựa trên trọng lượng/thể tích
@@ -80,10 +80,10 @@ const ResourceAllocation = () => {
                 totalVolume: selectedInvoice.requestTicketId?.surveyDataId?.totalVolume || 10,
                 estimatedDuration: 480 // Mặc định 8 tiếng
             };
-            
+
             await api.post(`/invoices/${selectedInvoice._id}/dispatch`, payload);
             message.success('Đã điều phối xe và nhân sự thành công!');
-            
+
             setIsModalVisible(false);
             fetchInvoices(); // Refresh list
         } catch (error) {
@@ -94,47 +94,47 @@ const ResourceAllocation = () => {
     };
 
     const columns = [
-        { 
-            title: 'Mã Hóa Đơn', 
+        {
+            title: 'Mã Hóa Đơn',
             dataIndex: 'code',
             key: 'code',
             render: (text) => <Text strong>{text}</Text>
         },
-        { 
-            title: 'Mã Yêu Cầu', 
+        {
+            title: 'Mã Yêu Cầu',
             dataIndex: ['requestTicketId', 'code'],
             key: 'ticketCode'
         },
-        { 
-            title: 'Khách hàng', 
+        {
+            title: 'Khách hàng',
             dataIndex: ['customerId', 'fullName'],
             key: 'customerName'
         },
-        { 
-            title: 'Địa chỉ lấy', 
-            dataIndex: ['pickup', 'address'],
+        {
+            title: 'Địa chỉ lấy',
+            dataIndex: ['requestTicketId', 'pickup', 'address'],
             key: 'pickup',
             ellipsis: true
         },
-        { 
-            title: 'Địa chỉ giao', 
-            dataIndex: ['delivery', 'address'],
+        {
+            title: 'Địa chỉ giao',
+            dataIndex: ['requestTicketId', 'delivery', 'address'],
             key: 'delivery',
             ellipsis: true
         },
-        { 
-            title: 'Trạng thái', 
-            dataIndex: 'status', 
+        {
+            title: 'Trạng thái',
+            dataIndex: 'status',
             key: 'status',
-            render: (status) => <Tag color="blue">{status}</Tag> 
+            render: (status) => <Tag color="blue">{status}</Tag>
         },
         {
             title: 'Thao tác',
             key: 'action',
             render: (_, record) => (
-                <Button 
-                    type="primary" 
-                    style={{ background: '#52c41a' }} 
+                <Button
+                    type="primary"
+                    style={{ background: '#52c41a' }}
                     icon={<CarOutlined />}
                     onClick={() => showDispatchModal(record)}
                 >
@@ -147,9 +147,9 @@ const ResourceAllocation = () => {
     return (
         <div style={{ padding: '24px', background: '#fff', borderRadius: '8px' }}>
             <Title level={4}>Điều phối Xe & Đội ngũ bốc xếp</Title>
-            <Table 
-                columns={columns} 
-                dataSource={invoices} 
+            <Table
+                columns={columns}
+                dataSource={invoices}
                 rowKey="_id"
                 loading={loading}
                 pagination={{ pageSize: 10 }}
@@ -169,9 +169,9 @@ const ResourceAllocation = () => {
                 </div>
 
                 <Form form={form} layout="vertical" onFinish={handleSubmit}>
-                    <Form.Item 
-                        name="driverIds" 
-                        label="Chọn Tài xế" 
+                    <Form.Item
+                        name="driverIds"
+                        label="Chọn Tài xế"
                         rules={[{ required: true, message: 'Vui lòng chọn ít nhất 1 tài xế' }]}
                     >
                         <Select
@@ -186,8 +186,8 @@ const ResourceAllocation = () => {
                         </Select>
                     </Form.Item>
 
-                    <Form.Item 
-                        name="staffIds" 
+                    <Form.Item
+                        name="staffIds"
                         label="Chọn Nhân viên bốc xếp (Tùy chọn)"
                     >
                         <Select

@@ -5,6 +5,15 @@ export const requestTicketService = {
   getTickets: async (params) => {
     const response = await api.get('/request-tickets', { params });
     return response.data;
+  },
+  updateStatus: async (ticketId, status) => {
+    const response = await api.put(`/request-tickets/${ticketId}/status`, { status });
+    return response.data;
+  },
+  proposeTime: async (ticketId, data) => {
+    // data = { proposedTimes: [...], reason: "..." }
+    const response = await api.put(`/request-tickets/${ticketId}/propose-time`, data);
+    return response.data;
   }
 };
 
@@ -21,6 +30,11 @@ export const surveyService = {
 
   completeSurvey: async (ticketId, data) => {
     const response = await api.put(`/surveys/${ticketId}/complete`, data);
+    return response.data;
+  },
+
+  estimateResources: async (data) => {
+    const response = await api.post('/surveys/estimate', data);
     return response.data;
   }
 };

@@ -40,17 +40,43 @@ const SurveyInput = () => {
     fetchTickets();
   }, []);
 
+  const getRouteDistance = async (origin, destination) => {
+    try {
+      const MAPBOX_ACCESS_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN; 
+      // Replace with env variable if needed.
+
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?geometries=geojson&access_token=${MAPBOX_ACCESS_TOKEN}`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.routes && data.routes.length > 0) {
+        // Mapbox returns distance in meters, convert to Km
+        const distanceKm = data.routes[0].distance / 1000;
+        return distanceKm;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Lỗi tính quãng đường từ Mapbox API:', error);
+      return 0;
+    }
+  };
+
   // 2. Mở Modal & Fill dữ liệu cũ
   const openSurveyModal = async (ticket) => {
+    console.log("DEBUG TICKET COORDS:", ticket);
     setSelectedTicket(ticket);
     form.resetFields();
     setIsInsuranceChecked(false);
 
     try {
       const res = await surveyService.getSurveyByTicket(ticket._id);
-      const surveyData = res.data.data;
+      console.log("DEBUG: LẤY ĐƯỢC SURVEY TỪ BE:", res);
 
-      if (surveyData) {
+      const surveyData = res.data?.data || res.data; // Phòng hờ BE trả về { success, data } hoặc nội dung trực tiếp
+
+      if (surveyData && surveyData._id) {
+        console.log("DEBUG: FILLING FORM WITH DATA:", surveyData);
         setIsInsuranceChecked(surveyData.insuranceRequired);
         form.setFieldsValue({
           // Map fields khớp với Model SurveyData
@@ -68,20 +94,34 @@ const SurveyInput = () => {
           items: surveyData.items?.length > 0 ? surveyData.items : [{}]
         });
       } else {
+        // Tính distanceKm tự động từ toạ độ
+        let estimatedKm = 0;
+        if (ticket.pickup?.coordinates && ticket.delivery?.coordinates) {
+          estimatedKm = await getRouteDistance(ticket.pickup.coordinates, ticket.delivery.coordinates);
+          estimatedKm = Math.round(estimatedKm * 10) / 10; // Làm tròn 1 chữ số thập phân
+        }
+
         // Giá trị mặc định cho form mới
         form.setFieldsValue({
           floors: 0,
           carryMeter: 0,
-          distanceKm: 0,
+          distanceKm: estimatedKm,
           items: [{}],
           suggestedStaffCount: 2
         });
       }
     } catch (error) {
       // Chưa có survey nào được tạo (lỗi 404 từ API getSurveyByTicket là bình thường với ticket mới)
+      let estimatedKm = 0;
+      if (ticket.pickup?.coordinates && ticket.delivery?.coordinates) {
+        estimatedKm = await getRouteDistance(ticket.pickup.coordinates, ticket.delivery.coordinates);
+        estimatedKm = Math.round(estimatedKm * 10) / 10;
+      }
+
       form.setFieldsValue({
         floors: 0,
         carryMeter: 0,
+        distanceKm: estimatedKm,
         items: [{}]
       });
     }
@@ -130,6 +170,41 @@ const SurveyInput = () => {
       console.error(error);
       const errorMsg = error.response?.data?.message || 'Lỗi khi lưu kết quả!';
       message.error(errorMsg);
+    }
+  };
+
+  const handleEstimate = async () => {
+    try {
+      // Validate các trường cần thiết trước khi ước tính
+      const values = await form.validateFields(['items', 'distanceKm', 'floors', 'hasElevator']);
+
+      const payload = {
+        distanceKm: values.distanceKm,
+        floors: values.floors || 0,
+        hasElevator: values.hasElevator || false,
+        items: values.items?.map(item => ({
+          actualVolume: item.actualVolume || 0,
+          actualWeight: item.actualWeight || 0
+        })) || []
+      };
+
+      setLoading(true);
+      const res = await surveyService.estimateResources(payload);
+      if (res?.data) {
+        form.setFieldsValue({
+          suggestedVehicle: res.data.suggestedVehicle,
+          suggestedStaffCount: res.data.suggestedStaffCount
+        });
+        if (res.data.routeWarnings && res.data.routeWarnings.length > 0) {
+          message.warning(res.data.routeWarnings.join(' '));
+        } else {
+          message.success('Đã tự động tính toán loại xe và nhân sự!');
+        }
+      }
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Lỗi tính toán: Vui lòng kiểm tra đã nhập đủ Quãng đường và Đồ đạc!');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -276,7 +351,12 @@ const SurveyInput = () => {
               </Card>
 
               {/* 3. Đề xuất tài nguyên (Quan trọng cho tính giá) */}
-              <Card size="small" title="3. Đề xuất Tài nguyên" style={{ marginTop: 16, background: '#f6ffed', borderColor: '#b7eb8f' }}>
+              <Card
+                size="small"
+                title="3. Đề xuất Tài nguyên"
+                extra={!isReadOnly && <Button type="dashed" size="small" style={{ color: '#1890ff', borderColor: '#1890ff' }} onClick={handleEstimate}>Tự động tính</Button>}
+                style={{ marginTop: 16, background: '#f6ffed', borderColor: '#b7eb8f' }}
+              >
                 <Form.Item
                   name="suggestedVehicle"
                   label="Loại xe tải đề xuất"
