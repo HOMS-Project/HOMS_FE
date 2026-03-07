@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  Table, Button, Tag, Modal, Form, Select, message, Space, Card, Typography, Descriptions,
+  Table, Button, Tag, Modal, Form, Select, message, Space, Card, Typography, Descriptions, DatePicker
 } from "antd";
 import { CheckCircleOutlined, CloseCircleOutlined, EyeOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -30,8 +30,10 @@ const SurveySchedulingPage = () => {
   const [surveyors, setSurveyors] = useState([]); // Chứa danh sách Dispatchers thật
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isRejectModalVisible, setIsRejectModalVisible] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [form] = Form.useForm();
+  const [formReject] = Form.useForm();
 
   const STATUS_MAP = {
     CREATED: { label: "Chờ xác nhận lịch", color: "blue" },
@@ -95,22 +97,30 @@ const SurveySchedulingPage = () => {
   };
 
   const handleCancelTicket = (ticket) => {
-    confirm({
-      title: 'Từ chối yêu cầu khảo sát?',
-      content: `Bạn có chắc chắn muốn từ chối đơn yêu cầu ${ticket.code} của khách hàng ${ticket.customerId?.fullName}?`,
-      okText: 'Từ chối',
-      okType: 'danger',
-      cancelText: 'Đóng',
-      onOk: async () => {
-        try {
-          await requestTicketService.updateStatus(ticket._id, "CANCELLED"); // Cẩn thận cách truyền params hàm này
-          message.success(`Đã từ chối đơn ${ticket.code}`);
-          fetchData();
-        } catch (error) {
-          message.error("Lỗi khi từ chối đơn!");
-        }
-      },
-    });
+    setSelectedTicket(ticket);
+    formReject.resetFields();
+    setIsRejectModalVisible(true);
+  };
+
+  const handleRejectSubmit = async (values) => {
+    try {
+      if (!values.proposedTimes || values.proposedTimes.length === 0) {
+        return message.error("Vui lòng thêm ít nhất một thời gian đề xuất!");
+      }
+      const proposedTimes = values.proposedTimes.map(d => d.toISOString());
+
+      const payload = {
+        proposedTimes,
+        reason: values.reason?.join(", ") || ""
+      };
+      
+      await requestTicketService.proposeTime(selectedTicket._id, payload);
+      message.success(`Đã từ chối đơn ${selectedTicket.code} và đề xuất lịch mới`);
+      setIsRejectModalVisible(false);
+      fetchData();
+    } catch (error) {
+      message.error(error.response?.data?.message || "Lỗi khi từ chối đơn!");
+    }
   };
 
   const columns = [
@@ -210,6 +220,45 @@ const SurveySchedulingPage = () => {
 
           <Form.Item name="notes" label="Ghi chú nội bộ / Lời nhắn cho khách hàng">
             <Select mode="tags" style={{ width: "100%" }} placeholder="Nhập ghi chú và ấn Enter..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`TỪ CHỐI & ĐỀ XUẤT LỊCH MỚI - Đơn #${selectedTicket?.code}`}
+        open={isRejectModalVisible}
+        onCancel={() => setIsRejectModalVisible(false)}
+        onOk={() => formReject.submit()}
+        okText="Từ chối & Gửi đề xuất"
+        okButtonProps={{ danger: true }}
+      >
+        <Form form={formReject} layout="vertical" onFinish={handleRejectSubmit}>
+          <Form.List name="proposedTimes">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                    <Form.Item
+                      {...restField}
+                      name={[name]}
+                      rules={[{ required: true, message: 'Vui lòng chọn thời gian' }]}
+                    >
+                      <DatePicker showTime format="HH:mm DD/MM/YYYY" placeholder="Chọn ngày giờ" />
+                    </Form.Item>
+                    <CloseCircleOutlined style={{ color: "red" }} onClick={() => remove(name)} />
+                  </Space>
+                ))}
+                <Form.Item>
+                  <Button type="dashed" onClick={() => add()} block>
+                    + Thêm mốc thời gian đề xuất
+                  </Button>
+                </Form.Item>
+              </>
+            )}
+          </Form.List>
+
+          <Form.Item name="reason" label="Lý do từ chối (Ghi chú)">
+            <Select mode="tags" style={{ width: "100%" }} placeholder="Nhập lý do và ấn Enter..." />
           </Form.Item>
         </Form>
       </Modal>

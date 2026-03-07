@@ -9,7 +9,8 @@ import ForgotPasswordPage from './pages/CustomerPage/Auth/ForgotPasswordPage'
 import ChangePasswordPage from './pages/CustomerPage/Auth/ChangePasswordPage';
 import VerifyOTPPage from './pages/CustomerPage/Auth/VerifyOTPPage';
 import ResetPasswordPage from './pages/CustomerPage/Auth/ResetPasswordPage';
-
+import PaymentSuccess from "./pages/payment/PaymentSuccess";
+import PaymentCancel from "./pages/payment/PaymentCancel";
 import RoutesCus from './routes/CustomerRoutes/RoutesCus';
 import RoutesDispatcher from './routes/DispatcherRoutes/DispatcherRoutes'; import RoutesAdmin from './routes/AdminRoutes/RoutesAdmin';
 
@@ -30,7 +31,8 @@ function App() {
             <Route path="/change-password" element={<ChangePasswordPage />} />
             <Route path="/verify-otp" element={<VerifyOTPPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-
+<Route path="/payment/success" element={<PaymentSuccess />} />
+<Route path="/payment/cancel" element={<PaymentCancel />} />
             <Route path="/customer/*" element={<RoutesCus />} />
             <Route path="/admin/*" element={<RoutesAdmin />} />
             <Route path="/dispatcher/*" element={<RoutesDispatcher />} />
