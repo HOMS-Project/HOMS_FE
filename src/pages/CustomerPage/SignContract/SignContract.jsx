@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Card, Button, message, Spin, Checkbox, Typography } from 'antd';
+import { Layout, Card, Button, message, Spin, Checkbox, Typography, Divider } from 'antd';
+import { SafetyCertificateOutlined, CheckCircleOutlined, InfoCircleOutlined, EditOutlined } from '@ant-design/icons';
 import AppHeader from '../../../components/header/header';
 import AppFooter from '../../../components/footer/footer';
 import api from '../../../services/api';
 
 const { Content } = Layout;
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const SignContract = () => {
     const { ticketId } = useParams();
@@ -115,90 +116,177 @@ const SignContract = () => {
     return (
         <Layout className="sign-contract-page">
             <AppHeader />
-            <Content style={{ padding: '40px 20px', backgroundColor: '#f5f5f5' }}>
-                <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <Content style={{ padding: '40px 20px', backgroundColor: '#f0f2f5' }}>
+                <div style={{ maxWidth: '900px', margin: '0 auto' }}>
                     <Card
-                        title={<Title level={3} style={{ color: '#2D4F36', margin: 0, textAlign: 'center' }}>Hợp Đồng Vận Chuyển</Title>}
                         bordered={false}
-                        style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                        style={{
+                            borderRadius: '12px',
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                            overflow: 'hidden'
+                        }}
+                        bodyStyle={{ padding: 0 }}
                     >
-                        <div style={{ marginBottom: 20 }}>
-                            <Text strong>Mã Hợp Đồng: </Text><Text>{contract.contractNumber}</Text>
+                        {/* Header của Hợp Đồng */}
+                        <div style={{
+                            background: '#2D4F36',
+                            padding: '30px 40px',
+                            color: 'white',
+                            borderBottom: '4px solid #e1b12c'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <Title level={2} style={{ color: 'white', margin: 0, fontWeight: 700 }}>HỢP ĐỒNG VẬN CHUYỂN HOMS</Title>
+                                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '16px', display: 'block', marginTop: 8 }}>
+                                        Mã hợp đồng: <strong style={{ color: '#fff' }}>{contract.contractNumber}</strong>
+                                    </Text>
+                                </div>
+                                <SafetyCertificateOutlined style={{ fontSize: '48px', color: '#e1b12c' }} />
+                            </div>
                         </div>
 
-                        <div
-                            className="contract-content"
-                            style={{
-                                background: '#f9f9f9',
-                                padding: '20px',
-                                borderRadius: '8px',
-                                border: '1px solid #eee',
-                                minHeight: '300px',
-                                maxHeight: '500px',
-                                overflowY: 'auto',
-                                marginBottom: '20px'
-                            }}
-                            dangerouslySetInnerHTML={{ __html: contract.content }}
-                        />
-
-                        {contract.status === 'DRAFT' || contract.status === 'SENT' ? (
-                            <>
-                                <div style={{ marginBottom: 20 }}>
-                                    <Checkbox checked={agreed} onChange={(e) => setAgreed(e.target.checked)}>
-                                        <Text strong>Tôi đã kiểm tra thông tin và đồng ý ký vào Hợp Đồng này.</Text>
-                                    </Checkbox>
-                                </div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <Button
-                                        type="primary"
-                                        size="large"
-                                        onClick={handleSignContract}
-                                        loading={signing}
-                                        disabled={!agreed}
-                                        style={{ background: '#52c41a', borderColor: '#52c41a', width: '200px' }}
-                                    >
-                                        CHẤP NHẬN & KÝ
-                                    </Button>
-                                </div>
-                            </>
-                        ) : (
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ padding: '20px', background: '#e6f7ff', borderRadius: '8px', marginBottom: 16 }}>
-                                    <Text strong style={{ color: '#1890ff', fontSize: '16px' }}>Hợp đồng này đã được ký.</Text>
-                                </div>
-                                {/* If invoice still unpaid, show retry payment button */}
-                                {(!invoice || invoice.paymentStatus === 'UNPAID') && (
-                                    <Button
-                                        type="primary"
-                                        size="large"
-                                        loading={paying}
-                                        style={{ background: '#d9363e', borderColor: '#d9363e', width: '240px' }}
-                                        onClick={async () => {
-                                            setPaying(true);
-                                            try {
-                                                const depositRes = await api.post(`/request-tickets/${ticketId}/deposit`);
-                                                if (depositRes.data?.success && depositRes.data?.data?.checkoutUrl) {
-                                                    window.location.href = depositRes.data.data.checkoutUrl;
-                                                } else {
-                                                    message.warning('Không thể tạo link thanh toán, vui lòng thử lại sau.');
-                                                }
-                                            } catch (err) {
-                                                console.error(err);
-                                                message.error('Lỗi thanh toán: ' + (err.response?.data?.message || err.message));
-                                            } finally {
-                                                setPaying(false);
-                                            }
-                                        }}
-                                    >
-                                        Thanh toán cọc 50%
-                                    </Button>
-                                )}
+                        {/* Nội dung Hợp Đồng phong cách A4 */}
+                        <div style={{ padding: '40px', backgroundColor: '#fff' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '30px', fontFamily: '"Times New Roman", Times, serif' }}>
+                                <Text strong style={{ fontSize: '18px', display: 'block' }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</Text>
+                                <Text strong style={{ fontSize: '16px', display: 'block', textDecoration: 'underline' }}>Độc lập - Tự do - Hạnh phúc</Text>
+                                <Title level={3} style={{ marginTop: '30px', marginBottom: '10px', fontFamily: '"Times New Roman", Times, serif', fontWeight: 'bold' }}>HỢP ĐỒNG CUNG CẤP DỊCH VỤ VẬN CHUYỂN</Title>
+                                <Text style={{ fontStyle: 'italic', color: '#666' }}>Số: {contract.contractNumber} / HĐVC</Text>
                             </div>
-                        )}
-                        <div style={{ textAlign: 'center', marginTop: 16 }}>
-                            <Button type="link" onClick={() => navigate('/customer/order')}>
-                                Quay lại danh sách đơn hàng
-                            </Button>
+
+                            <div
+                                className="contract-content-a4"
+                                style={{
+                                    fontFamily: '"Times New Roman", Times, serif',
+                                    fontSize: '16px',
+                                    lineHeight: '1.6',
+                                    color: '#000',
+                                    textAlign: 'justify',
+                                    minHeight: '400px',
+                                    padding: '20px 0',
+                                    borderTop: '1px solid #eee',
+                                    borderBottom: '1px solid #eee',
+                                    marginBottom: '30px'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: contract.content }}
+                            />
+
+                            {/* Phần ký kết pháp lý */}
+                            {contract.status === 'DRAFT' || contract.status === 'SENT' ? (
+                                <div style={{
+                                    background: '#f8f9fa',
+                                    padding: '30px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e9ecef'
+                                }}>
+                                    <Title level={5} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2D4F36', marginBottom: '16px' }}>
+                                        <EditOutlined /> XÁC NHẬN VÀ KÝ KẾT ĐIỆN TỬ
+                                    </Title>
+                                    <Paragraph style={{ color: '#555', fontSize: '14px', marginBottom: '20px', lineHeight: '1.6' }}>
+                                        Bằng việc đánh dấu vào ô bên dưới và nhấn nút "CHẤP NHẬN & KÝ", Quý khách hàng xác nhận đã đọc, hiểu rõ và đồng ý với toàn bộ các điều khoản trong Hợp đồng này. Chữ ký điện tử của Quý khách có giá trị pháp lý tương đương với chữ ký tay trực tiếp theo quy định của pháp luật hiện hành về Luật Giao dịch điện tử.
+                                    </Paragraph>
+
+                                    <div style={{ marginBottom: 24, padding: '16px', background: '#fff', borderRadius: '6px', border: '1px solid #d9d9d9', borderLeft: '4px solid #1890ff' }}>
+                                        <Checkbox
+                                            checked={agreed}
+                                            onChange={(e) => setAgreed(e.target.checked)}
+                                            style={{ fontSize: '16px', fontWeight: 500 }}
+                                        >
+                                            Tôi cam kết tuân thủ các điều khoản và đồng ý ký Hợp đồng vận chuyển này.
+                                        </Checkbox>
+                                    </div>
+
+                                    <div style={{ textAlign: 'center' }}>
+                                        <Button
+                                            type="primary"
+                                            size="large"
+                                            icon={<SafetyCertificateOutlined />}
+                                            onClick={handleSignContract}
+                                            loading={signing}
+                                            disabled={!agreed}
+                                            style={{
+                                                background: agreed ? '#52c41a' : undefined,
+                                                borderColor: agreed ? '#52c41a' : undefined,
+                                                height: '50px',
+                                                padding: '0 40px',
+                                                fontSize: '16px',
+                                                fontWeight: 'bold',
+                                                borderRadius: '25px',
+                                                boxShadow: agreed ? '0 4px 14px rgba(82, 196, 26, 0.4)' : 'none'
+                                            }}
+                                        >
+                                            CHẤP NHẬN & KÝ HỢP ĐỒNG
+                                        </Button>
+                                    </div>
+                                    <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                                            <InfoCircleOutlined style={{ marginRight: 4 }} /> Địa chỉ IP và thời gian thao tác của bạn sẽ được lưu lại nhằm mục đích chứng thực pháp lý.
+                                        </Text>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                                    <div style={{
+                                        display: 'inline-block',
+                                        padding: '24px 40px',
+                                        background: '#f6ffed',
+                                        border: '1px solid #b7eb8f',
+                                        borderRadius: '8px',
+                                        marginBottom: 24
+                                    }}>
+                                        <CheckCircleOutlined style={{ fontSize: '48px', color: '#52c41a', marginBottom: '16px' }} />
+                                        <Title level={4} style={{ color: '#237804', margin: 0 }}>Hợp đồng đã được ký điện tử thành công</Title>
+                                        <Text style={{ display: 'block', marginTop: '8px', color: '#555' }}>Toàn bộ điều khoản đã có hiệu lực pháp lý.</Text>
+                                    </div>
+
+                                    {(!invoice || invoice.paymentStatus === 'UNPAID') && (
+                                        <div style={{ marginTop: '20px' }}>
+                                            <Text strong style={{ display: 'block', marginBottom: '16px', fontSize: '16px' }}>
+                                                Vui lòng thanh toán cọc 50% để chúng tôi có thể tiến hành sắp xếp nguồn lực phục vụ Quý khách.
+                                            </Text>
+                                            <Button
+                                                type="primary"
+                                                size="large"
+                                                loading={paying}
+                                                style={{
+                                                    background: '#d9363e',
+                                                    borderColor: '#d9363e',
+                                                    height: '50px',
+                                                    padding: '0 40px',
+                                                    fontSize: '16px',
+                                                    fontWeight: 'bold',
+                                                    borderRadius: '25px',
+                                                    boxShadow: '0 4px 14px rgba(217, 54, 62, 0.4)'
+                                                }}
+                                                onClick={async () => {
+                                                    setPaying(true);
+                                                    try {
+                                                        const depositRes = await api.post(`/request-tickets/${ticketId}/deposit`);
+                                                        if (depositRes.data?.success && depositRes.data?.data?.checkoutUrl) {
+                                                            window.location.href = depositRes.data.data.checkoutUrl;
+                                                        } else {
+                                                            message.warning('Không thể tạo link thanh toán, vui lòng thử lại sau.');
+                                                        }
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        message.error('Lỗi thanh toán: ' + (err.response?.data?.message || err.message));
+                                                    } finally {
+                                                        setPaying(false);
+                                                    }
+                                                }}
+                                            >
+                                                THANH TOÁN CỌC 50%
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <Divider />
+                            <div style={{ textAlign: 'center' }}>
+                                <Button type="default" onClick={() => navigate('/customer/order')}>
+                                    Quay lại danh sách đơn hàng
+                                </Button>
+                            </div>
                         </div>
                     </Card>
                 </div>

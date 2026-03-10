@@ -8,6 +8,7 @@ import SurveySchedulingScreen from "../../pages/DispatcherPage/SurveySchedulingP
 import SurveyCalendar from "../../pages/DispatcherPage/SurveyCalendar";
 import SurveyInput from "../../pages/DispatcherPage/SurveyInput";
 import ResourceAllocation from "../../pages/DispatcherPage/ResourceAllocation";
+import DispatchedOrders from "../../pages/DispatcherPage/DispatchedOrders";
 import ProtectedRoute from "../../components/ProtectRoute/ProtectedRoute";
 const RoutesDispatcher = () => {
   return (
@@ -26,6 +27,7 @@ const RoutesDispatcher = () => {
         <Route path="calendar" element={<SurveyCalendar />} />
         <Route path="survey-input" element={<SurveyInput />} />
         <Route path="allocation" element={<ResourceAllocation />} />
+        <Route path="assigned-orders" element={<DispatchedOrders />} />
 
       </Route>
     </Routes>

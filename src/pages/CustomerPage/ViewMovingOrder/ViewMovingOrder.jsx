@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Layout, Table, Tag, Empty, Button, Tabs, Row, Col, Typography, Image, Modal, message } from "antd";
+import { useLocation } from "react-router-dom";
 import {
     EnvironmentOutlined,
     PhoneOutlined,
@@ -108,6 +109,8 @@ const ViewMovingOrder = () => {
         });
     };
 
+    const location = useLocation();
+
     // Fetch user shifting schedule from db
     useEffect(() => {
         const fetchTickets = async () => {
@@ -133,6 +136,18 @@ const ViewMovingOrder = () => {
 
                     // Sort newest first
                     userTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                    // Lọc theo searchCode từ header
+                    const searchParams = new URLSearchParams(location.search);
+                    const searchCode = searchParams.get("searchCode");
+                    if (searchCode) {
+                        const keyword = searchCode.toLowerCase();
+                        userTickets = userTickets.filter(t =>
+                            (t.code && t.code.toLowerCase().includes(keyword)) ||
+                            (t.invoice?.code && t.invoice.code.toLowerCase().includes(keyword))
+                        );
+                    }
+
                     setTickets(userTickets);
                 }
             } catch (error) {
@@ -143,7 +158,7 @@ const ViewMovingOrder = () => {
         };
 
         fetchTickets();
-    }, [isAuthenticated, user]);
+    }, [isAuthenticated, user, location.search]);
 
     // Format map for tags/status colors
     const statusColorMap = {

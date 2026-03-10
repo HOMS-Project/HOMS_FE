@@ -64,7 +64,12 @@ const AppHeader = () => {
               <div
                 className="logo"
                 onClick={() => {
-                  navigate("/");
+                  let dashboardPath = "/";
+                  if (user?.role === "admin") dashboardPath = "/admin";
+                  else if (user?.role === "dispatcher") dashboardPath = "/dispatcher";
+                  else if (user?.role === "customer") dashboardPath = "/";
+
+                  navigate(dashboardPath);
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
                 style={{ cursor: "pointer" }}
@@ -84,9 +89,15 @@ const AppHeader = () => {
                   <>
                     <Input
                       prefix={<SearchOutlined style={{ color: "#ccc" }} />}
-                      placeholder="Chuyển nhà, báo giá..."
+                      placeholder="Tra cứu đơn (VD: INV-2026-00001)..."
                       className="header-search"
                       bordered={false}
+                      onPressEnter={(e) => {
+                        const code = e.target.value.trim();
+                        if (code) {
+                          navigate(`/customer/order?searchCode=${code}`);
+                        }
+                      }}
                     />
                     <Button type="primary" className="contact-btn-top" iconPosition="end">
                       Liên Hệ Ngay <RightOutlined style={{ fontSize: "10px" }} />

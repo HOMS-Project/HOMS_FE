@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Row, Col, Button, Form, Input, Select, Card, Rate, Space, Menu, Drawer, App, Avatar } from 'antd';
+import { Layout, Row, Col, Button, Form, Input, Select, Card, Rate, Space, Menu, Drawer, App, Avatar, Modal, InputNumber, message } from 'antd';
 import {
     PhoneOutlined,
     MailOutlined,
@@ -18,11 +18,13 @@ import {
     ShoppingCartOutlined,
     MenuOutlined,
     CloseOutlined,
-    UserOutlined
+    UserOutlined,
+    TruckOutlined
 } from '@ant-design/icons';
 import './LandingPage.css';
 import AppHeader from '../../../components/header/header';
 import AppFooter from '../../../components/footer/footer';
+import api from '../../../services/api'; // Dùng helper API call có sẵn
 
 const { Header, Content, Footer } = Layout;
 const { TextArea } = Input;
@@ -37,6 +39,38 @@ const LandingPage = () => {
 
     const handleGetStarted = () => {
         document.getElementById('hero-form').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // States for Quick Estimate
+    const [estimateModalVisible, setEstimateModalVisible] = useState(false);
+    const [estimateLoading, setEstimateLoading] = useState(false);
+    const [estimateData, setEstimateData] = useState(null);
+    const [estDistance, setEstDistance] = useState(null);
+    const [estVehicle, setEstVehicle] = useState('500KG');
+
+    const handleQuickEstimate = async () => {
+        if (!estDistance || estDistance <= 0) {
+            message.warning("Vui lòng nhập khoảng cách (Km) hợp lệ!");
+            return;
+        }
+
+        setEstimateLoading(true);
+        try {
+            const res = await api.post('/public/estimate-price', {
+                distanceKm: Number(estDistance),
+                vehicleType: estVehicle
+            });
+
+            if (res.data && res.data.success) {
+                setEstimateData(res.data.data);
+                setEstimateModalVisible(true);
+            }
+        } catch (err) {
+            console.error(err);
+            message.error("Lỗi hệ thống khi dự tính giá. Vui lòng thử lại sau!");
+        } finally {
+            setEstimateLoading(false);
+        }
     };
 
     const menuItems = [
@@ -160,6 +194,51 @@ const LandingPage = () => {
             <AppHeader className="landing-header" />
 
             <Content className="landing-content">
+                {/* Modal Giá Mẫu */}
+                <Modal
+                    title="Báo Giá Ước Tính"
+                    visible={estimateModalVisible}
+                    onCancel={() => setEstimateModalVisible(false)}
+                    footer={[
+                        <Button key="close" type="primary" onClick={() => setEstimateModalVisible(false)} style={{ background: '#2D4F36' }}>
+                            Đã hiểu
+                        </Button>
+                    ]}
+                    centered
+                >
+                    {estimateData ? (
+                        <div style={{ padding: '10px 0' }}>
+                            <p><strong>Khoảng cách:</strong> {estimateData.distanceKm} Km</p>
+                            <p><strong>Loại xe đề xuất:</strong> {estimateData.vehicleType}</p>
+                            <hr style={{ margin: '15px 0', borderColor: '#eee', borderStyle: 'solid' }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <span>Phí di chuyển:</span>
+                                <span>{estimateData.breakdown?.distanceCost?.toLocaleString('vi-VN')} đ</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <span>Phí thuê xe:</span>
+                                <span>{estimateData.breakdown?.vehicleCost?.toLocaleString('vi-VN')} đ</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <span>Cộng trước Thuế (Subtotal):</span>
+                                <span>{estimateData.breakdown?.subtotal?.toLocaleString('vi-VN')} đ</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Thuế VAT (10%):</span>
+                                <span>{estimateData.breakdown?.tax?.toLocaleString('vi-VN')} đ</span>
+                            </div>
+                            <hr style={{ margin: '15px 0', borderColor: '#eee', borderStyle: 'solid' }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <strong style={{ fontSize: '16px' }}>Tổng Cộng Tham Khảo:</strong>
+                                <strong style={{ fontSize: '20px', color: '#2D4F36' }}>{estimateData.estimatedTotal?.toLocaleString('vi-VN')} đ</strong>
+                            </div>
+                            <p style={{ marginTop: '20px', color: '#888', fontStyle: 'italic', fontSize: '13px' }}>* Lưu ý: Đây là mức giá ước tính dựa trên thuật toán tính khoảng cách vận chuyển. Mức giá thực tế sau khi khảo sát và đàm phán có thể thay đổi để tối ưu nhất cho quý khách.</p>
+                        </div>
+                    ) : (
+                        <p>Không có dữ liệu báo giá...</p>
+                    )}
+                </Modal>
+
                 {/* Hero Section */}
                 <section id="hero-section" className="hero-section">
                     <div className="hero-overlay"></div>
@@ -180,51 +259,59 @@ const LandingPage = () => {
                                 </div>
 
                                 <div className="quick-quote-bar">
-                                    {/* Thay đổi gutter để khoảng cách các ô gần nhau hơn */}
+                                    {/* Form báo giá nhanh UI */}
                                     <Row gutter={[10, 10]} align="middle">
 
-                                        {/* Ô NHẬP LIỆU 1 - Giảm width từ 9 xuống 7 */}
                                         <Col xs={24} sm={7}>
                                             <div className="input-group green-theme">
                                                 <div className="label-row">
                                                     <EnvironmentOutlined className="label-icon" />
-                                                    <span className="input-label">Chuyển từ</span>
+                                                    <span className="input-label">Khoảng cách (Km)</span>
                                                 </div>
-                                                <Input
-                                                    placeholder="Quận/Huyện..."
-                                                    allowClear
+                                                <InputNumber
+                                                    placeholder="VD: 5"
+                                                    min={1}
+                                                    style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                                                    value={estDistance}
+                                                    onChange={(val) => setEstDistance(val ? Number(val) : null)}
                                                     className="custom-input-field"
                                                 />
                                             </div>
                                         </Col>
 
-                                        {/* MŨI TÊN - Tăng width lên 2 và dùng Flex để căn giữa tuyệt đối */}
                                         <Col xs={0} sm={2} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                             <div className="arrow-wrapper">
                                                 <ArrowRightOutlined />
                                             </div>
                                         </Col>
 
-                                        {/* Ô NHẬP LIỆU 2 - Giảm width từ 9 xuống 7 */}
                                         <Col xs={24} sm={7}>
                                             <div className="input-group green-theme">
                                                 <div className="label-row">
-                                                    <EnvironmentOutlined className="label-icon" />
-                                                    <span className="input-label">Chuyển đến</span>
+                                                    <TruckOutlined className="label-icon" />
+                                                    <span className="input-label">Loại xe tải đề xuất</span>
                                                 </div>
-                                                <Input
-                                                    placeholder="Quận/Huyện..."
-                                                    allowClear
-                                                    className="custom-input-field"
-                                                />
+                                                <Select
+                                                    value={estVehicle}
+                                                    onChange={(val) => setEstVehicle(val)}
+                                                    style={{ width: '100%', height: '40px' }}
+                                                    className="custom-select-field"
+                                                >
+                                                    <Option value="500KG">Xe 500 KG</Option>
+                                                    <Option value="1TON">Xe 1 Tấn</Option>
+                                                    <Option value="1.5TON">Xe 1.5 Tấn</Option>
+                                                    <Option value="2TON">Xe 2 Tấn</Option>
+                                                </Select>
                                             </div>
                                         </Col>
 
-                                        {/* NÚT BẤM - Tăng width lên 6 để cân đối với phần còn lại */}
-                                        <Col xs={24} sm={6} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                        <Col xs={24} sm={8} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                             <Button
                                                 type="primary"
                                                 className="quote-btn-small"
+                                                onClick={handleQuickEstimate}
+                                                loading={estimateLoading}
+                                                style={{ width: '100%', maxWidth: '200px' }}
                                             >
                                                 Xem giá dự kiến
                                             </Button>
@@ -232,7 +319,7 @@ const LandingPage = () => {
                                     </Row>
                                 </div>
                                 <p className="price-disclaimer">
-                                    * Giá chỉ mang tính tham khảo !
+                                    * Giá chỉ mang tính tham khảo, vui lòng liên hệ tư vấn!
                                 </p>
                             </Col>
                         </Row>
