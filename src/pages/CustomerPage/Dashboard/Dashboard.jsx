@@ -22,6 +22,9 @@ const Dashboard = () => {
     const [activeTicket, setActiveTicket] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    const [surveyData, setSurveyData] = useState(null);
+    const [invoiceData, setInvoiceData] = useState(null);
+
     // Fetch data for standard request tickets
     useEffect(() => {
         const fetchTickets = async () => {
@@ -50,9 +53,39 @@ const Dashboard = () => {
                     if (userTickets.length > 0) {
                         // Sort by newest createdAt descending
                         userTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                        setActiveTicket(userTickets[0]);
+                        const active = userTickets[0];
+                        setActiveTicket(active);
+
+                        // Fetch thêm Survey Data (Dựa vào Ticket)
+                        try {
+                            const surveyRes = await api.get(`/surveys/ticket/${active._id}`);
+                            if (surveyRes.data?.data) {
+                                setSurveyData(surveyRes.data.data);
+                            } else if (surveyRes.data) {
+                                setSurveyData(surveyRes.data); // Fallback data structure
+                            }
+                        } catch (err) {
+                            console.log("Khong co survey cho don nay");
+                        }
+
+                        // Fetch trọn gói Invoice detail qua ticket id
+                        try {
+                            const ticketInvoiceRes = await api.get(`/invoices/ticket/${active._id}`);
+                            const invId = ticketInvoiceRes.data?.data?._id;
+                            if (invId) {
+                                const fullInvoiceRes = await api.get(`/invoices/${invId}`);
+                                if (fullInvoiceRes.data?.data) {
+                                    setInvoiceData(fullInvoiceRes.data.data);
+                                }
+                            }
+                        } catch (err) {
+                            console.log("Khong the lay detail invoice");
+                        }
+
                     } else {
                         setActiveTicket(null);
+                        setSurveyData(null);
+                        setInvoiceData(null);
                     }
                 }
             } catch (error) {
@@ -245,42 +278,38 @@ const Dashboard = () => {
                             <Col xs={24} md={8}>
                                 <div className="overview-stats-card">
                                     <div className="stat-line">
-                                        <div className="stat-label"><Building size={16} /> Tổng số phòng</div>
-                                        <div className="stat-value">6</div>
+                                        <div className="stat-label"><Building size={16} /> Tầng lầu (Nhà cũ)</div>
+                                        <div className="stat-value">{surveyData?.floors || 'N/A'}</div>
                                     </div>
                                     <div className="stat-line">
                                         <div className="stat-label"><Box size={16} /> Tổng số món đồ</div>
-                                        <div className="stat-value">63</div>
+                                        <div className="stat-value">{surveyData?.totalActualItems || surveyData?.items?.length || 'Đang cập nhật'}</div>
                                     </div>
                                     <div className="stat-line">
-                                        <div className="stat-label"><Scale size={16} /> Ước lượng khối lượng</div>
-                                        <div className="stat-value">Nhiều</div>
-                                    </div>
-                                    <div className="stat-line">
-                                        <div className="stat-label"><Activity size={16} /> Độ phức tạp</div>
-                                        <div className="stat-value">Cao</div>
+                                        <div className="stat-label"><Scale size={16} /> Quãng đường</div>
+                                        <div className="stat-value">{surveyData?.distanceKm ? `${surveyData.distanceKm} km` : 'Đang đo lường'}</div>
                                     </div>
 
                                     <div className="stat-divider"></div>
 
                                     <div className="stat-line">
-                                        <div className="stat-label"><TriangleAlert size={16} /> Đồ cồng kềnh</div>
-                                        <div className="stat-value">Có</div>
+                                        <div className="stat-label"><TriangleAlert size={16} /> Tháo lắp đồ</div>
+                                        <div className="stat-value">{surveyData?.needsAssembling ? 'Có' : 'Không'}</div>
                                     </div>
                                     <div className="stat-line">
-                                        <div className="stat-label"><Wine size={16} /> Đồ dễ vỡ</div>
-                                        <div className="stat-value">Có</div>
+                                        <div className="stat-label"><Wine size={16} /> Đóng gói đồ</div>
+                                        <div className="stat-value">{surveyData?.needsPacking ? 'Có' : 'Không'}</div>
                                     </div>
 
                                     <div className="stat-divider"></div>
 
                                     <div className="stat-line">
-                                        <div className="stat-label"><Home size={16} /> Nhà trong xóm</div>
-                                        <div className="stat-value">Có</div>
+                                        <div className="stat-label"><Home size={16} /> Thang máy</div>
+                                        <div className="stat-value">{surveyData?.hasElevator ? 'Có' : 'Không'}</div>
                                     </div>
                                     <div className="stat-line">
-                                        <div className="stat-label"><Navigation size={16} /> Đỗ xe cách nhà (~m)</div>
-                                        <div className="stat-value">100</div>
+                                        <div className="stat-label"><Navigation size={16} /> Cần khuân vác bộ</div>
+                                        <div className="stat-value">{surveyData?.carryMeter > 0 ? `${surveyData.carryMeter} mét` : 'Không'}</div>
                                     </div>
 
                                     <div className="stat-divider"></div>
@@ -290,10 +319,11 @@ const Dashboard = () => {
                                             <Edit size={16} /> Ghi chú khảo sát
                                         </div>
                                         <ul className="survey-notes-list">
-                                            <li>Có piano (~200kg).</li>
-                                            <li>Chiều rộng xóm đủ để xe tải vào.</li>
-                                            <li>Cầu thang hẹp, góc cua gắt.</li>
-                                            <li>Yêu cầu chuyển trước 5 giờ P.M.</li>
+                                            {surveyData?.notes ? (
+                                                <li>{surveyData.notes}</li>
+                                            ) : (
+                                                <li>Không có ghi chú thêm từ nhân viên khảo sát.</li>
+                                            )}
                                         </ul>
                                     </div>
                                 </div>
@@ -312,33 +342,45 @@ const Dashboard = () => {
                 {/* SECTION 3: Nguồn lực & Nhân sự */}
                 <h2 className="dash-section-title" style={{ marginTop: '60px' }}>Nguồn lực & Nhân sự</h2>
 
-                {!activeTicket || ['CREATED', 'WAITING_SURVEY', 'CANCELLED'].includes(activeTicket.status) ? (
+                {!activeTicket || !invoiceData?.dispatchAssignmentId?.assignments || invoiceData.dispatchAssignmentId.assignments.length === 0 ? (
                     <div className="dash-content-block" style={{ textAlign: 'center', padding: '40px' }}>
-                        <p style={{ color: '#666', fontSize: '16px' }}>Thông tin nhân sự và xe tải sẽ được hiển thị sau khi khảo sát hoàn tất.</p>
+                        <p style={{ color: '#666', fontSize: '16px' }}>Thông tin nhân sự và xe tải đang được sắp xếp hoặc chờ phân công.</p>
                     </div>
                 ) : (
                     <div className="dash-content-block">
-                        <div className="dash-personnel-row">
-                            <div className="personnel-text-col">
-                                <h3 className="person-name">Bùi Lê Việt Anh - Tài Xế</h3>
-                                <div className="person-sub">Khuân vác: 4 người</div>
-                                <div className="person-sub">Loại xe: xe tải thùng 2-tấn</div>
-                                <div className="person-divider"></div>
-                                <ul className="person-equip-list">
-                                    <li>Xe đẩy tay × 2</li>
-                                    <li>Tấm chắn bảo vệ × 10</li>
-                                    <li>Dây đai nâng × 3</li>
-                                    <li>Màng bọc bong bóng × 50 mét</li>
-                                </ul>
-                            </div>
-                            <div className="personnel-gfx-col">
-                                <div className="creative-gfx">
-                                    <div className="gfx-circle-bg"></div>
-                                    <img src="https://plus.unsplash.com/premium_photo-1661882403999-46081e67c401?q=80&w=400&auto=format&fit=crop" className="gfx-img-back" alt="moving truck inside" />
-                                    <img src="https://images.unsplash.com/photo-1600486913747-55e5470d6f40?q=80&w=400&auto=format&fit=crop" className="gfx-img-front" alt="driver smiling face" />
+                        {invoiceData.dispatchAssignmentId.assignments.map((assignment, index) => (
+                            <div className="dash-personnel-row" key={index} style={{ marginBottom: index !== invoiceData.dispatchAssignmentId.assignments.length - 1 ? '30px' : '0' }}>
+                                <div className="personnel-text-col">
+                                    <h3 className="person-name">
+                                        {assignment.driverIds?.map(d => d?.fullName || d?.username).join(', ') || 'Chưa phân công Tài xế/Nhóm trưởng'}
+                                    </h3>
+
+                                    <div className="person-sub">
+                                        Phụ xe / Bốc xếp: {assignment.staffIds?.length || 0} người
+                                        {assignment.staffIds?.length > 0 && ` (${assignment.staffIds.map(s => s?.fullName || s?.username).join(', ')})`}
+                                    </div>
+                                    <div className="person-sub">
+                                        Xe vận chuyển: {assignment.vehicleId?.plateNumber || assignment.vehicleId?.licensePlate || 'Đang sắp xếp'}
+                                        {assignment.vehicleId?.vehicleType && ` - ${assignment.vehicleId.vehicleType}`}
+                                        {assignment.vehicleId?.loadCapacity && ` (${assignment.vehicleId.loadCapacity} tấn)`}
+                                    </div>
+
+                                    <div className="person-divider"></div>
+                                    <ul className="person-equip-list">
+                                        <li>Bọc lót đồ đạc cơ bản</li>
+                                        <li>Trang thiết bị an toàn</li>
+                                        <li>Thùng carton chuyên dụng (nếu có yêu cầu)</li>
+                                    </ul>
+                                </div>
+                                <div className="personnel-gfx-col">
+                                    <div className="creative-gfx">
+                                        <div className="gfx-circle-bg"></div>
+                                        <img src="https://plus.unsplash.com/premium_photo-1661882403999-46081e67c401?q=80&w=400&auto=format&fit=crop" className="gfx-img-back" alt="moving truck inside" />
+                                        <img src="https://images.unsplash.com/photo-1600486913747-55e5470d6f40?q=80&w=400&auto=format&fit=crop" className="gfx-img-front" alt="driver smiling face" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        ))}
                     </div>
                 )}
             </div>

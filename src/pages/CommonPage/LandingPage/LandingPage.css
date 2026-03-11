@@ -194,8 +194,8 @@
   background: transparent !important;
   font-size: 14px;
   /* Sửa: Cỡ chữ nhỏ lại */
-  color: #fff !important;
-  /* Sửa: Text nhập vào màu trắng */
+  color: #000 !important;
+  /* Sửa: Text nhập vào màu đen */
   font-weight: 500;
 }
 

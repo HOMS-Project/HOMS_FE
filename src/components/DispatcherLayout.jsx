@@ -7,6 +7,7 @@ import {
   ScheduleOutlined,
   FormOutlined,
   TeamOutlined,
+  ShareAltOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import AppHeader from './header/header'; 
@@ -42,6 +43,11 @@ const DispatcherLayout = () => {
       key: '/dispatcher/allocation',
       icon: <TeamOutlined />,
       label: 'Điều phối nhân sự',
+    },
+    {
+      key: '/dispatcher/assigned-orders',
+      icon: <ShareAltOutlined />,
+      label: 'Theo dõi điều phối',
     },
   ];
 

@@ -72,11 +72,13 @@ const ResourceAllocation = () => {
 
         setSubmitting(true);
         try {
-            // Xe (Vehicle) sẽ được tự động tính toán và điều phối trong backend dựa trên trọng lượng/thể tích
             const payload = {
-                driverIds: values.driverIds,
-                staffIds: values.staffIds,
-                totalWeight: selectedInvoice.requestTicketId?.surveyDataId?.totalWeight || 1000, // Fallback nếu chưa có survey chi tiết
+                leaderId: values.leaderId,
+                driverIds: values.driverIds || [],
+                staffIds: values.staffIds || [],
+                vehicleType: values.vehicleType,
+                vehicleCount: values.vehicleCount || 1,
+                totalWeight: selectedInvoice.requestTicketId?.surveyDataId?.totalWeight || 1000,
                 totalVolume: selectedInvoice.requestTicketId?.surveyDataId?.totalVolume || 10,
                 estimatedDuration: 480 // Mặc định 8 tiếng
             };
@@ -138,7 +140,7 @@ const ResourceAllocation = () => {
                     icon={<CarOutlined />}
                     onClick={() => showDispatchModal(record)}
                 >
-                    Điều xe & Nhân sự
+                    Điều phối
                 </Button>
             )
         }
@@ -164,19 +166,34 @@ const ResourceAllocation = () => {
             >
                 <div style={{ marginBottom: 20 }}>
                     <Text type="secondary">
-                        Hệ thống sẽ tự động tự động tìm kiếm và phân công xe tải phù hợp dựa trên khối lượng và thể tích đồ đạc của đơn hàng. Bạn chỉ cần chọn Tài xế và Phụ xe.
+                        Bạn có thể chọn người phụ trách nhóm (Trưởng nhóm). Mặc định hệ thống sẽ tự động tính toán số lượng/lọai xe, nhưng bạn vẫn có thể chọn thủ công.
                     </Text>
                 </div>
 
-                <Form form={form} layout="vertical" onFinish={handleSubmit}>
+                <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ vehicleCount: 1 }}>
+                    <Form.Item
+                        name="leaderId"
+                        label="Trưởng nhóm (Bắt buộc)"
+                        rules={[{ required: true, message: 'Vui lòng chọn 1 tài xế làm trưởng nhóm' }]}
+                    >
+                        <Select
+                            placeholder="Chọn tên tài xế (Trưởng nhóm)"
+                            style={{ width: '100%' }}
+                            allowClear
+                        >
+                            {drivers.map(d => (
+                                <Option key={d._id} value={d._id}>{d.fullName} - {d.phone}</Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
                     <Form.Item
                         name="driverIds"
-                        label="Chọn Tài xế"
-                        rules={[{ required: true, message: 'Vui lòng chọn ít nhất 1 tài xế' }]}
+                        label="Tài xế phụ (Tùy chọn)"
                     >
                         <Select
                             mode="multiple"
-                            placeholder="Chọn tên tài xế"
+                            placeholder="Chọn tên tài xế bổ sung"
                             style={{ width: '100%' }}
                             allowClear
                         >
@@ -188,7 +205,7 @@ const ResourceAllocation = () => {
 
                     <Form.Item
                         name="staffIds"
-                        label="Chọn Nhân viên bốc xếp (Tùy chọn)"
+                        label="Nhân viên phụ bốc xếp (Tùy chọn)"
                     >
                         <Select
                             mode="multiple"
@@ -200,6 +217,26 @@ const ResourceAllocation = () => {
                                 <Option key={s._id} value={s._id}>{s.fullName} - {s.phone}</Option>
                             ))}
                         </Select>
+                    </Form.Item>
+
+                    <Form.Item label="Chỉ định phương tiện thủ công (Nếu bỏ trống: tự động tính)">
+                        <Space>
+                            <Form.Item name="vehicleType" noStyle>
+                                <Select placeholder="Chọn loại xe" style={{ width: 150 }} allowClear>
+                                    <Option value="500KG">Xe 500 KG</Option>
+                                    <Option value="1TON">Xe 1 Tấn</Option>
+                                    <Option value="1.5TON">Xe 1.5 Tấn</Option>
+                                    <Option value="2TON">Xe 2 Tấn</Option>
+                                </Select>
+                            </Form.Item>
+                            <Form.Item name="vehicleCount" noStyle>
+                                <Select placeholder="Số xe" style={{ width: 100 }}>
+                                    <Option value={1}>1 xe</Option>
+                                    <Option value={2}>2 xe</Option>
+                                    <Option value={3}>3 xe</Option>
+                                </Select>
+                            </Form.Item>
+                        </Space>
                     </Form.Item>
 
                     <Form.Item style={{ textAlign: 'right', marginTop: 30, marginBottom: 0 }}>
