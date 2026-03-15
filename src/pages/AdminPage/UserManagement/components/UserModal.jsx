@@ -4,8 +4,13 @@ import adminUserService from '../../../../services/adminUserService';
 
 const { Option } = Select;
 
+const DANANG_DISTRICTS = [
+    'Hải Châu', 'Thanh Khê', 'Sơn Trà', 'Ngũ Hành Sơn', 'Liên Chiểu', 'Cẩm Lệ', 'Hòa Vang'
+];
+
 const UserModal = ({ visible, onClose, onSuccess, user }) => {
     const [form] = Form.useForm();
+    const role = Form.useWatch('role', form);
 
     useEffect(() => {
         if (visible) {
@@ -16,7 +21,8 @@ const UserModal = ({ visible, onClose, onSuccess, user }) => {
                     phoneNumber: user.phoneNumber,
                     gender: user.gender,
                     role: user.role,
-                    status: user.status
+                    status: user.status,
+                    workingAreas: user.dispatcherProfile?.workingAreas || []
                 });
             } else {
                 form.resetFields();
@@ -27,13 +33,23 @@ const UserModal = ({ visible, onClose, onSuccess, user }) => {
     const handleSubmit = async () => {
         try {
             const values = await form.validateFields();
+            const payload = { ...values };
+
+            // Map workingAreas to dispatcherProfile for the backend
+            if (payload.role === 'dispatcher') {
+                payload.dispatcherProfile = {
+                    workingAreas: payload.workingAreas || []
+                };
+                delete payload.workingAreas;
+            }
+
             if (user) {
                 // Edit existing user
-                await adminUserService.updateUser(user._id, values);
+                await adminUserService.updateUser(user._id, payload);
                 message.success('User updated successfully');
             } else {
                 // Create new user
-                await adminUserService.createUser(values);
+                await adminUserService.createUser(payload);
                 message.success('User created successfully');
             }
             onSuccess();
@@ -104,6 +120,17 @@ const UserModal = ({ visible, onClose, onSuccess, user }) => {
                             <Option value="staff">Staff</Option>
                         </Select>
                     </Form.Item>
+
+                    {role === 'dispatcher' && (
+                        <Form.Item name="workingAreas" label="Working Areas (Da Nang Districts)" rules={[{ required: true, message: 'Please select at least one area' }]}>
+                            <Select mode="multiple" placeholder="Select districts">
+                                {DANANG_DISTRICTS.map(d => (
+                                    <Option key={d} value={d}>{d}</Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    )}
+
                     {user && (
                         <Form.Item name="status" label="Status" rules={[{ required: true }]}>
                             <Select placeholder="Select status">

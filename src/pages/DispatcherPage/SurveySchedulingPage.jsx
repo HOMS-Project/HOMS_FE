@@ -56,7 +56,7 @@ const SurveySchedulingPage = () => {
       // Xử lý dữ liệu Dispatchers
       const dispatchersData = resDispatchers.data?.data || resDispatchers.data || [];
       setSurveyors(dispatchersData);
-console.log("Dispatchers:", dispatchersData);
+      console.log("Dispatchers:", dispatchersData);
     } catch (error) {
       console.error(error);
       message.error("Lỗi khi tải dữ liệu từ máy chủ");
@@ -109,12 +109,12 @@ console.log("Dispatchers:", dispatchersData);
       }
       const proposedTimes = values.proposedTimes.map(d => d.toISOString());
 
-     const payload = {
-  proposedTimes,
-  surveyorId: values.surveyorId,
-  reason: values.reason?.join(", ") || ""
-};
-      
+      const payload = {
+        proposedTimes,
+        surveyorId: values.surveyorId,
+        reason: values.reason?.join(", ") || ""
+      };
+
       await requestTicketService.proposeTime(selectedTicket._id, payload);
       message.success(`Đã từ chối đơn ${selectedTicket.code} và đề xuất lịch mới`);
       setIsRejectModalVisible(false);
@@ -139,6 +139,14 @@ console.log("Dispatchers:", dispatchersData);
           </div>
         );
       },
+    },
+    {
+      title: "Khu vực",
+      render: (_, r) => (
+        <Tag color="orange" style={{ fontWeight: 'bold' }}>
+          {r.pickup?.district || "Chưa xác định"}
+        </Tag>
+      ),
     },
     {
       title: "Tuyến đường",
@@ -232,22 +240,22 @@ console.log("Dispatchers:", dispatchersData);
         onOk={() => formReject.submit()}
         okText="Từ chối & Gửi đề xuất"
         okButtonProps={{ danger: true }}
-        
+
       >
         <Form form={formReject} layout="vertical" onFinish={handleRejectSubmit}>
-         <Form.Item
-  name="surveyorId"
-  label="Phân công nhân viên khảo sát (khi khách chọn lịch)"
-  rules={[{ required: true, message: "Vui lòng chọn nhân viên!" }]}
->
-  <Select placeholder="Chọn nhân viên khảo sát">
-    {surveyors.map((u) => (
-      <Option key={u._id} value={u._id}>
-        {u.fullName} {u.phone ? `- ${u.phone}` : ""}
-      </Option>
-    ))}
-  </Select>
-</Form.Item>
+          <Form.Item
+            name="surveyorId"
+            label="Phân công nhân viên khảo sát (khi khách chọn lịch)"
+            rules={[{ required: true, message: "Vui lòng chọn nhân viên!" }]}
+          >
+            <Select placeholder="Chọn nhân viên khảo sát">
+              {surveyors.map((u) => (
+                <Option key={u._id} value={u._id}>
+                  {u.fullName} {u.phone ? `- ${u.phone}` : ""}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
           <Form.List name="proposedTimes">
             {(fields, { add, remove }) => (
               <>
