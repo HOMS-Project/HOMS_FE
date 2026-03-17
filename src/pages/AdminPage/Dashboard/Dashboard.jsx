@@ -12,6 +12,7 @@ const Dashboard = () => {
     const [overview, setOverview] = useState({ totalIncome: 0, perDayIncome: 0, perDayOrders: 0, customers: 0 });
         const [revenueData, setRevenueData] = useState([]);
         const [orderData, setOrderData] = useState([]);
+    // Tickets chart will always show a single week and use its own weekStart controls
         const [period, setPeriod] = useState('monthly'); // UI choices: 'monthly'|'weekly'|'daily'
 
         // Week selection state (stores Monday of the selected week)
@@ -19,9 +20,14 @@ const Dashboard = () => {
             const now = dayjs();
             return now.day() === 0 ? now.subtract(6, 'day').startOf('day') : now.subtract(now.day() - 1, 'day').startOf('day');
         };
-        const [weekStart, setWeekStart] = useState(getCurrentWeekStart());
-        const handlePrevWeek = () => setWeekStart(ws => dayjs(ws).subtract(7, 'day').startOf('day'));
-        const handleNextWeek = () => setWeekStart(ws => dayjs(ws).add(7, 'day').startOf('day'));
+    const [weekStart, setWeekStart] = useState(getCurrentWeekStart());
+    const handlePrevWeek = () => setWeekStart(ws => dayjs(ws).subtract(7, 'day').startOf('day'));
+    const handleNextWeek = () => setWeekStart(ws => dayjs(ws).add(7, 'day').startOf('day'));
+
+    // Orders chart (Number of Tickets) should have its own week selection state
+    const [ordersWeekStart, setOrdersWeekStart] = useState(getCurrentWeekStart());
+    const handleOrdersPrevWeek = () => setOrdersWeekStart(ws => dayjs(ws).subtract(7, 'day').startOf('day'));
+    const handleOrdersNextWeek = () => setOrdersWeekStart(ws => dayjs(ws).add(7, 'day').startOf('day'));
 
     // Local mock data used only for UI/dev preview when API isn't connected or returns empty
     const localRevenueMock = [
@@ -36,21 +42,19 @@ const Dashboard = () => {
         { name: 'Thu', orders: 130 }, { name: 'Fri', orders: 170 }, { name: 'Sat', orders: 190 }, { name: 'Sun', orders: 200 }
     ];
 
-    // Decide which revenue dataset to render: prefer fetched data if it exists
-    // (even if some buckets are zero). Otherwise fall back to the local mock so
-    // the developer preview shows a meaningful chart.
-    const revenueToRender = (revenueData && revenueData.length > 0) ? revenueData : localRevenueMock;
-    // Same strategy for orders: if fetched orders are present but all zero, fall back to mock
-    const ordersHasPositive = (orderData || []).some(d => typeof d.orders === 'number' && d.orders > 0);
-    const orderToRender = ordersHasPositive ? orderData : localOrderMock;
+    // Render only real fetched data. Do NOT fall back to local sample data for
+    // missing days — if the API returns no buckets for a date, the chart will
+    // simply render no line/bar for that day.
+    const revenueToRender = revenueData || [];
+    const orderToRender = orderData || [];
 
-    // Using mock data for Top Moving Car and Last Orders as there's no explicit API defined in the backend routes shown
+    // Using mock data for Top Moving Car; Last Orders will be fetched from backend and stored in state
     const topMovingCars = [
         { id: 1, name: 'truck', count: 150, image: '🚚' },
         { id: 2, name: 'container truck', count: 120, image: '🚛' },
     ];
-
-    const lastOrders = [
+    const [lastOrders, setLastOrders] = useState([]);
+    const localLastOrdersMock = [
         { key: '1', orderId: '#1452', time: '2:27 PM', location: '132, Thanh Xuan', status: 'Completed' },
         { key: '2', orderId: '#1453', time: '3:33 PM', location: '33, Nguyen Trai', status: 'Canceled' },
         { key: '3', orderId: '#1454', time: '3:08 PM', location: '14, Le Loi', status: 'In Progress' },
@@ -58,15 +62,15 @@ const Dashboard = () => {
     ];
 
     const orderColumns = [
-        { title: 'Order ID', dataIndex: 'orderId', key: 'orderId' },
-        { title: 'O. Time', dataIndex: 'time', key: 'time' },
-        { title: 'Location', dataIndex: 'location', key: 'location' },
+        { title: 'Mã hóa đơn', dataIndex: 'orderId', key: 'orderId' },
+        { title: 'Thời gian', dataIndex: 'time', key: 'time' },
+        { title: 'Khách hàng', dataIndex: 'customer', key: 'customer' },
         {
-            title: 'Status',
+            title: 'Trạng thái',
             dataIndex: 'status',
             key: 'status',
             render: (status) => {
-                let color = status === 'Completed' ? 'green' : status === 'In Progress' ? 'blue' : 'red';
+                let color = (status === 'PAID' || status === 'Completed' || status === 'PAID') ? 'green' : status === 'PARTIAL' ? 'orange' : 'default';
                 return <Tag color={color}>{status}</Tag>;
             }
         },
@@ -155,15 +159,23 @@ const Dashboard = () => {
 
                 const revenueFallback = buildRevenueFallback(revenueParams);
 
-                const [overviewRes, revenueRes, orderRes] = await Promise.all([
+                // compute date range for orders chart: always use ordersWeekStart (Mon..Sun)
+                const monday = (ordersWeekStart && dayjs(ordersWeekStart).isValid()) ? dayjs(ordersWeekStart) : getCurrentWeekStart();
+                const orderParams = {
+                    startDate: monday.startOf('day').format('YYYY-MM-DD'),
+                    endDate: monday.add(6, 'day').endOf('day').format('YYYY-MM-DD')
+                };
+
+                const [overviewRes, revenueRes, orderRes, recentInvoicesRes] = await Promise.all([
                     // adminStatisticService methods return response.data, so the resolved value is the data itself.
                     // Make the catch fallbacks return the same shape (data, not wrapped in { data: ... }).
-                    adminStatisticService.getOverview().catch(() => ({ totalRevenue: 342247, dailyRevenue: 12145, dailyOrders: 214, totalCustomers: 2140 })),
-                    adminStatisticService.getRevenue(revenueParams).catch(() => (revenueFallback)),
-                    adminStatisticService.getOrders({ }).catch(() => ([
-                        { _id: 'Mon', count: 150 }, { _id: 'Tue', count: 120 }, { _id: 'Wed', count: 140 },
-                        { _id: 'Thu', count: 130 }, { _id: 'Fri', count: 170 }, { _id: 'Sat', count: 190 }, { _id: 'Sun', count: 200 }
-                    ]))
+                        adminStatisticService.getOverview().catch(() => ({ totalRevenue: 342247, dailyRevenue: 12145, dailyOrders: 214, totalCustomers: 2140 })),
+                        // Do not inject sample data on error — return empty arrays so
+                        // charts do not show mocked points for missing dates.
+                        adminStatisticService.getRevenue(revenueParams).catch(() => ([])),
+                        // Use the new endpoint that returns RequestTicket daily counts
+                        adminStatisticService.getRequestTicketsDaily({ startDate: orderParams.startDate, endDate: orderParams.endDate }).catch(() => ([])),
+            adminStatisticService.getRecentInvoices({ limit: 5 }).catch(() => ([]))
                 ]);
 
                 // Debug: log raw responses so we can inspect shapes in the browser console
@@ -184,6 +196,7 @@ const Dashboard = () => {
                 const overviewData = overviewRes && overviewRes.data ? overviewRes.data : overviewRes;
                 const revenueArray = normalizeToArray(revenueRes);
                 const orderArray = normalizeToArray(orderRes);
+                const recentInvoicesArray = normalizeToArray(recentInvoicesRes);
 
                 // Map overview
                 setOverview({
@@ -290,13 +303,35 @@ const Dashboard = () => {
                     setRevenueData(monthlyFull);
                 }
 
-                // Map orders (safe)
+                // Map orders (RequestTicket daily counts) into Mon..Sun buckets
                 let mappedOrders = [];
                 try {
-                    mappedOrders = (orderArray || []).map(item => ({
-                        name: item._id || item.name || '', // e.g., 'Mon', 'Tue'
-                        orders: Number(item.count ?? item.orders ?? item.value) || 0
-                    }));
+                    // Build a map from date -> count for faster lookup. Backend returns
+                    // items like { date: 'YYYY-MM-DD', count: N } (our new endpoint).
+                    const dateCountMap = {};
+                    (orderArray || []).forEach(item => {
+                        if (!item) return;
+                        // Prefer `date` field; support legacy _id-based shapes too.
+                        let dateStr = null;
+                        if (item.date && typeof item.date === 'string') dateStr = item.date;
+                        else if (item._id && typeof item._id === 'string') dateStr = item._id;
+                        else if (item._id && typeof item._id === 'object' && item._id.year && item._id.month && item._id.day) {
+                            const y = item._id.year; const m = String(item._id.month).padStart(2, '0'); const d = String(item._id.day).padStart(2, '0');
+                            dateStr = `${y}-${m}-${d}`;
+                        }
+                        if (!dateStr) return;
+                        const v = Number(item.count ?? item.orders ?? item.value ?? 0) || 0;
+                        dateCountMap[dateStr] = (dateCountMap[dateStr] || 0) + v;
+                    });
+
+                    // Build 7 buckets starting from ordersWeekStart (Monday)
+                    const mondayRef = (ordersWeekStart && dayjs(ordersWeekStart).isValid()) ? dayjs(ordersWeekStart).startOf('day') : getCurrentWeekStart();
+                    const weekdayLabelsMonFirst = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    mappedOrders = weekdayLabelsMonFirst.map((label, idx) => {
+                        const day = mondayRef.add(idx, 'day');
+                        const dateKey = day.format('YYYY-MM-DD');
+                        return { name: label, orders: Number(dateCountMap[dateKey] || 0) };
+                    });
                 } catch (e) {
                     // eslint-disable-next-line no-console
                     console.warn('Failed to map order array', e, orderArray);
@@ -306,6 +341,21 @@ const Dashboard = () => {
                 console.log('mappedOrders', mappedOrders);
                 setOrderData(mappedOrders);
 
+                // Map recent invoices into lastOrders table rows
+                try {
+                    const mappedRecent = (recentInvoicesArray || []).map(inv => ({
+                        key: inv._id,
+                        orderId: inv.code,
+                        time: inv.createdAt ? dayjs(inv.createdAt).format('HH:mm DD/MM/YYYY') : '',
+                        customer: inv.customer?.fullName || '',
+                        status: inv.paymentStatus || inv.status || ''
+                    }));
+                    setLastOrders(mappedRecent.length ? mappedRecent : localLastOrdersMock);
+                } catch (e) {
+                    // fallback to mock
+                    setLastOrders(localLastOrdersMock);
+                }
+
             } catch (error) {
                 console.error("Failed to load dashboard data", error);
             } finally {
@@ -314,7 +364,7 @@ const Dashboard = () => {
         };
 
         fetchDashboardData();
-    }, [period, weekStart]);
+    }, [period, weekStart, ordersWeekStart]);
 
     if (loading) return <Spin size="large" style={{ display: 'block', margin: 'auto', marginTop: '20vh' }} />;
 
@@ -435,7 +485,21 @@ const Dashboard = () => {
             {/* Bottom Section: Orders Chart and Last Orders Table */}
             <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
                 <Col xs={24} lg={10}>
-                    <Card title="Number of Orders" style={{ borderRadius: '12px' }} extra={<Select defaultValue="Last Week" style={{ width: 120 }}><Select.Option value="Last Week">Last Week</Select.Option></Select>}>
+                    <Card
+                        title="Number of Tickets"
+                        style={{ borderRadius: '12px' }}
+                        extra={
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <Space>
+                                            <Button size="small" onClick={handleOrdersPrevWeek}>Prev</Button>
+                                            <div style={{ minWidth: 140, textAlign: 'center', fontSize: 12 }}>
+                                                {ordersWeekStart.format('DD MMM')} - {ordersWeekStart.add(6, 'day').format('DD MMM')}
+                                            </div>
+                                            <Button size="small" onClick={handleOrdersNextWeek}>Next</Button>
+                                        </Space>
+                                    </div>
+                        }
+                    >
                         <div style={{ height: 250 }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={orderToRender} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -450,7 +514,7 @@ const Dashboard = () => {
                 </Col>
                 <Col xs={24} lg={14}>
                     <Card
-                        title="Last Orders"
+                        title="Last Invoice"
                         style={{ borderRadius: '12px' }}
                         extra={<a href="#!">View All</a>}
                     >
