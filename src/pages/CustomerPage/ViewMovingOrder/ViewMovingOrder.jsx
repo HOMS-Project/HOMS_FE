@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
     Layout, Table, Tag, Empty, Button, Tabs, Row, Col, Typography, Image, Modal, message, Divider, Tooltip
 } from "antd";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
     PhoneOutlined,
     CheckCircleOutlined,
@@ -46,6 +46,7 @@ const InfoRow = ({ icon, label, value }) => (
 
 const ViewMovingOrder = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const { user, isAuthenticated } = useUser();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -281,7 +282,14 @@ const ViewMovingOrder = () => {
                         </>
                     )}
                     {record.status !== 'QUOTED' && (
-                        <Button type="link" size="small" icon={<PhoneOutlined />}>Liên hệ</Button>
+                        <Button 
+                            type="link" 
+                            size="small" 
+                            icon={<PhoneOutlined />}
+                            onClick={() => window.open(`/customer/video-chat?room=${record.code}`, '_blank')}
+                        >
+                            Liên hệ
+                        </Button>
                     )}
                     {record.pricing?.totalPrice > 0 && (
                         <Button type="dashed" size="small" icon={<EyeOutlined />} onClick={() => handleViewSurvey(record)}>

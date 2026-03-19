@@ -31,18 +31,11 @@ const RoutesDispatcher = () => {
         <Route path="survey-input" element={<SurveyInput />} />
         <Route path="allocation" element={<ResourceAllocation />} />
         <Route path="assigned-orders" element={<DispatchedOrders />} />
+        <Route path="video-chat" element={<VideoChat />} />
 
       </Route>
 
-      <Route
-        path="/video-chat"
-        element={
-          <ProtectedRoute allowedRoles={["dispatcher"]}>
-            <VideoChat />
-          </ProtectedRoute>
-        }
-      />
-      
+
     </Routes>
   );
 };

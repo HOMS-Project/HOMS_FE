@@ -1,8 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
+import { Layout } from 'antd';
+import { 
+  VideoCameraOutlined, 
+  CloseOutlined, 
+  SendOutlined, 
+  PhoneOutlined, 
+  AudioMutedOutlined, 
+  AudioOutlined, 
+  VideoCameraAddOutlined 
+} from '@ant-design/icons';
+import AppHeader from '../../components/header/header';
+import AppFooter from '../../components/footer/footer';
 import useUser from '../../contexts/UserContext';
 import { getValidAccessToken } from '../../services/authService';
+import api from '../../services/api';
 import './VideoChat.css';
 
 const iceServers = {
@@ -15,11 +28,16 @@ const iceServers = {
   ]
 };
 
+const { Content } = Layout;
+
 function VideoChat() {
   const { user } = useUser();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const isCustomer = location.pathname.startsWith('/customer');
   const initialRoomId = searchParams.get('room') || 'test-room';
   
+  const [dispatcherTickets, setDispatcherTickets] = useState([]);
   const [socket, setSocket] = useState(null);
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState(initialRoomId);
@@ -84,6 +102,25 @@ function VideoChat() {
     };
   }, [roomId]);
 
+  // Fetch tickets for dispatcher sidebar
+  useEffect(() => {
+    if (!isCustomer && user) {
+      const fetchTickets = async () => {
+        try {
+          // Specify dispatcherId to ensure we only get tickets assigned uniquely to them
+          const dId = user.userId || user.id || user._id;
+          const res = await api.get(`/request-tickets?dispatcherId=${dId}`);
+          if (res.data?.success) {
+            setDispatcherTickets(res.data.data);
+          }
+        } catch (err) {
+          console.error("Failed to fetch dispatcher tickets:", err);
+        }
+      };
+      fetchTickets();
+    }
+  }, [isCustomer, user]);
+
   // Scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -92,6 +129,15 @@ function VideoChat() {
   // Listen for socket events
   useEffect(() => {
     if (!socket) return;
+    
+    const handleChatHistory = (history) => {
+      const formattedHistory = history.map(msg => ({
+        message: msg.content,
+        sender: msg.senderName,
+        time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }));
+      setMessages(formattedHistory);
+    };
     
     const handleReceiveMessage = (data) => {
       setMessages((prev) => [...prev, data]);
@@ -134,6 +180,7 @@ function VideoChat() {
        endCall();
     };
 
+    socket.on('chat_history', handleChatHistory);
     socket.on('receive_message', handleReceiveMessage);
     socket.on('user_joined', handleUserJoined);
     socket.on('offer', handleOffer);
@@ -143,6 +190,7 @@ function VideoChat() {
     socket.on('call_ended', handleCallEnded);
 
     return () => {
+      socket.off('chat_history', handleChatHistory);
       socket.off('receive_message', handleReceiveMessage);
       socket.off('user_joined', handleUserJoined);
       socket.off('offer', handleOffer);
@@ -311,18 +359,19 @@ function VideoChat() {
     }
   }, [isInCall]);
 
-  if (!joined || !socket) {
+  const renderContent = () => {
+    if (!joined || !socket) {
+      return (
+        <div className="app-container">
+          <div className="panel login-container">
+              <h3>Connecting to secure room...</h3>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="app-container">
-        <div className="panel login-container">
-            <h3>Connecting to secure room...</h3>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="app-container">
       
       {incomingCallFrom && !isInCall && (
         <div className="incoming-call-modal">
@@ -331,17 +380,17 @@ function VideoChat() {
             <p>{incomingCallFrom.callerName || 'Someone'} is calling you...</p>
             <div className="modal-actions">
               <button className="btn-control danger" onClick={declineCall} title="Decline">
-                <span className="material-icons">call_end</span>
+                <CloseOutlined style={{ fontSize: '20px' }} />
               </button>
               <button className="btn-control success" onClick={answerCall} title="Accept">
-                <span className="material-icons">call</span>
+                <PhoneOutlined style={{ fontSize: '20px' }} />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="workspace-container">
+      <div className={`workspace-container ${isCustomer ? 'customer-workspace' : 'dispatcher-workspace'}`}>
         
         {/* Chat Area */}
         <div className={isInCall ? "panel chat-section split-hidden-mobile" : "panel chat-section"} id="mobile-chat-toggle">
@@ -351,7 +400,7 @@ function VideoChat() {
             </div>
             {!isInCall && (
               <button className="btn-control primary-outline" style={{ width: '36px', height: '36px' }} onClick={initiateCall} title="Start Video Call">
-                <span className="material-icons" style={{ fontSize: '1.2rem' }}>video_call</span>
+                <VideoCameraAddOutlined style={{ fontSize: '1.2rem' }} />
               </button>
             )}
           </div>
@@ -378,7 +427,9 @@ function VideoChat() {
               onChange={(e) => setMessageInput(e.target.value)}
               style={{ flex: 1 }}
             />
-            <button type="submit" className="btn-send">Send</button>
+            <button type="submit" className="btn-send" style={{ display: 'flex', alignItems: 'center', justifyItems: 'center', padding: '0 16px' }}>
+              <SendOutlined style={{ fontSize: '18px' }} />
+            </button>
           </form>
         </div>
 
@@ -413,17 +464,85 @@ function VideoChat() {
 
             <div className="controls-bar">
               <button className="btn-control" onClick={toggleAudio} title="Toggle Audio">
-                <span className="material-icons">{isAudioEnabled ? 'mic' : 'mic_off'}</span>
+                {isAudioEnabled ? <AudioOutlined style={{ fontSize: '20px' }} /> : <AudioMutedOutlined style={{ fontSize: '20px', color: '#ff4d4f' }} />}
               </button>
               <button className="btn-control" onClick={toggleVideo} title="Toggle Video">
-                <span className="material-icons">{isVideoEnabled ? 'videocam' : 'videocam_off'}</span>
+                <VideoCameraOutlined style={{ fontSize: '20px', color: isVideoEnabled ? 'inherit' : '#ff4d4f' }} />
               </button>
               <button className="btn-control danger" onClick={endCall} title="End Call">
-                <span className="material-icons">call_end</span>
+                <CloseOutlined style={{ fontSize: '20px' }} />
               </button>
             </div>
           </div>
         )}
+      </div>
+      </div>
+    );
+  };
+
+  const renderSidebar = () => {
+    if (isCustomer) return null;
+    return (
+      <div className="chat-sidebar" style={{ width: 300, borderRight: '1px solid #e0e0e0', background: '#f1ebe1', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '16px', borderBottom: '1px solid #c0cfb2', background: '#8ba888', color: '#fff' }}>
+          <h3 style={{ margin: 0, color: '#fff', fontSize: 16 }}>Đơn hàng quản lý</h3>
+          <div style={{ fontSize: 12, color: '#f1ebe1', marginTop: 4 }}>Chọn đơn để vào phòng chat</div>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {dispatcherTickets.map(ticket => {
+            const isActive = roomId === ticket.code;
+            return (
+              <div 
+                key={ticket._id}
+                onClick={() => {
+                   if (roomId !== ticket.code) {
+                     setMessages([]); // prevent flashing old history
+                     setRoomId(ticket.code);
+                     setSearchParams({ room: ticket.code });
+                   }
+                }}
+                style={{ 
+                  padding: '12px 16px', 
+                  borderBottom: '1px solid #c0cfb2', 
+                  cursor: 'pointer',
+                  background: isActive ? '#c0cfb2' : 'transparent',
+                  borderLeft: isActive ? '3px solid #44624a' : '3px solid transparent',
+                  transition: 'background 0.2s'
+                }}
+              >
+                <div style={{ fontWeight: 600, color: isActive ? '#44624a' : '#333' }}>#{ticket.code?.slice(-10)}</div>
+                <div style={{ fontSize: 13, color: '#44624a', marginTop: 4 }}>{ticket.customerId?.fullName || ticket.customer?.fullName || 'Khách hàng'}</div>
+                <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
+                   Trạng thái: <strong style={{ color: '#44624a' }}>{ticket.status}</strong>
+                </div>
+              </div>
+            );
+          })}
+          {dispatcherTickets.length === 0 && (
+            <div style={{ padding: '24px', textAlign: 'center', color: '#8ba888' }}>Không có đơn hàng nào</div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (isCustomer) {
+    return (
+      <Layout className="video-chat-customer-layout">
+        <AppHeader />
+        <Content style={{ minHeight: '80vh', padding: 0, background: '#f5f5f5' }}>
+          {renderContent()}
+        </Content>
+        <AppFooter />
+      </Layout>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', height: 'calc(100vh - 120px)', width: '100%', borderRadius: 8, overflow: 'hidden', border: '1px solid #e0e0e0' }}>
+      {renderSidebar()}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f9f9f9' }}>
+        {renderContent()}
       </div>
     </div>
   );
