@@ -277,7 +277,12 @@ const OrderCard = ({
 
         <div className="mo-card__btns-secondary">
           {ticket.status !== "QUOTED" && (
-            <button className="mo-btn mo-btn--contact"><PhoneOutlined /> CSKH</button>
+            <button 
+              className="mo-btn mo-btn--contact"
+              onClick={() => window.open(`/customer/video-chat?room=${ticket.code}`, '_blank')}
+            >
+              <PhoneOutlined /> CSKH
+            </button>
           )}
           <button
             className={`mo-btn ${expanded ? 'mo-btn--ghost' : 'mo-btn--view-quote'}`}
