@@ -108,17 +108,32 @@ const RateServiceModal = ({ visible, onClose, ticket, onSuccess }) => {
     );
   };
 
+  // Check if either the main rating is filled OR all 3 detailed criteria are filled
+  const hasCategoriesFilled = categories.cleanliness > 0 && categories.professionalism > 0 && categories.punctuality > 0;
+  const isReadyToSubmit = rating > 0 || hasCategoriesFilled;
+
   const handleSubmit = async () => {
-    if (rating === 0) {
-      message.warning("Vui lòng chọn số sao tổng quan.");
-      return;
+    if (!isReadyToSubmit) return;
+
+    let finalRating = rating;
+
+    // Filter out categories with a value of 0
+    const validCategories = {};
+    if (categories.cleanliness > 0) validCategories.cleanliness = categories.cleanliness;
+    if (categories.professionalism > 0) validCategories.professionalism = categories.professionalism;
+    if (categories.punctuality > 0) validCategories.punctuality = categories.punctuality;
+
+    // If they skipped the main rating but filled the 3 criteria, calculate average for the database
+    if (finalRating === 0 && hasCategoriesFilled) {
+      finalRating = Math.round((categories.cleanliness + categories.professionalism + categories.punctuality) / 3);
     }
+
     setSubmitting(true);
     try {
       await api.post("/service-ratings", {
         invoiceId: invoice._id,
-        rating,
-        categories,
+        rating: finalRating,
+        categories: Object.keys(validCategories).length > 0 ? validCategories : undefined,
         quickTags: selectedTags,
         comment: comment.trim() || undefined,
       });
@@ -199,7 +214,7 @@ const RateServiceModal = ({ visible, onClose, ticket, onSuccess }) => {
               {isRated ? "Đóng" : "Huỷ"}
             </button>
             {!isRated && (
-              <button className="rsm-btn rsm-btn--submit" onClick={handleSubmit} disabled={submitting || rating === 0}>
+              <button className="rsm-btn rsm-btn--submit" onClick={handleSubmit} disabled={submitting || !isReadyToSubmit}>
                 <SendOutlined /> {submitting ? "Đang gửi..." : "Gửi đánh giá"}
               </button>
             )}
