@@ -13,10 +13,13 @@ import SignContract from "../../pages/CustomerPage/SignContract/SignContract";
 // import CustomerLayout from "../../pages/CustomerPage/components/layout/CustomerLayout";
 import ProtectedRoute from "../../components/ProtectRoute/ProtectedRoute";
 import VideoChat from "../../pages/VideoChat/VideoChat";
+import AIAssistant from "../../utils/AIAssistant";
 
 const RoutesCus = () => {
   return (
-    <Routes>
+    <>
+      <AIAssistant />
+      <Routes>
 
       <Route
         path="/dashboard"
@@ -108,7 +111,8 @@ const RoutesCus = () => {
         }
       />
 
-    </Routes>
+      </Routes>
+    </>
   );
 };
 export default RoutesCus;
