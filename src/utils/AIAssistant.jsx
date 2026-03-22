@@ -1,73 +1,97 @@
-import React, { useState } from "react";
-import { MessageOutlined, CloseOutlined } from "@ant-design/icons";
-import { Modal, Input, Button } from "antd";
+import React, { useState, useRef, useEffect } from "react";
+import { MessageOutlined, CloseOutlined, SendOutlined } from "@ant-design/icons";
+import { Input, Button, Space, Typography } from "antd";
+import ReactMarkdown from "react-markdown";
+import "./AIAssistant.css";
+
+const { Text } = Typography;
+
+const SUGGESTED_QUESTIONS = [
+  "Dịch vụ chuyển nhà bao gồm những gì?",
+  "Làm sao để đặt lịch dịch vụ?",
+  "Bảng giá dịch vụ như thế nào?",
+  "Quy trình khảo sát trước không?"
+];
 
 function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { from: "bot", text: "Xin chào 👋! Tôi là AI Assistant.", completed: true }
+    { from: "bot", text: "Xin chào 👋! Tôi là trợ lý ảo AI của HOMS. Tôi có thể giúp gì cho bạn hôm nay?", completed: true }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-const handleSend = async () => {
-  if (!input.trim()) return;
+  const messagesEndRef = useRef(null);
 
-  const userMessage = input;
-  setMessages((prev) => [...prev, { from: "user", text: userMessage }]);
-  setInput("");
-  setLoading(true);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-  // Thêm message bot kiểu "Đang suy nghĩ..."
-  setMessages((prev) => [...prev, { from: "bot", text: "Đang suy nghĩ...", completed: false }]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-  try {
-    const response = await fetch("http://localhost:5000/api/ai/chat", {
-      method: "POST",
-      body: JSON.stringify({ message: userMessage }),
-      headers: { "Content-Type": "application/json" },
-    });
+  const handleSend = async (textToSend = input) => {
+    if (!textToSend.trim()) return;
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let partial = "";
+    const userMessage = textToSend;
+    setMessages((prev) => [...prev, { from: "user", text: userMessage }]);
+    if (textToSend === input) setInput("");
+    setLoading(true);
 
-    // Thêm message mới cho typing, để không ghi đè "Đang suy nghĩ..."
-    setMessages((prev) => [...prev, { from: "bot", text: "", completed: false }]);
+    // Thêm message bot kiểu "Đang suy nghĩ..."
+    setMessages((prev) => [...prev, { from: "bot", text: "Đang suy nghĩ...", completed: false }]);
 
-  while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
+    try {
+      const response = await fetch("http://localhost:5000/api/ai/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: userMessage }),
+        headers: { "Content-Type": "application/json" },
+      });
 
-  partial += decoder.decode(value, { stream: true });
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let partial = "";
 
-  const newText = partial; // Lưu giá trị riêng
-  setMessages((prev) => {
-    const updated = [...prev];
-    const last = updated[updated.length - 1];
-    updated[updated.length - 1] = { ...last, text: newText, completed: false };
-    return updated;
-  });
-}
+      // Thêm message mới cho typing, để không ghi đè "Đang suy nghĩ..."
+      setMessages((prev) => {
+        const newArr = [...prev];
+        newArr[newArr.length - 1] = { from: "bot", text: "", completed: false };
+        return newArr;
+      });
 
-    // Khi xong stream, đánh dấu completed
-    setMessages((prev) => {
-      const updated = [...prev];
-      const last = updated[updated.length - 1];
-      updated[updated.length - 1] = { ...last, completed: true };
-      return updated;
-    });
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-  } catch (err) {
-    setMessages((prev) => [
-      ...prev,
-      { from: "bot", text: "Lỗi khi kết nối AI", completed: true },
-    ]);
-  }
+        partial += decoder.decode(value, { stream: true });
 
-  setLoading(false);
-};
+        const newText = partial; // Lưu giá trị riêng
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          updated[updated.length - 1] = { ...last, text: newText, completed: false };
+          return updated;
+        });
+      }
 
+      // Khi xong stream, đánh dấu completed
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        updated[updated.length - 1] = { ...last, completed: true };
+        return updated;
+      });
 
+    } catch (err) {
+      setMessages((prev) => {
+        const newArr = [...prev];
+        newArr[newArr.length - 1] = { from: "bot", text: "Xin lỗi, đã có lỗi xảy ra khi kết nối. Vui lòng thử lại sau.", completed: true };
+        return newArr;
+      });
+    }
+
+    setLoading(false);
+  };
 
   return (
     <>
@@ -75,54 +99,91 @@ const handleSend = async () => {
         type="primary"
         shape="circle"
         size="large"
-        icon={<MessageOutlined />}
-        onClick={() => setIsOpen(true)}
-        style={{ position: "fixed", bottom: 20, right: 20, zIndex: 1000 }}
+        className="ai-assistant-btn"
+        icon={isOpen ? <CloseOutlined /> : <MessageOutlined />}
+        onClick={() => setIsOpen(!isOpen)}
       />
-      <Modal
-        open={isOpen}
-        onCancel={() => setIsOpen(false)}
-        footer={null}
-        closeIcon={<CloseOutlined />}
-        centered
-        width={400}
-        bodyStyle={{ display: "flex", flexDirection: "column", height: 500, padding: 0 }}
-        title="🤖 AI Assistant"
-      >
-        <div style={{ flex: 1, overflowY: "auto", padding: 10, background: "#fafafa" }}>
+      <div className={`ai-chat-window ${isOpen ? "open" : "closed"}`}>
+        <div className="ai-chat-header">
+          <div>
+            <h3 className="ai-chat-header-title">
+              🤖 Trợ lý ảo AI
+            </h3>
+            <Text className="ai-chat-header-subtitle">Luôn sẵn sàng hỗ trợ bạn 24/7</Text>
+          </div>
+          <Button type="text" icon={<CloseOutlined style={{ color: "white", fontSize: "16px" }} />} onClick={() => setIsOpen(false)} />
+        </div>
+
+        <div className="ai-chat-body">
           {messages.map((msg, idx) => (
-            <div key={idx} style={{ marginBottom: 8, textAlign: msg.from === "bot" ? "left" : "right" }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  background: msg.from === "bot" ? "#f0f0f0" : "#d9f7be",
-                  maxWidth: "80%",
-                  wordWrap: "break-word",
-                }}
-              >
-                {msg.text}
-                {!msg.completed && msg.from === "bot" ? "" : ""}
-              </span>
+            <div key={idx} className={`ai-message-row ${msg.from}`}>
+              <div className={`ai-message-bubble ${msg.from}`}>
+                {msg.from === "bot" ? (
+                  <div className="markdown-body" style={{ margin: 0, padding: 0, fontSize: "14px" }}>
+                    <ReactMarkdown
+                      components={{
+                        p: ({ node, ...props }) => <p style={{ margin: "0 0 8px 0" }} {...props} />,
+                        ul: ({ node, ...props }) => <ul style={{ marginTop: 0, marginBottom: "8px", paddingLeft: "16px" }} {...props} />,
+                        li: ({ node, ...props }) => <li style={{ margin: 0 }} {...props} />,
+                        strong: ({ node, ...props }) => <strong style={{ color: "#2D4F36" }} {...props} />,
+                      }}
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  msg.text
+                )}
+              </div>
             </div>
           ))}
+
+          {messages.length === 1 && (
+            <div className="ai-suggested-questions-container">
+              <Text type="secondary" style={{ fontSize: "13px", marginBottom: "12px", display: "block" }}>
+                Gợi ý câu hỏi:
+              </Text>
+              <Space direction="vertical" style={{ width: "100%" }} size={8}>
+                {SUGGESTED_QUESTIONS.map((q, idx) => (
+                  <Button
+                    key={idx}
+                    block
+                    className="ai-suggestion-btn"
+                    onClick={() => handleSend(q)}
+                    disabled={loading}
+                    hoverable="true"
+                  >
+                    {q}
+                  </Button>
+                ))}
+              </Space>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
-        <div style={{ display: "flex", padding: 10, borderTop: "1px solid #f0f0f0" }}>
+
+        <div className="ai-chat-input-area">
           <Input.TextArea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Nhập tin nhắn..."
+            placeholder="Nhấn Enter để gửi..."
             autoSize={{ minRows: 1, maxRows: 4 }}
+            bordered={false}
+            className="ai-chat-input"
             onPressEnter={(e) => {
               if (!e.shiftKey) { e.preventDefault(); handleSend(); }
             }}
           />
-          <Button type="primary" onClick={handleSend} style={{ marginLeft: 8 }} loading={loading}>
-            Gửi
-          </Button>
+          <Button
+            type="primary"
+            shape="circle"
+            icon={<SendOutlined />}
+            onClick={() => handleSend()}
+            className="ai-chat-send-btn"
+            loading={loading}
+          />
         </div>
-      </Modal>
+      </div>
     </>
   );
 }
