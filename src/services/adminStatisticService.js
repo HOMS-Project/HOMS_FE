@@ -49,6 +49,17 @@ const adminStatisticService = {
             throw error;
         }
     }
+    ,
+    // Fetch dispatcher stats (includes global invoice counts grouped by status)
+    getDispatcherStats: async () => {
+        try {
+            const response = await api.get('/customer/dispatcher-stats');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching dispatcher stats', error);
+            throw error;
+        }
+    }
 };
 
 export default adminStatisticService;
