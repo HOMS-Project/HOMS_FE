@@ -51,6 +51,7 @@ const MovingInformationPage = () => {
 
     // Loading and error states
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState({});
 
     // Handle location changes from map
     const handleLocationChange = (locationData) => {
@@ -105,46 +106,48 @@ const MovingInformationPage = () => {
     ];
 
     const handleNext = async () => {
+        let newErrors = {};
+
         // Validate required fields
-        if (!pickupLocation) {
-            message.error('Vui lòng chọn địa điểm chuyển đi');
-            return;
+        if (!pickupLocation || !pickupLocation.lat || !pickupLocation.lng || !pickupLocation.address) {
+            newErrors.pickupLocation = 'Vui lòng chọn địa điểm chuyển đi hợp lệ từ bản đồ';
         }
 
-        if (!pickupLocation.lat || !pickupLocation.lng || !pickupLocation.address) {
-            message.error('Địa điểm chuyển đi không hợp lệ. Vui lòng chọn lại.');
-            return;
-        }
-
-        if (!dropoffLocation) {
-            message.error('Vui lòng chọn địa điểm chuyển đến');
-            return;
-        }
-
-        if (!dropoffLocation.lat || !dropoffLocation.lng || !dropoffLocation.address) {
-            message.error('Địa điểm chuyển đến không hợp lệ. Vui lòng chọn lại.');
-            return;
+        if (!dropoffLocation || !dropoffLocation.lat || !dropoffLocation.lng || !dropoffLocation.address) {
+            newErrors.dropoffLocation = 'Vui lòng chọn địa điểm chuyển đến hợp lệ từ bản đồ';
         }
 
         // Check if pickup and dropoff are the same
-        if (pickupLocation.lat === dropoffLocation.lat && pickupLocation.lng === dropoffLocation.lng) {
-            message.error('Địa điểm chuyển đi và chuyển đến không thể giống nhau');
-            return;
+        if (pickupLocation && dropoffLocation && pickupLocation.lat === dropoffLocation.lat && pickupLocation.lng === dropoffLocation.lng) {
+            newErrors.locationMatch = 'Địa điểm chuyển đi và chuyển đến không thể giống nhau';
         }
 
         if (!movingDate) {
-            message.error('Vui lòng chọn thời gian chuyển');
+            newErrors.movingDate = 'Vui lòng chọn thời gian chuyển';
+        } else {
+            // Validate moving date is in the future
+            const now = dayjs();
+            const selectedMovingDate = dayjs(movingDate);
+
+            if (selectedMovingDate.isBefore(now) || selectedMovingDate.isSame(now, 'minute')) {
+                newErrors.movingDate = 'Thời gian chuyển phải sau thời điểm hiện tại';
+            }
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            if (newErrors.pickupLocation && !newErrors.dropoffLocation && activeLocation === 'dropoff') {
+                setActiveLocation('pickup');
+            } else if (newErrors.dropoffLocation && !newErrors.pickupLocation && activeLocation === 'pickup') {
+                setActiveLocation('dropoff');
+            }
             return;
         }
 
-        // Validate moving date is in the future
+        setErrors({});
+
         const now = dayjs();
         const selectedMovingDate = dayjs(movingDate);
-
-        if (selectedMovingDate.isBefore(now) || selectedMovingDate.isSame(now, 'minute')) {
-            message.error('Thời gian chuyển phải sau thời điểm hiện tại');
-            return;
-        }
 
         // Check if moving date is at least 2 hours from now (reasonable minimum)
         const hoursUntilMoving = selectedMovingDate.diff(now, 'hour', true);
@@ -225,11 +228,22 @@ const MovingInformationPage = () => {
                                         readOnly
                                     />
 
+                                    {activeLocation === 'pickup' && errors.pickupLocation && (
+                                        <div style={{ color: '#ff4d4f', marginBottom: 15, marginTop: -10, fontSize: 13 }}>{errors.pickupLocation}</div>
+                                    )}
+                                    {activeLocation === 'dropoff' && errors.dropoffLocation && (
+                                        <div style={{ color: '#ff4d4f', marginBottom: 15, marginTop: -10, fontSize: 13 }}>{errors.dropoffLocation}</div>
+                                    )}
+                                    {errors.locationMatch && (
+                                        <div style={{ color: '#ff4d4f', marginBottom: 15, marginTop: -10, fontSize: 13 }}>{errors.locationMatch}</div>
+                                    )}
+
                                     <div ref={refDatePicker} style={{ width: '100%', marginBottom: '15px' }}>
                                         <DatePicker
                                             placeholder="Chọn thời gian"
-                                            onChange={(date) => setMovingDate(date)}
+                                            onChange={(date) => { setMovingDate(date); setErrors(prev => ({...prev, movingDate: null})); }}
                                             showTime
+                                            status={errors.movingDate ? 'error' : ''}
                                             format="DD/MM/YYYY HH:mm"
                                             className="custom-input"
                                             style={{ width: '100%', marginBottom: 0 }}
@@ -250,6 +264,9 @@ const MovingInformationPage = () => {
                                                 return {};
                                             }}
                                         />
+                                        {errors.movingDate && (
+                                            <div style={{ color: '#ff4d4f', marginTop: 5, fontSize: 13 }}>{errors.movingDate}</div>
+                                        )}
                                     </div>
 
                                     <Alert

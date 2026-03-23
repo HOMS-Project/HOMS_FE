@@ -52,7 +52,14 @@ const LoginForm = () => {
 
 
     } catch (err) {
-      message.error(err.response?.data?.message || "Đăng nhập thất bại");
+      const errorMsg = err.response?.data?.message || "Đăng nhập thất bại";
+      if (errorMsg.toLowerCase().includes("mật khẩu") || errorMsg.toLowerCase().includes("password")) {
+        form.setFields([{ name: "password", errors: [errorMsg] }]);
+      } else if (errorMsg.toLowerCase().includes("email") || errorMsg.toLowerCase().includes("tài khoản") || errorMsg.toLowerCase().includes("người dùng") || errorMsg.toLowerCase().includes("không tồn tại")) {
+        form.setFields([{ name: "email", errors: [errorMsg] }]);
+      } else {
+        message.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
