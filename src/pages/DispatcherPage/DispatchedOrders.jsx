@@ -13,8 +13,8 @@ const DispatchedOrders = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
 
-    const fetchInvoices = async () => {
-        setLoading(true);
+    const fetchInvoices = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             // Fetch ASSIGNED and IN_PROGRESS invoices. (Multiple API calls or manual filter if needed)
             // For now let's just fetch all and filter locally, or rely on API. 
@@ -29,12 +29,19 @@ const DispatchedOrders = () => {
         } catch (error) {
             message.error('Lỗi khi tải danh sách đơn hàng đã điều phối: ' + (error.response?.data?.message || ''));
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
     useEffect(() => {
         fetchInvoices();
+        
+        // Auto-reload data every 10 seconds to catch DB changes
+        const intervalId = setInterval(() => {
+            fetchInvoices(true);
+        }, 10000);
+        
+        return () => clearInterval(intervalId);
     }, []);
 
     const showDetails = async (record) => {
