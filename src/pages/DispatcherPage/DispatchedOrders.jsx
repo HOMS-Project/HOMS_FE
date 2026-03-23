@@ -137,6 +137,7 @@ const DispatchedOrders = () => {
                         </Empty>
                     )
                 }}
+                scroll={{ x: 'max-content' }}
             />
 
             <Modal

@@ -215,6 +215,7 @@ const StaffOrderList = () => {
                         </Empty>
                     )
                 }}
+                scroll={{ x: 'max-content' }}
                 onRow={(record) => ({
                     onClick: () => openDetail(record),
                     style: { cursor: 'pointer' },
