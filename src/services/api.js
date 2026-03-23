@@ -1,5 +1,6 @@
 // api.js
 import axios from 'axios';
+import { notification } from 'antd';
 import { getValidAccessToken } from './authService';
 
 const api = axios.create({
@@ -46,6 +47,36 @@ export const setupInterceptors = (contextLogout) => {
       }
     },
     (error) => Promise.reject(error)
+  );
+
+  // Add response interceptor for global error handling
+  api.interceptors.response.use(
+    (response) => {
+      // Any status code that lies within the range of 2xx causes this function to trigger
+      return response;
+    },
+    (error) => {
+      // Any status codes that falls outside the range of 2xx causes this function to trigger
+      const errorMessage = error.response?.data?.message || error.message || "An unexpected error occurred.";
+      
+      // Suppress noisy toasts for known client/server validation about invalid invoice id
+      if (error.response?.data?.message && String(error.response.data.message).toLowerCase().includes('invalid invoice id')) {
+        // do not show notification for this specific, non-actionable message
+        return Promise.reject(error);
+      }
+
+      // Do not show toast for 401 Unauthorized globally since it might trigger auth flows or silent refreshes
+      if (error.response?.status !== 401 && error.response?.status !== 403) {
+        notification.error({
+          message: 'Lỗi hệ thống',
+          description: errorMessage,
+          placement: 'topRight',
+          duration: 4,
+        });
+      }
+      
+      return Promise.reject(error);
+    }
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Card, Table, Input, Select, Space, Button, Drawer, Tag, Typography, notification, Spin, Tabs, Row, Col, Divider, Avatar, Statistic } from 'antd';
+import { Card, Table, Input, Select, Space, Button, Modal, Tag, Typography, notification, Spin, Tabs, Row, Col, Divider, Avatar, Statistic, Tooltip, Skeleton } from 'antd';
 import {
   SearchOutlined,
   FolderOpenOutlined,
@@ -10,10 +10,14 @@ import {
   DollarCircleOutlined,
   CheckCircleOutlined,
   BarChartOutlined,
+  FileTextOutlined,
   StarOutlined,
   TrophyOutlined,
+  FullscreenOutlined,
 } from '@ant-design/icons';
 import adminInvoiceService from '../../../services/adminInvoiceService';
+import adminStatisticService from '../../../services/adminStatisticService';
+import LocationPicker from '../../../components/LocationPicker';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -31,10 +35,19 @@ const InvoiceManagement = () => {
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapMarkers, setMapMarkers] = useState(null); // { pickup:{lat,lng}, delivery:{lat,lng} }
+  const [mapFullscreenVisible, setMapFullscreenVisible] = useState(false);
   // Payments tab local UI state: independent pagination, filters and sorting
   const [paymentsPagination, setPaymentsPagination] = useState({ current: 1, pageSize: 5, total: 0 });
   const [paymentsFilters, setPaymentsFilters] = useState({ amountRange: '', timeRange: '' });
   const [paymentsSorter, setPaymentsSorter] = useState({ field: null, order: null });
+  // recent payments / transactions for Payments dashboard
+  const [recentPayments, setRecentPayments] = useState([]);
+  const [recentLoading, setRecentLoading] = useState(false);
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [paymentsViewTimeRange, setPaymentsViewTimeRange] = useState('30d');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
 
   // derived stats (revenue logic removed as requested)
   /*
@@ -50,9 +63,227 @@ const InvoiceManagement = () => {
   };
   */
 
-  // Stub kept to avoid runtime errors where computeRevenue is referenced in the UI.
-  // If you want to re-enable the original logic, uncomment the block above.
-  const computeRevenue = (_list) => 0;
+  // revenue pulled from backend for the currently displayed invoice range
+  const [revenueValue, setRevenueValue] = useState(0);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  // if user wants dashboard total, fetch overview.totalRevenue
+  const [overviewRevenue, setOverviewRevenue] = useState(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  // total paid amount across system (server-side aggregate)
+  const [totalPaidSystem, setTotalPaidSystem] = useState(null);
+  const [totalPaidLoading, setTotalPaidLoading] = useState(false);
+
+  // global invoice totals (from dispatcher stats) so cards show whole-system counts
+  const [invoiceTotals, setInvoiceTotals] = useState(null);
+  const [invoiceTotalsLoading, setInvoiceTotalsLoading] = useState(false);
+
+  // computeRevenue: prefer backend-provided revenue for the current invoices; otherwise fallback
+  const computeRevenue = (list) => {
+    // if caller passes the same reference as our invoices state, return backend value
+    if (Array.isArray(list) && list === invoices) return revenueValue || 0;
+    // otherwise, compute a reasonable local sum (only PAID and PARTIAL)
+    if (!Array.isArray(list)) return 0;
+    return list.reduce((sum, inv) => {
+      const status = inv?.paymentStatus;
+      if (status !== 'PAID' && status !== 'PARTIAL') return sum;
+      const v = Number(inv?.priceSnapshot?.totalPrice ?? inv?.total ?? inv?.amount ?? inv?.price ?? 0) || 0;
+      return sum + v;
+    }, 0);
+  };
+
+  // Fetch aggregated revenue from backend covering the date range of the provided invoices.
+  // If backend call fails, we silently fall back to local computation.
+  const fetchRevenueForInvoices = async (rawInvoices) => {
+    if (!Array.isArray(rawInvoices) || rawInvoices.length === 0) {
+      setRevenueValue(0);
+      return;
+    }
+    setRevenueLoading(true);
+    try {
+      // derive date range from invoices' createdAt (fall back to updatedAt/scheduledTime)
+      const times = rawInvoices.map(inv => {
+        if (inv?.createdAt) return new Date(inv.createdAt).toISOString();
+        if (inv?.updatedAt) return new Date(inv.updatedAt).toISOString();
+        if (inv?.scheduledTime) return new Date(inv.scheduledTime).toISOString();
+        return null;
+      }).filter(Boolean).map(t => new Date(t).getTime());
+
+      if (times.length === 0) {
+        // no timestamps -> fallback to local sum
+        setRevenueValue(computeRevenue(rawInvoices));
+        return;
+      }
+
+      const minTs = new Date(Math.min(...times)).toISOString();
+      const maxTs = new Date(Math.max(...times)).toISOString();
+
+      // ask BE for revenue grouped by day between min..max; then sum up totals
+      const res = await adminStatisticService.getRevenue({ startDate: minTs, endDate: maxTs, period: 'daily', usePaymentTimeline: true });
+      const payload = (res && res.success && res.data) ? res.data : res;
+      if (Array.isArray(payload) && payload.length) {
+        const total = payload.reduce((s, it) => s + (Number(it.totalRevenue ?? it.revenue ?? 0) || 0), 0);
+        setRevenueValue(total);
+      } else {
+        // no aggregated rows -> fallback to local computation
+        setRevenueValue(computeRevenue(rawInvoices));
+      }
+    } catch (e) {
+      console.warn('Failed to fetch revenue from backend, falling back to local sum', e);
+      setRevenueValue(computeRevenue(rawInvoices));
+    } finally {
+      setRevenueLoading(false);
+    }
+  };
+
+  // Fetch dashboard overview (contains totalRevenue) and keep it for Payments tab
+  const fetchOverviewRevenue = async () => {
+    setOverviewLoading(true);
+    try {
+      const res = await adminStatisticService.getOverview();
+      const payload = (res && res.success && res.data) ? res.data : res;
+      if (payload && typeof payload.totalRevenue !== 'undefined') {
+        setOverviewRevenue(Number(payload.totalRevenue) || 0);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch overview revenue', e);
+    } finally {
+      setOverviewLoading(false);
+    }
+  };
+
+  // Fetch global invoice counts grouped by status from dispatcher stats endpoint
+  const fetchInvoiceTotals = async () => {
+    setInvoiceTotalsLoading(true);
+    try {
+      const res = await adminStatisticService.getDispatcherStats();
+      const payload = (res && res.success && res.data) ? res.data : res;
+      if (payload && payload.stats && payload.stats.invoices) {
+        setInvoiceTotals(payload.stats.invoices);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch invoice totals', e);
+    } finally {
+      setInvoiceTotalsLoading(false);
+    }
+  };
+
+  // Fetch recent payment transactions (used in Payments dashboard)
+  const fetchRecentPayments = async (opts = {}) => {
+    setRecentLoading(true);
+    try {
+      const res = await adminStatisticService.getRecentInvoices({ limit: opts.limit || 50 });
+      const payload = (res && res.success && res.data) ? res.data : res;
+      // admin endpoint may return { recentInvoices } or an array
+      if (payload && Array.isArray(payload.recentInvoices)) setRecentPayments(payload.recentInvoices);
+      else if (Array.isArray(payload)) setRecentPayments(payload);
+      else setRecentPayments(payload.recentInvoices || []);
+    } catch (e) {
+      console.warn('Failed to fetch recent payments', e);
+      setRecentPayments([]);
+    } finally {
+      setRecentLoading(false);
+    }
+  };
+
+  // fetch server-side total paid aggregate
+  const fetchTotalPaidSystem = async () => {
+    setTotalPaidLoading(true);
+    try {
+      const res = await adminInvoiceService.getRevenueAggregate();
+      const payload = (res && res.success && res.data) ? res.data : res;
+      if (payload && typeof payload.totalRevenue !== 'undefined') {
+        setTotalPaidSystem(Number(payload.totalRevenue) || 0);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch total paid aggregate', e);
+    } finally {
+      setTotalPaidLoading(false);
+    }
+  };
+
+  // Build a simple daily revenue series from a list of invoices (for the mini line chart)
+  const buildDailySeries = (list = [], daysBack = 30) => {
+    const now = new Date();
+    const days = [];
+    for (let i = daysBack - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      d.setDate(d.getDate() - i);
+      days.push({ key: d.toISOString().slice(0,10), date: d, value: 0 });
+    }
+
+    (list || []).forEach(inv => {
+      const t = inv.lastTimelineUpdatedAt ? new Date(inv.lastTimelineUpdatedAt) : (inv.paidAt ? new Date(inv.paidAt) : (inv.createdAt ? new Date(inv.createdAt) : null));
+      if (!t) return;
+      const key = t.toISOString().slice(0,10);
+      const item = days.find(d => d.key === key);
+      const amount = Number(inv?.priceSnapshot?.totalPrice ?? inv?.total ?? inv?.amount ?? 0) || 0;
+      if (item) item.value += amount;
+    });
+    return days;
+  };
+
+  // render a tiny svg line chart from series [{key,date,value}]
+  const renderMiniLine = (series = []) => {
+    if (!Array.isArray(series) || series.length === 0) {
+      return (
+        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
+          Không có dữ liệu
+        </div>
+      );
+    }
+    const w = 360; const h = 84; const pad = 8;
+    const vals = series.map(s => s.value);
+    const max = Math.max(...vals, 1);
+    const points = series.map((s, idx) => {
+      const x = pad + (idx / (series.length - 1 || 1)) * (w - pad * 2);
+      const y = h - pad - (s.value / max) * (h - pad * 2);
+      return `${x},${y}`;
+    }).join(' ');
+    const areaPath = series.map((s, idx) => {
+      const x = pad + (idx / (series.length - 1 || 1)) * (w - pad * 2);
+      const y = h - pad - (s.value / max) * (h - pad * 2);
+      return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+    const gradientId = 'g_rev_min';
+    return (
+      <svg width="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={hexToRgba(primaryColor, 0.16)} />
+            <stop offset="100%" stopColor={hexToRgba(primaryColor, 0.02)} />
+          </linearGradient>
+        </defs>
+        <path d={areaPath + ` L ${w-pad} ${h-pad} L ${pad} ${h-pad} Z`} fill={`url(#${gradientId})`} stroke="none" />
+        <polyline points={points} fill="none" stroke={primaryColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  };
+
+  // Export filtered recent transactions to CSV
+  const exportRecentToCsv = (rows = []) => {
+    if (!Array.isArray(rows) || rows.length === 0) return notification.info({ message: 'Không có dữ liệu để xuất' });
+    const headers = ['Mã hóa đơn', 'Khách hàng', 'Email', 'Số tiền', 'Trạng thái', 'Thời gian'];
+    const csvRows = [headers.join(',')];
+    rows.forEach(r => {
+      const code = `"${(r.code || '')}"`;
+      const name = `"${(r.customer?.fullName || '')}"`;
+      const email = `"${(r.customer?.email || '')}"`;
+      const amount = parseAmount(r?.priceSnapshot?.totalPrice ?? r?.total ?? r?.amount ?? r?.totalPrice ?? 0) || 0;
+      const status = `"${(r.paymentStatus || '')}"`;
+      const time = `"${(r.lastTimelineUpdatedAt || r.createdAt || r.paidAt || '')}"`;
+      csvRows.push([code, name, email, amount, status, time].join(','));
+    });
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `recent_payments_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const formatCurrency = (v) => {
     try {
@@ -73,6 +304,127 @@ const InvoiceManagement = () => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
+  // robust amount parser: accepts numbers or formatted strings like "1.000.000", "1,000,000 VND", etc.
+  const parseAmount = (v) => {
+    if (v == null) return 0;
+    if (typeof v === 'number' && !isNaN(v)) return v;
+    let s = String(v).trim();
+    // try direct numeric conversion first
+    const direct = Number(s);
+    if (!isNaN(direct)) return direct;
+    // keep only digits, comma, dot and minus
+    s = s.replace(/[^0-9.,-]/g, '');
+    if (!s) return 0;
+    // handle mixed separators
+    if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
+      // decide which is decimal by position: last separator is decimal
+      if (s.lastIndexOf('.') > s.lastIndexOf(',')) {
+        // dots are decimals, remove commas
+        s = s.replace(/,/g, '');
+      } else {
+        // commas are decimals, remove dots and replace comma with dot
+        s = s.replace(/\./g, '').replace(/,/g, '.');
+      }
+    } else if (s.indexOf(',') !== -1) {
+      // single comma present: treat as decimal if only one comma and less than 3 digits after, else thousand separator
+      const commas = (s.match(/,/g) || []).length;
+      if (commas === 1 && s.split(',')[1].length <= 2) {
+        s = s.replace(/,/g, '.');
+      } else {
+        s = s.replace(/,/g, '');
+      }
+    } else {
+      // only dots: if many dots, remove as thousand separators
+      const dots = (s.match(/\./g) || []).length;
+      if (dots > 1) s = s.replace(/\./g, '');
+    }
+    const n = Number(s);
+    return isNaN(n) ? 0 : n;
+  };
+
+  // try to extract lat/lng from various invoice location shapes
+  const parseLatLng = (loc) => {
+    if (!loc) return null;
+    if (typeof loc.lat === 'number' && typeof loc.lng === 'number') return { lat: loc.lat, lng: loc.lng };
+    if (loc.latitude && loc.longitude) return { lat: Number(loc.latitude), lng: Number(loc.longitude) };
+    if (loc.lat && loc.lng) return { lat: Number(loc.lat), lng: Number(loc.lng) };
+    if (loc.location && Array.isArray(loc.location.coordinates) && loc.location.coordinates.length >= 2) {
+      const [lng, lat] = loc.location.coordinates;
+      return { lat: Number(lat), lng: Number(lng) };
+    }
+    const coordStr = loc.coordinates || loc.coord || (loc.addressDetails && loc.addressDetails.coordinates) || null;
+    if (typeof coordStr === 'string') {
+      const m = coordStr.match(/(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/);
+      if (m) return { lat: Number(m[1]), lng: Number(m[2]) };
+    }
+    return null;
+  };
+
+  // lightweight geocode fallback using Nominatim
+  const geocodeAddress = async (address) => {
+    if (!address || String(address).trim().length === 0) return null;
+    try {
+      const q = encodeURIComponent(String(address));
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1&countrycodes=vn&accept-language=vi`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'HOMS-App' } });
+      if (!res.ok) return null;
+      const arr = await res.json();
+      if (!Array.isArray(arr) || arr.length === 0) return null;
+      const item = arr[0];
+      return { lat: Number(item.lat), lng: Number(item.lon) };
+    } catch (e) {
+      console.warn('Geocode failed', e);
+      return null;
+    }
+  };
+
+  // prepare map markers whenever selectedInvoice changes
+  useEffect(() => {
+    let mounted = true;
+    const prepare = async () => {
+      if (!selectedInvoice) {
+        if (mounted) setMapMarkers(null);
+        return;
+      }
+      setMapLoading(true);
+      try {
+        let p = parseLatLng(selectedInvoice.pickup);
+        let d = parseLatLng(selectedInvoice.delivery);
+
+        if (!p && (selectedInvoice.pickup?.address || selectedInvoice.pickup?.fullAddress)) {
+          p = await geocodeAddress(selectedInvoice.pickup.address || selectedInvoice.pickup.fullAddress);
+        }
+        if (!d && (selectedInvoice.delivery?.address || selectedInvoice.delivery?.fullAddress)) {
+          d = await geocodeAddress(selectedInvoice.delivery.address || selectedInvoice.delivery.fullAddress);
+        }
+
+        if (mounted) setMapMarkers({ pickup: p, delivery: d });
+      } catch (e) {
+        console.warn('prepare map markers error', e);
+        if (mounted) setMapMarkers(null);
+      } finally {
+        if (mounted) setMapLoading(false);
+      }
+    };
+    prepare();
+    return () => { mounted = false; };
+  }, [selectedInvoice]);
+
+  // Leaflet map inside Modal can render blank or stretched when opened; trigger a resize event
+  // shortly after Modal opens so the map invalidates its size and tiles render correctly.
+  useEffect(() => {
+    let t = null;
+    if (detailVisible || mapFullscreenVisible) {
+      // give Modal time to animate and layout
+      t = setTimeout(() => {
+        try {
+          window.dispatchEvent(new Event('resize'));
+        } catch (e) { /* ignore */ }
+      }, 300);
+    }
+    return () => { if (t) clearTimeout(t); };
+  }, [detailVisible, mapFullscreenVisible, mapMarkers]);
+
 
   const fetchList = async (page = 1, limit = 5, currentFilters = filters) => {
     setLoading(true);
@@ -85,7 +437,11 @@ const InvoiceManagement = () => {
       const rawInvoices = Array.isArray(payload.invoices) ? payload.invoices : [];
       const sortedInvoices = sortInvoicesByTime(rawInvoices, timeOrder);
       setInvoices(sortedInvoices);
+  // fetch aggregated revenue for the range covered by returned invoices
+  fetchRevenueForInvoices(rawInvoices);
       setPagination(prev => ({ ...prev, current: Number(payload.currentPage || page), pageSize: Number(payload.limit || limit), total: Number(payload.total || 0) }));
+  // refresh global invoice totals (kpi cards)
+  fetchInvoiceTotals();
     } catch (err) {
       console.error('Failed to fetch invoices', err);
       notification.error({ message: 'Không thể lấy danh sách hóa đơn' });
@@ -96,6 +452,14 @@ const InvoiceManagement = () => {
 
   useEffect(() => {
     fetchList(1, pagination.pageSize, filters);
+    // also fetch dashboard overview (totalRevenue) for Payments tab
+    fetchOverviewRevenue();
+    // fetch total paid aggregate
+    fetchTotalPaidSystem();
+    // fetch global invoice totals for KPI cards
+    fetchInvoiceTotals();
+    // fetch recent payments for Payments tab
+    fetchRecentPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -176,14 +540,19 @@ const InvoiceManagement = () => {
       if (res && res.success && res.data) payload = res.data;
       setSelectedInvoice(payload);
     } catch (e) {
-      notification.error({ message: 'Không thể lấy chi tiết hóa đơn' });
+      // If this error was triggered by client-side validation (invalid id), suppress the toast
+      if (e && e.isClientValidation) {
+        console.warn('openDetail: invalid invoice id, skipping error toast');
+      } else {
+        notification.error({ message: 'Không thể lấy chi tiết hóa đơn' });
+      }
     } finally {
       setDetailLoading(false);
     }
   };
 
   const columns = [
-    { title: 'Mã hóa đơn', dataIndex: 'code', key: 'code', width: 180, render: (text) => <Text strong style={{ color: primaryColor }}>{text}</Text> },
+  { title: 'Mã hóa đơn', dataIndex: 'code', key: 'code', width: 130, ellipsis: true, render: (text) => <Text strong style={{ color: primaryColor, fontSize: 13 }}>{text}</Text> },
     { title: 'Khách hàng', dataIndex: ['customer', 'fullName'], key: 'customer', render: (t, r) => (t || r.customer?.email || '—') },
     { title: 'Địa chỉ lấy', dataIndex: ['pickup', 'address'], key: 'pickup', render: (t) => t || '—' },
     { title: 'Địa chỉ giao', dataIndex: ['delivery', 'address'], key: 'delivery', render: (t) => t || '—' },
@@ -195,7 +564,7 @@ const InvoiceManagement = () => {
     } },
     { title: 'Hành động', key: 'action', width: 120, render: (_, record) => (
       <Space>
-        <Button icon={<FolderOpenOutlined />} onClick={() => openDetail(record)}>Xem</Button>
+        <Button className="btn-outline-primary" icon={<FolderOpenOutlined />} onClick={() => openDetail(record)}>Xem</Button>
       </Space>
     ) }
   ];
@@ -244,18 +613,20 @@ const InvoiceManagement = () => {
 
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
               {/* Stat cards */}
-              {(() => {
-                const total = Number(pagination.total || 0);
-                const completed = invoices.filter(i => i.status === 'COMPLETED').length;
-                const inProgress = invoices.filter(i => i.status === 'IN_PROGRESS' || i.status === 'ASSIGNED').length;
-                const revenueValue = computeRevenue(invoices || []);
-                const avg = invoices.length ? Math.round(revenueValue / invoices.length) : 0;
+                {(() => {
+                // Prefer server-provided global totals when available; otherwise fall back to page-local counts
+                const total = invoiceTotals ? Number(invoiceTotals.total || 0) : Number(pagination.total || 0);
+                const completed = invoiceTotals ? Number(invoiceTotals.COMPLETED || 0) : invoices.filter(i => i.status === 'COMPLETED').length;
+                const inProgress = invoiceTotals ? Number((invoiceTotals.IN_PROGRESS || 0) + (invoiceTotals.ASSIGNED || 0)) : invoices.filter(i => i.status === 'IN_PROGRESS' || i.status === 'ASSIGNED').length;
+                // Use dashboard overview total when available; otherwise fall back to computed/page sum
+                const revenueValue = overviewLoading ? 0 : (overviewRevenue !== null ? overviewRevenue : computeRevenue(invoices || []));
+                const avg = invoices.length ? Math.round((computeRevenue(invoices || []) / invoices.length) || 0) : 0;
 
                 const statItems = [
                   { key: 'total', label: 'Tổng hóa đơn', value: total, color: '#2f8f6b', icon: <FolderOpenOutlined /> },
                   { key: 'revenue', label: 'Doanh thu', value: formatCurrency(revenueValue), color: '#d48806', icon: <DollarCircleOutlined /> },
                   { key: 'completed', label: 'Hoàn thành', value: completed, color: '#13c2c2', icon: <CheckCircleOutlined /> },
-                  { key: 'inProgress', label: 'Chờ/Đang', value: inProgress, color: '#597ef7', icon: <BarChartOutlined /> },
+                  { key: 'inProgress', label: 'Đã phân công', value: inProgress, color: '#597ef7', icon: <BarChartOutlined /> },
                 ];
 
                 return statItems.map(item => {
@@ -297,200 +668,312 @@ const InvoiceManagement = () => {
       key: '2',
       label: (<span><DollarCircleOutlined style={{ marginRight: 8 }} />Thanh toán</span>),
       children: (() => {
-  const revenue = computeRevenue(invoices || []);
-  const avg = invoices.length ? Math.round((computeRevenue(invoices || []) / invoices.length) || 0) : 0; // keep local avg based on current page
-        // compute top 5 locally for the left column (visual)
-        const topInvoices = [...(invoices || [])]
-          .map(i => ({ ...i, _value: Number(i.total ?? i.amount ?? i.price ?? 0) || 0 }))
-          .sort((a, b) => b._value - a._value)
-          .slice(0, 5);
-
-        // Payments tab: full table (paginated) with client-side sort & filter controls
-        const count = Number(pagination.total || 0);
-        const completed = invoices.filter(i => i.status === 'COMPLETED').length;
-
-        // Apply payments filters (amountRange/timeRange) to the current invoices array
-        const applyPaymentsFilters = (list) => {
-          let out = [...list];
-          // amountRange values: 'lt100k','100k-1m','1m-10m','gt10m',''
-          const ar = paymentsFilters.amountRange;
-          if (ar) {
-            out = out.filter(i => {
-              const v = Number(i.total ?? i.amount ?? i.price ?? 0) || 0;
-              switch (ar) {
-                case 'lt100k': return v < 100000;
-                case '100k-1m': return v >= 100000 && v < 1000000;
-                case '1m-10m': return v >= 1000000 && v < 10000000;
-                case 'gt10m': return v >= 10000000;
-                default: return true;
-              }
-            });
+        // local helper: filter recentPayments by search and time range
+        const getFilteredRecent = () => {
+          let list = Array.isArray(recentPayments) ? [...recentPayments] : [];
+          const s = (paymentSearch || '').toString().trim().toLowerCase();
+          if (s) {
+            list = list.filter(i => ((i.code || '') + ' ' + (i.customer?.fullName || '') + ' ' + (i.customer?.email || '')).toLowerCase().includes(s));
           }
-
-          // timeRange values: '7d','30d','90d','all'
-          const tr = paymentsFilters.timeRange;
-          if (tr && tr !== 'all') {
+          if (paymentsViewTimeRange && paymentsViewTimeRange !== 'all') {
             const now = Date.now();
             let cutoff = 0;
-            if (tr === '7d') cutoff = now - 7 * 24 * 60 * 60 * 1000;
-            if (tr === '30d') cutoff = now - 30 * 24 * 60 * 60 * 1000;
-            if (tr === '90d') cutoff = now - 90 * 24 * 60 * 60 * 1000;
-            out = out.filter(i => {
-              const t = i.lastTimelineUpdatedAt ? new Date(i.lastTimelineUpdatedAt).getTime() : 0;
+            if (paymentsViewTimeRange === '7d') cutoff = now - 7 * 24 * 60 * 60 * 1000;
+            if (paymentsViewTimeRange === '30d') cutoff = now - 30 * 24 * 60 * 60 * 1000;
+            if (paymentsViewTimeRange === '90d') cutoff = now - 90 * 24 * 60 * 60 * 1000;
+            list = list.filter(i => {
+              const t = i.lastTimelineUpdatedAt ? new Date(i.lastTimelineUpdatedAt).getTime() : (i.createdAt ? new Date(i.createdAt).getTime() : 0);
               return t >= cutoff;
             });
           }
-
-          return out;
+          // filter by payment status: all / PAID / PARTIAL / UNPAID
+          if (paymentStatusFilter && paymentStatusFilter !== 'all') {
+            if (paymentStatusFilter === 'PAID') {
+              list = list.filter(i => (i.paymentStatus === 'PAID'));
+            } else if (paymentStatusFilter === 'PARTIAL') {
+              list = list.filter(i => (i.paymentStatus === 'PARTIAL'));
+            } else if (paymentStatusFilter === 'UNPAID') {
+              // treat missing/empty paymentStatus or explicit UNPAID as unpaid
+              list = list.filter(i => (!i.paymentStatus || i.paymentStatus === 'UNPAID'));
+            }
+          }
+          return list;
         };
 
-        // Apply sorter (paymentsSorter) to a list
-        const applyPaymentsSorter = (list) => {
-          const { field, order } = paymentsSorter;
-          if (!field || !order) return list;
-          const sorted = [...list].sort((a, b) => {
-            let av = a[field];
-            let bv = b[field];
-            if (field === '_value') { av = Number(a.total ?? a.amount ?? a.price ?? 0) || 0; bv = Number(b.total ?? b.amount ?? b.price ?? 0) || 0; }
-            if (field === 'lastTimelineUpdatedAt') { av = a.lastTimelineUpdatedAt ? new Date(a.lastTimelineUpdatedAt).getTime() : 0; bv = b.lastTimelineUpdatedAt ? new Date(b.lastTimelineUpdatedAt).getTime() : 0; }
-            if (av < bv) return order === 'ascend' ? -1 : 1;
-            if (av > bv) return order === 'ascend' ? 1 : -1;
-            return 0;
+        const filteredRecent = getFilteredRecent();
+        const recentCount = filteredRecent.length;
+        const recentTotal = filteredRecent.reduce((s, it) => s + (parseAmount(it?.priceSnapshot?.totalPrice ?? it?.total ?? it?.amount ?? it?.totalPrice ?? 0) || 0), 0);
+
+        // KPI helpers (based on filteredRecent)
+        const avgTicket = recentCount ? Math.round(recentTotal / recentCount) : 0;
+        const topCustomer = (() => {
+          const map = {};
+          (filteredRecent || []).forEach(r => {
+            const key = (r.customer?.email || r.customer?.fullName || 'Khách lạ').toString();
+            const amt = parseAmount(r?.priceSnapshot?.totalPrice ?? r?.total ?? r?.amount ?? r?.totalPrice ?? 0) || 0;
+            map[key] = (map[key] || 0) + amt;
           });
-          return sorted;
-        };
+          const entries = Object.entries(map);
+          if (!entries.length) return null;
+          entries.sort((a,b) => b[1] - a[1]);
+          return { name: entries[0][0], value: entries[0][1] };
+        })();
 
-        // derive final payments table data and pagination
-        const paymentsSourceAll = applyPaymentsFilters(invoices.map(i => ({ ...i, _value: Number(i.total ?? i.amount ?? i.price ?? 0) || 0 })));
-        const paymentsSourceSorted = applyPaymentsSorter(paymentsSourceAll);
-        const paymentsTotal = paymentsSourceSorted.length;
-        const pcur = paymentsPagination.current || 1;
-        const psize = paymentsPagination.pageSize || 5;
-        const paymentsPaged = paymentsSourceSorted.slice((pcur - 1) * psize, pcur * psize);
+        // status breakdown for donut/legends
+        const statusCounts = (() => {
+          const m = { PAID: 0, PARTIAL: 0, UNPAID: 0 };
+          (filteredRecent || []).forEach(it => {
+            if (it?.paymentStatus === 'PAID') m.PAID += 1;
+            else if (it?.paymentStatus === 'PARTIAL') m.PARTIAL += 1;
+            else m.UNPAID += 1;
+          });
+          return m;
+        })();
+        const statusTotal = Math.max(1, (statusCounts.PAID + statusCounts.PARTIAL + statusCounts.UNPAID));
+        const pctPaid = Math.round((statusCounts.PAID + statusCounts.PARTIAL) / statusTotal * 100);
+        const totalPaidAmount = filteredRecent.reduce((s, it) => {
+          const st = it?.paymentStatus;
+          if (st !== 'PAID' && st !== 'PARTIAL') return s;
+          return s + (parseAmount(it?.priceSnapshot?.totalPrice ?? it?.total ?? it?.amount ?? it?.totalPrice ?? 0) || 0);
+        }, 0);
 
-        const handlePaymentsTableChange = (pag, filtersArg, sorter) => {
-          // update local pagination and sorter
-          setPaymentsPagination(prev => ({ ...prev, current: pag.current, pageSize: pag.pageSize }));
-          if (sorter && sorter.field) setPaymentsSorter({ field: sorter.field, order: sorter.order });
-        };
-
-        const handlePaymentsFilterChange = (k, v) => {
-          const next = { ...paymentsFilters, [k]: v };
-          setPaymentsFilters(next);
-          // reset page to 1 when filters change
-          setPaymentsPagination(prev => ({ ...prev, current: 1 }));
-        };
+        const paymentsColumns = [
+          { title: 'Mã HĐ', dataIndex: 'code', key: 'code', render: (t) => <Text strong>{t}</Text> },
+          { title: 'Khách hàng', dataIndex: ['customer', 'fullName'], key: 'customer' },
+          { title: 'Số tiền', dataIndex: 'amount', key: 'amount', render: (v, r) => {
+              // backend recent-invoices returns totalPrice (priceSnapshot may be absent in this lightweight shape)
+              const amt = parseAmount(r?.priceSnapshot?.totalPrice ?? r?.total ?? r?.amount ?? r?.totalPrice ?? 0) || 0;
+              return <span className="amount-cell">{formatCurrency(amt)}</span>;
+            }
+          },
+          { title: 'Thanh toán', dataIndex: 'paymentStatus', key: 'paymentStatus', render: (s) => {
+              const map = { PAID: ['green','Đã thanh toán'], PARTIAL: ['orange','Thanh toán một phần'] };
+              const info = map[s] || ['default', s || 'Chưa thanh toán'];
+              return <Tag color={info[0]}>{info[1]}</Tag>;
+            } },
+          { title: 'Thời gian', dataIndex: 'lastTimelineUpdatedAt', key: 'time', render: (_, record) => {
+              const d = record.lastTimelineUpdatedAt || record.createdAt || record.paidAt || null;
+              return d ? new Date(d).toLocaleString() : null;
+            }
+          },
+          { title: 'Hành động', key: 'action', render: (_, record) => (<Button size="small" className="btn-outline-primary" onClick={() => openDetail(record)}>Xem</Button>) }
+        ];
 
         return (
           <>
+            {/* Top strip: three KPI cards at left (same width as revenue card below) and Recent transactions card on the right */}
             <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
-              <Col xs={24} md={16}>
-                <Card style={{ borderRadius: 12, background: primaryColor, color: '#fff' }} bodyStyle={{ padding: 20 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>Tổng doanh thu</div>
-                      <div style={{ color: '#fff', fontSize: 36, fontWeight: 800, marginTop: 6 }}>{formatCurrency(revenue)}</div>
-                      <div style={{ color: 'rgba(255,255,255,0.85)', marginTop: 8 }}>Tổng doanh thu từ các hóa đơn hiển thị</div>
-                    </div>
-                    <div>
-                      <Avatar size={72} style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
-                        <DollarCircleOutlined style={{ fontSize: 32 }} />
-                      </Avatar>
-                    </div>
+              <Col xs={24} lg={16}>
+                <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    {/* KPI 1: Trung bình (with color + icon) */}
+                    <Card size="small" style={{ borderRadius: 10, flex: 1, background: hexToRgba('#2f8f6b', 0.06), border: `1px solid ${hexToRgba('#2f8f6b', 0.12)}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ color: '#666', fontSize: 12 }}>Trung bình</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: primaryColor, marginTop: 6 }}>{formatCurrency(avgTicket)}</div>
+                          <div style={{ color: '#888', marginTop: 6, fontSize: 12 }}>trên đơn</div>
+                        </div>
+                        <Avatar size={44} shape="square" style={{ background: '#2f8f6b', color: '#fff' }} icon={<StarOutlined />} />
+                      </div>
+                    </Card>
+
+                    {/* KPI 2: Khách hàng top (with color + icon) */}
+                    <Card size="small" style={{ borderRadius: 10, flex: 1, background: hexToRgba('#597ef7', 0.06), border: `1px solid ${hexToRgba('#597ef7', 0.12)}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ color: '#666', fontSize: 12 }}>Khách hàng top</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: primaryColor, marginTop: 6 }}>{topCustomer ? topCustomer.name : '—'}</div>
+                          <div style={{ color: '#888', marginTop: 6, fontSize: 12 }}>{topCustomer ? formatCurrency(topCustomer.value) : ''}</div>
+                        </div>
+                        <Avatar size={44} shape="square" style={{ background: '#597ef7', color: '#fff' }} icon={<TrophyOutlined />} />
+                      </div>
+                    </Card>
+
+                    {/* KPI 3: Tỉ lệ đã thanh toán (PAID/PARTIAL) - complements donut */}
+                    <Card size="small" style={{ borderRadius: 10, flex: 1, background: hexToRgba('#d48806', 0.06), border: `1px solid ${hexToRgba('#d48806', 0.12)}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ color: '#666', fontSize: 12 }}>Tỉ lệ đã thanh toán</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: primaryColor, marginTop: 6 }}>{pctPaid}%</div>
+                          <div style={{ color: '#888', marginTop: 6, fontSize: 12 }}>tính trên giao dịch đang lọc</div>
+                        </div>
+                        <Avatar size={44} shape="square" style={{ background: '#d48806', color: '#fff' }} icon={<CheckCircleOutlined />} />
+                      </div>
+                    </Card>
                   </div>
-                </Card>
+
+                  {/* Put the revenue card under the KPIs in the same left column so it won't be pushed by the right column height */}
+                  <div>
+                    <Card style={{ borderRadius: 12, background: hexToRgba(primaryColor, 0.06), border: `1px solid ${hexToRgba(primaryColor, 0.12)}` }} bodyStyle={{ padding: 16 }}>
+                      {overviewLoading || totalPaidLoading || recentLoading ? (
+                        <div style={{ padding: 12 }}><Skeleton active paragraph={{ rows: 3 }} /></div>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ color: '#666', fontSize: 14 }}>Tổng doanh thu (hệ thống)</div>
+                            <div style={{ fontSize: 32, fontWeight: 800, color: primaryColor, marginTop: 6 }}>{formatCurrency(overviewRevenue !== null ? overviewRevenue : revenueValue)}</div>
+                            <div style={{ color: '#888', marginTop: 8 }}>Doanh thu đã ghi nhận (PAID / PARTIAL)</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ marginTop: 8 }}>
+                              <Avatar size={64} style={{ background: hexToRgba(primaryColor, 0.14), color: primaryColor }}>
+                                <DollarCircleOutlined style={{ fontSize: 28 }} />
+                              </Avatar>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                </div>
               </Col>
 
-              <Col xs={24} md={8}>
-                <Row gutter={[12, 12]}>
-                  <Col span={24}>
-                    <Card style={{ borderRadius: 8 }} size="small">
-                      <Statistic title="Số hóa đơn" value={count} valueStyle={{ color: primaryColor, fontWeight: 700 }} />
-                    </Card>
-                  </Col>
-                  <Col span={24}>
-                    <Card style={{ borderRadius: 8 }} size="small">
-                      <Statistic title="Hoàn thành" value={completed} valueStyle={{ color: primaryColor, fontWeight: 700 }} />
-                    </Card>
-                  </Col>
-                </Row>
+              <Col xs={24} lg={8}>
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 12, alignItems: 'stretch' }}>
+                  {/* Donut chart showing payment status breakdown (PAID / PARTIAL / UNPAID) */}
+                  <Card size="small" style={{ borderRadius: 8, minHeight: 256, display: 'flex', flexDirection: 'column' }} bodyStyle={{ padding: 16, flex: 1 }}>
+                    {(() => {
+                      const m = { PAID: 0, PARTIAL: 0, UNPAID: 0 };
+                      (Array.isArray(recentPayments) ? recentPayments : []).forEach(it => {
+                        if (it?.paymentStatus === 'PAID') m.PAID += 1;
+                        else if (it?.paymentStatus === 'PARTIAL') m.PARTIAL += 1;
+                        else m.UNPAID += 1;
+                      });
+                      const total = Math.max(1, (m.PAID + m.PARTIAL + m.UNPAID));
+                      const pPaid = Math.round((m.PAID / total) * 100);
+                      const pPartial = Math.round((m.PARTIAL / total) * 100);
+                      const pUnpaid = 100 - pPaid - pPartial;
+                      const size = 140; // increased donut size
+                      const donutStyle = {
+                        width: size,
+                        height: size,
+                        borderRadius: '50%',
+                        background: `conic-gradient(#52c41a 0% ${pPaid}%, #fa8c16 ${pPaid}% ${pPaid + pPartial}%, #d9d9d9 ${pPaid + pPartial}% 100%)`,
+                        display: 'inline-block',
+                        position: 'relative'
+                      };
+                      // center the donut and show legend underneath using primary palette
+                      // pastel palette for a softer look
+                      const paidColor = '#b7d3b7'; // pastel green
+                      const partialColor = '#f0c58a'; // pastel orange
+                      const unpaidColor = '#f5f6f7'; // very light neutral
+                      const donutBg = `conic-gradient(${paidColor} 0% ${pPaid}%, ${partialColor} ${pPaid}% ${pPaid + pPartial}%, ${unpaidColor} ${pPaid + pPartial}% 100%)`;
+                      const centerDonutStyle = { ...donutStyle, background: donutBg };
+                      // build legend items and sort by count descending so largest appears first
+                      const legendItems = [
+                        { key: 'PAID', label: 'Đã thanh toán', count: m.PAID, color: paidColor },
+                        { key: 'PARTIAL', label: 'Một phần', count: m.PARTIAL, color: partialColor },
+                        { key: 'UNPAID', label: 'Chưa', count: m.UNPAID, color: unpaidColor }
+                      ].sort((a,b) => b.count - a.count);
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                            {/* SVG donut with rounded segments */}
+                            {(() => {
+                              const strokeWidth = Math.max(12, Math.round(size * 0.18));
+                              const r = (size - strokeWidth) / 2;
+                              const c = 2 * Math.PI * r;
+                              const segments = [
+                                { key: 'PAID', pct: pPaid, color: paidColor },
+                                { key: 'PARTIAL', pct: pPartial, color: partialColor },
+                                { key: 'UNPAID', pct: pUnpaid, color: unpaidColor }
+                              ];
+                              let acc = 0; // accumulated length in px
+                              return (
+                                <div style={{ width: size, height: size, position: 'relative' }}>
+                                  <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block' }}>
+                                    <g transform={`rotate(-90 ${size/2} ${size/2})`}>
+                                      {segments.map(s => {
+                                        const len = (s.pct / 100) * c;
+                                        const dash = `${len} ${Math.max(0, c - len)}`;
+                                        const dashOffset = -acc;
+                                        acc += len;
+                                        return (
+                                          <circle
+                                            key={s.key}
+                                            cx={size / 2}
+                                            cy={size / 2}
+                                            r={r}
+                                            fill="none"
+                                            stroke={s.color}
+                                            strokeWidth={strokeWidth}
+                                            strokeDasharray={dash}
+                                            strokeDashoffset={dashOffset}
+                                            strokeLinecap="round"
+                                          />
+                                        );
+                                      })}
+                                      {/* subtle track for better contrast */}
+                                      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(0,0,0,0.03)" strokeWidth={1} />
+                                    </g>
+                                  </svg>
+                                  <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: size * 0.46, height: size * 0.46, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 1px 0 rgba(0,0,0,0.02)' }}>
+                                    <div style={{ textAlign: 'center' }}>
+                                      <div style={{ fontSize: 12, color: '#666' }}>PAID%</div>
+                                      <div style={{ fontWeight: 700, color: primaryColor }}>{pPaid}%</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div style={{ display: 'flex', gap: 24, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            {legendItems.map(it => (
+                              <div key={it.key} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <div style={{ width: 14, height: 14, background: it.color, borderRadius: 3, border: it.key === 'UNPAID' ? '1px solid #e8e8e8' : 'none' }} />
+                                <div style={{ fontSize: 13 }}>{it.label}: <strong style={{ color: primaryColor, marginLeft: 6 }}>{it.count}</strong></div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </Card>
+                </div>
               </Col>
             </Row>
 
-            <Divider />
+            {/* Duplicate revenue card removed; revenue now lives under the KPI cards in the left column */}
 
-            <div style={{ marginTop: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ fontSize: 13, color: '#666' }}>Top hóa đơn theo giá trị</div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <Select size="small" style={{ width: 180 }} value={paymentsFilters.amountRange} onChange={(v) => handlePaymentsFilterChange('amountRange', v)} allowClear placeholder="Lọc theo số tiền">
-                    <Option value="lt100k">Dưới 100.000₫</Option>
-                    <Option value="100k-1m">100.000₫ - 1.000.000₫</Option>
-                    <Option value="1m-10m">1.000.000₫ - 10.000.000₫</Option>
-                    <Option value="gt10m">Trên 10.000.000₫</Option>
+            <Card style={{ borderRadius: 12 }} bodyStyle={{ padding: 12 }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 12, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Input.Search
+                    placeholder="Tìm mã / tên khách"
+                    onSearch={(v) => setPaymentSearch(v || '')}
+                    onChange={(e) => setPaymentSearch(e.target.value || '')}
+                    allowClear
+                    style={{ width: 240 }}
+                  />
+                  <Select value={paymentStatusFilter} onChange={(v) => setPaymentStatusFilter(v)} size="small" style={{ width: 160 }}>
+                    <Option value="all">Tất cả trạng thái</Option>
+                    <Option value="PAID">Đã thanh toán</Option>
+                    <Option value="PARTIAL">Thanh toán một phần</Option>
+                    <Option value="UNPAID">Chưa thanh toán</Option>
                   </Select>
-                  <Select size="small" style={{ width: 160 }} value={paymentsFilters.timeRange} onChange={(v) => handlePaymentsFilterChange('timeRange', v)} allowClear placeholder="Lọc theo thời gian">
-                    <Option value="all">Tất cả</Option>
+                  <Select value={paymentsViewTimeRange} onChange={(v) => setPaymentsViewTimeRange(v)} size="small" style={{ width: 120 }}>
                     <Option value="7d">7 ngày</Option>
                     <Option value="30d">30 ngày</Option>
                     <Option value="90d">90 ngày</Option>
+                    <Option value="all">Tất cả</Option>
                   </Select>
+                  <Button size="small" className="btn-outline-primary" onClick={() => exportRecentToCsv(filteredRecent)} icon={<FileTextOutlined />}>Xuất CSV</Button>
                 </div>
+                <div style={{ color: '#999', fontSize: 13 }}>Dữ liệu lấy từ giao dịch gần nhất (server)</div>
               </div>
 
-              {/* Layout: left = top list (compact cards with progress), right = detailed full table (paginated + sortable) */}
-              <Row gutter={[12, 12]}>
-                <Col xs={24} md={10}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {topInvoices.length ? (() => {
-                      const max = Math.max(...topInvoices.map(t => t._value), 1);
-                      return topInvoices.map((inv, idx) => (
-                        <Card key={inv._id || idx} size="small" style={{ borderRadius: 8 }} className="top-invoice-card">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <Avatar style={{ background: idx === 0 ? '#ffd666' : primaryColor, color: '#fff' }}>{idx + 1}</Avatar>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ fontWeight: 700 }}>{inv.code || '—'}</div>
-                                <div style={{ fontWeight: 700, color: primaryColor }}>{formatCurrency(inv._value)}</div>
-                              </div>
-                              <div style={{ color: '#888', fontSize: 12 }}>{inv.customer?.fullName || inv.customer?.email || 'Khách hàng'}</div>
-                              <div style={{ height: 8, background: '#f0f0f0', borderRadius: 8, marginTop: 8, overflow: 'hidden' }}>
-                                <div className="top-invoice-progress" style={{ width: `${Math.round((inv._value / max) * 100)}%`, height: '100%', borderRadius: 8, background: `linear-gradient(90deg, ${hexToRgba(primaryColor,0.9)}, ${hexToRgba(primaryColor,0.6)})` }} />
-                              </div>
-                            </div>
-                          </div>
-                        </Card>
-                      ));
-                    })() : <div style={{ color: '#999' }}>Không có dữ liệu</div>}
-                  </div>
-                </Col>
-
-                <Col xs={24} md={14}>
-                  <Card size="small" style={{ borderRadius: 8 }}>
-                    <Table
-                      size="small"
-                      columns={[
-                        { title: 'Rank', dataIndex: 'rank', key: 'rank', width: 60, render: (r) => <strong>{r}</strong> },
-                        { title: 'Mã', dataIndex: 'code', key: 'code', render: (c) => <Text strong>{c}</Text> },
-                        { title: 'Khách hàng', dataIndex: ['customer', 'fullName'], key: 'customer', render: (t, r) => (t || r.customer?.email || '—') },
-                        { title: 'Số tiền', dataIndex: '_value', key: '_value', sorter: true, render: (v, r) => <span style={{ color: primaryColor, fontWeight: 700 }}>{formatCurrency(Number(r.total ?? r.amount ?? r.price ?? v) || 0)}</span> },
-                        { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (s) => {
-                            const map = { COMPLETED: ['green','Hoàn thành'], CANCELLED: ['red','Đã hủy'], IN_PROGRESS: ['blue','Đang chạy'], ASSIGNED: ['gold','Đã phân công'], DRAFT: ['default','Nháp'] };
-                            const info = map[s] || ['default', s || '—'];
-                            return <Tag color={info[0]}>{info[1]}</Tag>;
-                          } },
-                        { title: 'Thời gian', dataIndex: 'lastTimelineUpdatedAt', key: 'lastTimelineUpdatedAt', sorter: true, render: (d) => d ? new Date(d).toLocaleString() : '—' },
-                        { title: 'Hành động', key: 'action', render: (_, record) => (<Button size="small" onClick={() => openDetail(record)}>Xem</Button>) }
-                      ]}
-                      dataSource={paymentsPaged.map((inv, idx) => ({ ...inv, rank: (paymentsPagination.current - 1) * paymentsPagination.pageSize + idx + 1 }))}
-                      pagination={{ current: paymentsPagination.current, pageSize: paymentsPagination.pageSize, total: paymentsTotal, showSizeChanger: true }}
-                      onChange={(pag, filtersArg, sorter) => handlePaymentsTableChange(pag, filtersArg, sorter)}
-                      rowKey={(r) => r._id}
-                    />
-                  </Card>
-                </Col>
-              </Row>
-            </div>
+              <Table
+                className="payments-table"
+                size="small"
+                columns={paymentsColumns}
+                dataSource={filteredRecent.map((r, idx) => ({ ...r, key: r._id || idx }))}
+                loading={recentLoading}
+                pagination={{ pageSize: 10 }}
+                rowKey={(r) => r._id || r.key}
+              />
+            </Card>
           </>
         );
       })()
@@ -515,63 +998,225 @@ const InvoiceManagement = () => {
         .invoice-search .ant-input-affix-wrapper { border-color: ${primaryColor} !important; }
         .invoice-search .ant-input { color: rgba(0,0,0,0.85); }
         .invoice-search .ant-btn { background: ${primaryColor} !important; border-color: ${primaryColor} !important; color: #fff !important; }
+  /* Payments table themed */
+  .payments-table .ant-table-thead > tr > th { background: ${hexToRgba(primaryColor, 0.06)}; color: ${primaryColor}; border-bottom: 1px solid ${hexToRgba(primaryColor, 0.12)}; }
+  .payments-table .ant-table-tbody > tr:hover > td { background: ${hexToRgba(primaryColor, 0.03)}; }
+  .payments-table .ant-table-tbody > tr > td.amount-cell, .payments-table .amount-cell { color: ${primaryColor}; font-weight: 700; }
+  .payments-table .ant-pagination .ant-pagination-item-active a, .payments-table .ant-pagination-item-active { border-color: ${primaryColor}; }
+    /* Outlined primary button: white bg, primary border/text, invert on hover */
+    .btn-outline-primary { background: #fff; color: ${primaryColor}; border: 1px solid ${primaryColor}; box-shadow: none; }
+    .btn-outline-primary:hover, .btn-outline-primary:focus { background: ${primaryColor} !important; color: #fff !important; border-color: ${primaryColor} !important; }
+    .btn-outline-primary[disabled], .btn-outline-primary[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }
         /* Top invoice list visuals */
         .top-invoice-card { transition: transform .14s ease, box-shadow .14s ease; }
         .top-invoice-card:hover { transform: translateY(-6px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
         .top-invoice-progress { transition: width .6s ease; border-radius: 8px; }
+        /* Modal detail styles */
+        .invoice-modal-header { display:flex; justify-content:space-between; align-items:center; gap:12px; padding-bottom:12px; border-bottom: 1px solid rgba(0,0,0,0.06) }
+        .invoice-code { font-size:20px; font-weight:800; color: ${primaryColor}; }
+        .invoice-sub { font-size:13px; color:#777; margin-top:4px; font-weight:500 }
+        .invoice-amount { font-size:20px; font-weight:800; color:#d48806 }
+        .invoice-section { border-radius:8px; padding:12px; background: linear-gradient(180deg, rgba(255,255,255,0.9), #fff); border: 1px solid rgba(0,0,0,0.04) }
+        .invoice-label { color:#666; font-size:13px; margin-bottom:6px }
+        .invoice-val { font-weight:600; color: ${primaryColor} }
+  /* smaller address text for pickup/delivery to fit modal */
+  .invoice-address { font-weight:600; color: ${primaryColor}; font-size:14px; line-height:1.35; }
+        .invoice-note { color:#444; white-space:pre-wrap }
+  /* compact embedded map inside invoice modal */
+  .invoice-map .location-picker .search-bar { display: none !important; }
+  .invoice-map .location-picker .map-legend { display: none !important; }
+  .invoice-map .location-picker .map-container { height: 100% !important; }
+        .invoice-meta .ant-card-body { padding:10px }
+        .meta-row { display:flex; align-items:center; gap:10px; margin-bottom:8px }
+        .meta-row a { font-size:13px; text-decoration:none }
+        @media (max-width: 768px) {
+          .invoice-modal-header { flex-direction:column; align-items:flex-start }
+        }
       `}</style>
 
       <Card style={{ borderRadius: 12 }}>
         <Tabs defaultActiveKey="1" items={tabItems} className="invoice-tabs" />
       </Card>
 
-      <Drawer
-        title="Chi tiết hóa đơn"
+      <Modal
+        title={null}
         open={detailVisible}
-        onClose={() => setDetailVisible(false)}
-        width={700}
+        onCancel={() => setDetailVisible(false)}
+        footer={null}
+        width={800}
+        bodyStyle={{ padding: 20 }}
       >
         {detailLoading || !selectedInvoice ? (
           <div style={{ textAlign: 'center', padding: 20 }}><Spin /> Đang tải...</div>
         ) : (
           <div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: primaryColor }}>{selectedInvoice.code}</div>
-              <div style={{ color: '#666' }}>Chi tiết đơn hàng vận chuyển</div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#888', marginBottom: 6 }}><EnvironmentOutlined /> Địa chỉ lấy</div>
-                <div style={{ fontWeight: 600 }}>{selectedInvoice.pickup?.address || '—'}</div>
+            <div className="invoice-modal-header">
+              <div>
+                <div className="invoice-code">{selectedInvoice.code || '—'}</div>
+                <div className="invoice-sub">Chi tiết đơn hàng vận chuyển</div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#888', marginBottom: 6 }}><EnvironmentOutlined /> Địa chỉ giao</div>
-                <div style={{ fontWeight: 600 }}>{selectedInvoice.delivery?.address || '—'}</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#888', marginBottom: 6 }}><UserOutlined /> Khách hàng</div>
-                <div style={{ fontWeight: 600 }}>{selectedInvoice.customer?.fullName || selectedInvoice.customer?.email || '—'}</div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#888', marginBottom: 6 }}><CarOutlined /> Xe/Tài xế</div>
-                <div style={{ fontWeight: 600 }}>{(selectedInvoice.assignedVehicles || []).map(v => v.plateNumber).join(', ') || '—'}</div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="invoice-amount">{formatCurrency(Number(selectedInvoice?.priceSnapshot?.totalPrice ?? selectedInvoice?.total ?? selectedInvoice?.amount ?? 0) || 0)}</div>
+                    <div style={{ marginTop: 6 }}>
+                      {(() => {
+                        const s = selectedInvoice?.status || selectedInvoice?.paymentStatus || '';
+                        const map = { COMPLETED: ['green','Hoàn thành'], CANCELLED: ['red','Đã hủy'], IN_PROGRESS: ['blue','Đang chạy'], ASSIGNED: ['gold','Đã phân công'], DRAFT: ['default','Nháp'], PAID: ['green','Đã thanh toán'], PARTIAL: ['orange','Thanh toán một phần'] };
+                        const info = map[s] || ['default', s || '—'];
+                        return <Tag color={info[0]}>{info[1]}</Tag>;
+                      })()}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div style={{ color: '#888', marginBottom: 6 }}><CalendarOutlined /> Thời gian</div>
-            <div style={{ fontWeight: 600, marginBottom: 12 }}>{selectedInvoice.lastTimelineUpdatedAt ? new Date(selectedInvoice.lastTimelineUpdatedAt).toLocaleString() : '—'}</div>
+            <div style={{ marginTop: 16 }}>
+              <Row gutter={[16,16]}>
+                <Col xs={24} md={16}>
+                  <div className="invoice-section" style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div className="invoice-label"><EnvironmentOutlined style={{ marginRight: 8 }} /> Địa chỉ lấy</div>
+                        <div className="invoice-val invoice-address">{selectedInvoice.pickup?.address || '—'}</div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div className="invoice-label"><EnvironmentOutlined style={{ marginRight: 8 }} /> Địa chỉ giao</div>
+                        <div className="invoice-val invoice-address">{selectedInvoice.delivery?.address || '—'}</div>
+                      </div>
+                    </div>
+                  </div>
 
-            <div style={{ marginTop: 6 }}>
-              <Text strong>Ghi chú</Text>
-              <div style={{ marginTop: 8 }}>{selectedInvoice.notes || '—'}</div>
+                  <div className="invoice-section invoice-map" style={{ marginBottom: 12 }}>
+                    <div className="invoice-label">Bản đồ</div>
+                    {mapLoading ? (
+                      <div style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <Spin />
+                        <div>Đang chuẩn bị bản đồ...</div>
+                      </div>
+                    ) : (() => {
+                      const p = mapMarkers?.pickup || null;
+                      const d = mapMarkers?.delivery || null;
+                      if (p || d) {
+                        return (
+                          <div style={{ height: 260, borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.04)', position: 'relative' }}>
+                            <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 1100 }}>
+                              <Tooltip title="Toàn màn hình">
+                                <Button shape="circle" size="small" onClick={() => setMapFullscreenVisible(true)} style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }} icon={<FullscreenOutlined style={{ color: primaryColor }} />} />
+                              </Tooltip>
+                            </div>
+                            <LocationPicker
+                              initialPosition={p || d}
+                              otherLocation={d && p ? (p.lat === d.lat && p.lng === d.lng ? null : d) : null}
+                              locationType="pickup"
+                              currentLocationData={{ address: selectedInvoice.pickup?.address || selectedInvoice.pickup?.fullAddress }}
+                              showRoute={false}
+                              routeColor={primaryColor}
+                            />
+                          </div>
+                        );
+                      }
+
+                      // fallback: no coordinates -> show quick links to open Google Maps
+                      const pickupAddr = selectedInvoice.pickup?.address || selectedInvoice.pickup?.fullAddress || '';
+                      const deliveryAddr = selectedInvoice.delivery?.address || selectedInvoice.delivery?.fullAddress || '';
+                      const gmLink = (addr) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
+
+                      return (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <div style={{ flex: 1 }}>
+                            <div className="invoice-key">Bản đồ</div>
+                            <div className="invoice-value" style={{ fontWeight: 500 }}>
+                              Không có tọa độ sẵn. Bạn có thể mở địa chỉ trên Google Maps:
+                              <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                                {pickupAddr ? <a target="_blank" rel="noreferrer" href={gmLink(pickupAddr)}>Mở địa chỉ lấy</a> : null}
+                                {deliveryAddr ? <a target="_blank" rel="noreferrer" href={gmLink(deliveryAddr)}>Mở địa chỉ giao</a> : null}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </Col>
+
+                <Col xs={24} md={8} className="invoice-meta">
+                  <Card size="small" style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <Avatar size={36} style={{ background: hexToRgba(primaryColor,0.9), color: '#fff', fontWeight: 700 }}>{(selectedInvoice.customer?.fullName || selectedInvoice.customer?.email || 'KH').slice(0,1)}</Avatar>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700 }}>{selectedInvoice.customer?.fullName || selectedInvoice.customer?.email || '—'}</div>
+                        <div style={{ color: '#666', fontSize: 13 }}>{selectedInvoice.customer?.phone || selectedInvoice.customer?.email || ''}</div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card size="small" style={{ marginBottom: 12 }}>
+                    <div className="invoice-label">Xe được phân công</div>
+                    {(selectedInvoice.assignedVehicles || []).length ? (
+                      (selectedInvoice.assignedVehicles || []).map(v => (
+                        <div key={v._id || v.vehicleId || v.plateNumber} className="meta-row">
+                          <Avatar size={36} style={{ background: hexToRgba(primaryColor, 0.85), color: '#fff' }}>{(v.plateNumber || 'V').slice(0,1)}</Avatar>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700 }}>{v.plateNumber || '—'}</div>
+                            <div style={{ color: '#666', fontSize: 12 }}>{v.vehicleType ? `${v.vehicleType}` : ''}{v.vehicleId ? ` • ${v.vehicleId}` : ''}</div>
+                          </div>
+                        </div>
+                      ))
+                    ) : <div style={{ color: '#999' }}>Chưa phân công xe</div>}
+                  </Card>
+
+                  <Card size="small" style={{ marginBottom: 12 }}>
+                    <div className="invoice-label">Tài xế</div>
+                    {(selectedInvoice.assignedDrivers || []).length ? (
+                      (selectedInvoice.assignedDrivers || []).map(d => (
+                        <div key={d._id || d.phone || d.fullName} className="meta-row">
+                          <Avatar size={36} style={{ background: '#ffd666', color: '#111' }}>{(d.fullName || 'T').slice(0,1)}</Avatar>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700 }}>{d.fullName || '—'}</div>
+                            <div style={{ color: '#666', fontSize: 12 }}>{d.phone || '—'}</div>
+                          </div>
+                        </div>
+                      ))
+                    ) : <div style={{ color: '#999' }}>Chưa phân công tài xế</div>}
+                  </Card>
+
+                  <Card size="small">
+                    <div className="invoice-label">Thời gian cập nhật</div>
+                    <div className="invoice-val">{selectedInvoice.lastTimelineUpdatedAt ? new Date(selectedInvoice.lastTimelineUpdatedAt).toLocaleString() : (selectedInvoice.updatedAt ? new Date(selectedInvoice.updatedAt).toLocaleString() : '—')}</div>
+                  </Card>
+                </Col>
+              </Row>
             </div>
           </div>
         )}
-      </Drawer>
+      </Modal>
+      <Modal
+        centered
+        open={mapFullscreenVisible}
+        onCancel={() => setMapFullscreenVisible(false)}
+        footer={null}
+        width={'90vw'}
+        bodyStyle={{ padding: 0 }}
+      >
+        <div style={{ height: '80vh', width: '100%' }}>
+          {mapMarkers ? (
+            <LocationPicker
+              initialPosition={mapMarkers.pickup || mapMarkers.delivery}
+              otherLocation={mapMarkers.pickup && mapMarkers.delivery ? (mapMarkers.pickup.lat === mapMarkers.delivery.lat && mapMarkers.pickup.lng === mapMarkers.delivery.lng ? null : mapMarkers.delivery) : null}
+              locationType="pickup"
+              currentLocationData={{ address: selectedInvoice?.pickup?.address || selectedInvoice?.pickup?.fullAddress }}
+              showRoute={false}
+              routeColor={primaryColor}
+            />
+          ) : (
+            <div style={{ padding: 20 }}>
+              <div>Không có vị trí để hiển thị trên bản đồ.</div>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };
