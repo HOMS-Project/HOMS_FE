@@ -22,12 +22,12 @@ const POOR_MATCH_THRESHOLD = 1.0;
 export const SECONDARY_KEY_RULES = [
   // Plant/flower FIRST — must catch 'chậu cây' before bowl catches 'bình'
   { key: 'plant', patterns: ['chậu cây', 'cây cảnh', 'chậu hoa', 'chậu cây lớn', 'chậu cây nhỏ', 'chậu cây trung', 'cây', 'hoa'] },
-  // Kitchen / bowl items — 'bình nước'/'bình hoa' only, NOT bare 'bình' (substring of 'trung bình')
-  { key: 'bowl', patterns: ['chén sứ', 'cốc sứ', 'bộ chén', 'bộ bát', 'chén bát', 'ấm đun', 'ấm siêu tốc', 'ấm điện',
-                            'bình nước', 'bình hoa', 'bình gốm', 'bình sứ', 'bình gốm/sứ',
-                            'đồ thủy tinh', 'thủy tinh', 'pha lê', 'đồ gốm sứ', 'gốm sứ', 'đồ gốm', 'đồ sứ',
-                            'chén', 'bát', 'đũa', 'nồi', 'cốc', 'ly sứ', 'tô'] },
-  { key: 'lamp', patterns: ['đèn cây', 'đèn sàn', 'đèn đứng', 'đèn bàn', 'đèn ngủ', 'đèn trần', 'đèn trang trí', 'đèn', 'bóng đèn'] },
+  // Kitchen / bowl items
+  {
+    key: 'bowl', patterns: ['chén sứ', 'cốc sứ', 'bộ chén', 'bộ bát', 'chén bát', 'chén', 'bát', 'tô', 'đĩa', 'dĩa',
+      'ly sứ', 'ly', 'tách', 'cốc', 'đồ thủy tinh', 'thủy tinh', 'pha lê', 'đồ gốm sứ', 'gốm sứ', 'đồ gốm', 'đồ sứ']
+  },
+  { key: 'lamp', patterns: ['đèn cây', 'đèn sàn', 'đèn đứng', 'đèn bàn', 'đèn ngủ', 'đèn trần', 'đèn trang trí', 'đèn led', 'đèn ngoài trời', 'đuốc', 'đèn', 'bóng đèn'] },
   { key: 'clock', patterns: ['đồng hồ kỹ thuật số', 'đồng hồ điện tử', 'đồng hồ treo tường', 'đồng hồ'] },
   { key: 'fan', patterns: ['quạt điện', 'quạt đứng', 'quạt bàn', 'quạt mini', 'quạt'] },
   { key: 'book', patterns: ['sách vở', 'tài liệu', 'vở', 'hồ sơ', 'sách'] },
@@ -37,15 +37,27 @@ export const SECONDARY_KEY_RULES = [
       'lọ trang trí', 'lọ hoa', 'lọ', 'vật trang trí', 'khay trang trí', 'đồ trang trí', 'vật dụng nhỏ', 'vật dụng trang trí', 'trang trí']
   },
   { key: 'curtain', patterns: ['rèm cửa', 'màn cửa', 'rèm'] },
-  { key: 'toy', patterns: ['đồ chơi', 'thú bông', 'thú nhồi bông', 'nhồi bông', 'lego', 'gấu bông', 'đồ chơi mềm'] },
+  { key: 'toy', patterns: ['đồ chơi', 'thú bông', 'thú nhồi bông', 'nhồi bông', 'lego', 'gấu bông', 'mô hình', 'robot', 'búp bê', 'board game', 'trò chơi', 'đồ chơi mềm'] },
   { key: 'shoes', patterns: ['giày dép', 'giày', 'dép', 'sandal', 'mũ bảo hiểm', 'nón bảo hiểm', 'bảo hiểm'] },
-  { key: 'clothes', patterns: ['bộ chăn ga gối', 'chăn ga gối', 'bộ chăn', 'chăn gối', 'thảm trải', 'thảm sàn', 'thảm',
-                                'quần áo', 'chăn', 'gối tựa', 'gối ôm', 'gối', 'ga trải', 'áo', 'quần',
-                                'mũ lưỡi trai', 'mũ', 'nón', 'túi xách', 'ví da', 'ví', 'túi nhỏ', 'balo', 'ba lô', 'phụ kiện thời trang'] },
-  { key: 'kitchen', patterns: ['dụng cụ bếp', 'chảo', 'xoong', 'dao', 'thớt', 'bếp gas', 'lò vi sóng', 'lò nướng'] },
-  { key: 'toiletry', patterns: ['mỹ phẩm', 'đồ vệ sinh', 'dầu gội', 'kem', 'nước hoa', 'son'] },
-  { key: 'electronics', patterns: ['máy tính xách tay', 'laptop', 'máy tính bảng', 'tablet', 'máy sấy', 'máy pha cà phê', 'bàn là', 'máy xay', 'bếp điện', 'nồi cơm điện', 'thiết bị điện nhỏ'] },
-  { key: 'box', patterns: ['thùng carton', 'thùng hàng', 'thùng', 'xe đẩy hàng', 'xe đẩy', 'tủ nhựa', 'tủ ngăn kéo nhựa', 'tủ ngăn kéo', 'kệ ngăn kéo nhựa', 'kệ ngăn kéo', 'kệ nhựa', 'hộp nhựa', 'hộp'] },
+  {
+    key: 'clothes', patterns: ['bộ chăn ga gối', 'chăn ga gối', 'bộ chăn', 'chăn gối', 'thảm trải', 'thảm sàn', 'thảm',
+      'quần áo', 'chăn', 'gối tựa', 'gối ôm', 'gối', 'ga trải', 'áo', 'quần',
+      'móc áo', 'giá treo đồ', 'cây treo đồ',
+      'mũ lưỡi trai', 'mũ', 'nón', 'túi xách', 'ví da', 'ví', 'túi nhỏ', 'phụ kiện thời trang']
+  },
+  {
+    key: 'kitchen', patterns: ['dụng cụ bếp', 'chảo', 'xoong', 'nồi', 'đũa', 'muỗng', 'thìa', 'dao', 'thớt', 'khay', 'thố', 'hũ', 'lọ gia vị',
+      'bếp gas', 'bếp từ', 'bếp hồng ngoại', 'lò vi sóng', 'lò nướng', 'nồi áp suất', 'nồi chiên không dầu', 'ấm đun', 'ấm siêu tốc', 'ấm điện', 'máy hút mùi', 'bình nước', 'bình hoa', 'bình gốm', 'bình sứ']
+  },
+  { key: 'toiletry', patterns: ['mỹ phẩm', 'đồ vệ sinh', 'dầu gội', 'sữa tắm', 'xà bông', 'bàn chải', 'kem đánh răng', 'giấy vệ sinh', 'khăn tắm', 'kem', 'nước hoa', 'son'] },
+  {
+    key: 'electronics', patterns: ['máy tính xách tay', 'laptop', 'máy tính bảng', 'tablet', 'máy sấy', 'máy pha cà phê', 'bàn là', 'máy xay', 'bếp điện', 'nồi cơm điện',
+      'loa', 'amply', 'dàn âm thanh', 'máy chiếu', 'máy in', 'router', 'modem', 'ổ cắm', 'thiết bị điện nhỏ']
+  },
+  {
+    key: 'box', patterns: ['thùng carton', 'thùng hàng', 'thùng xốp', 'bao tải', 'túi nilon', 'giỏ nhựa', 'sọt', 'vali', 'rương', 'balo', 'ba lô', 'thùng',
+      'xe đẩy hàng', 'xe đẩy', 'tủ nhựa', 'tủ ngăn kéo nhựa', 'tủ ngăn kéo', 'kệ ngăn kéo nhựa', 'kệ ngăn kéo', 'kệ nhựa', 'hộp nhựa', 'hộp']
+  },
 ];
 
 
@@ -69,23 +81,23 @@ export const matchSecondaryKey = (name = '') => {
 const CATALOG_CATEGORY_HINTS = [
   {
     catalog: 'Giường',
-    patterns: ['giường đơn', 'giường đôi', 'giường king', 'giường queen', 'giường ngủ', 'giường tầng', 'khung giường', 'nệm', 'đệm'],
+    patterns: ['giường đơn', 'giường đôi', 'giường king', 'giường queen', 'giường ngủ', 'giường tầng', 'khung giường', 'nệm', 'đệm', 'divan', 'vạt giường'],
   },
   {
     catalog: 'Tủ quần áo',
-    patterns: ['tủ quần áo', 'tủ áo', 'tủ đứng', 'tủ đựng quần'],
+    patterns: ['tủ quần áo', 'tủ áo', 'tủ đứng', 'tủ đựng quần', 'tủ đầu giường', 'táplô'],
   },
   {
     catalog: 'Sofa',
-    patterns: ['sofa', 'ghế sofa', 'bộ ghế sofa', 'bộ ghế salon', 'ghế salon', 'ghế ăn', 'ghế phòng ăn', 'bộ ghế ăn'],
+    patterns: ['sofa', 'ghế sofa', 'bộ ghế sofa', 'bộ ghế salon', 'ghế salon', 'ghế ăn', 'ghế phòng ăn', 'bộ ghế ăn', 'ghế lười', 'ghế bành', 'armchair', 'ghế dài', 'ghế dựa'],
   },
   {
     catalog: 'Tủ lạnh',
-    patterns: ['tủ lạnh', 'tủ đông'],
+    patterns: ['tủ lạnh', 'tủ đông', 'tủ mát', 'minibar'],
   },
   {
     catalog: 'Máy giặt',
-    patterns: ['máy giặt', 'máy giặt sấy'],
+    patterns: ['máy giặt', 'máy giặt sấy', 'máy sấy quần áo'],
   },
   {
     catalog: 'Tivi',
@@ -95,13 +107,13 @@ const CATALOG_CATEGORY_HINTS = [
     catalog: 'Bàn ăn / bàn làm việc',
     patterns: ['bàn ăn', 'bàn làm việc', 'bàn học', 'bàn gỗ', 'bộ bàn ăn',
       'bàn cà phê', 'bàn trà', 'coffee table', 'bàn console', 'bàn trung tâm',
-      'bàn phụ', 'bàn trang điểm', 'bàn đầu giường', 'bàn'],
+      'bàn phụ', 'bàn trang điểm', 'bàn đầu giường', 'bàn xếp', 'bàn nhựa', 'bàn đá', 'bàn'],
   },
   {
     catalog: 'Kệ sách / tủ hồ sơ',
     patterns: ['kệ sách', 'tủ sách', 'kệ hồ sơ', 'tủ hồ sơ', 'kệ đựng sách',
       'tủ trang trí', 'tủ trưng bày', 'kệ trưng bày', 'tủ đựng đồ', 'tủ thấp',
-      'kệ gỗ', 'kệ tầng', 'kệ đa tầng', 'kệ'],
+      'kệ gỗ', 'kệ tầng', 'kệ đa tầng', 'gia kệ', 'kệ sắt', 'kệ inox', 'tủ giày', 'kệ'],
   },
   {
     catalog: 'Máy tính để bàn',
@@ -109,7 +121,7 @@ const CATALOG_CATEGORY_HINTS = [
   },
   {
     catalog: 'Điều hòa',
-    patterns: ['điều hòa', 'điều hoà', 'máy lạnh', 'dàn lạnh'],
+    patterns: ['điều hòa', 'điều hoà', 'máy lạnh', 'dàn lạnh', 'máy lạnh đứng', 'điều hòa trung tâm'],
   },
   {
     catalog: 'Xe máy',
@@ -207,21 +219,21 @@ export const matchPrimaryCatalog = (aiItem, catalog) => {
 // ─── SECONDARY CATALOG reference (label lookup only) ─────────────────────────
 // Mirrors the main SECONDARY_CATALOG defined in SurveyInput — used for preview labels.
 const SECONDARY_CATALOG_LABELS = {
-  bowl: 'Chén bát / đũa',
+  bowl: 'Chén bát / Ly tách',
   lamp: 'Đèn bàn / đèn ngủ',
   clock: 'Đồng hồ',
   plant: 'Cây cảnh / chậu hoa',
   fan: 'Quạt điện',
   book: 'Sách vở / tài liệu',
-  mirror: 'Gương',
+  mirror: 'Gương / Tranh ảnh',
   curtain: 'Rèm cửa',
   toy: 'Đồ chơi trẻ em',
   shoes: 'Giày dép / hộp',
-  clothes: 'Quần áo (túi / thùng)',
+  clothes: 'Quần áo',
   kitchen: 'Dụng cụ bếp',
   toiletry: 'Đồ vệ sinh / mỹ phẩm',
   electronics: 'Thiết bị điện nhỏ',
-  box: 'Thùng carton chung',
+  box: 'Thùng / Vali / Túi',
 };
 
 // ─── Main API ─────────────────────────────────────────────────────────────────
