@@ -12,6 +12,7 @@ import RatingManagement from '../../pages/AdminPage/Rating/RatingManagement';
 import InvoiceManagement from '../../pages/AdminPage/Invoice/InvoiceManagement';
 import RouteManagement from '../../pages/AdminPage/RouteManagement/RouteManagement';
 import ProtectedRoute from "../../components/ProtectRoute/ProtectedRoute";
+import PromotionManagement from '../../pages/AdminPage/Promotion/PromotionManagement';
 
 const RoutesAdmin = () => {
   return (
@@ -29,6 +30,7 @@ const RoutesAdmin = () => {
           <Route path="reports" element={<ReportManagement />} />
           <Route path="contracts" element={<ContractManagement />} />
           <Route path="routes" element={<RouteManagement />} />
+          <Route path="promotions" element={<PromotionManagement />} />
           <Route path="*" element={<Navigate to="dashboard" />} />
         </Routes>
       </AdminLayout>

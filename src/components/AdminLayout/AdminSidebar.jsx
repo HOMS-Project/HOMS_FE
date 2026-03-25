@@ -1,6 +1,6 @@
 import React from 'react';
 import { Layout, Menu } from 'antd';
-import { AreaChartOutlined, UserOutlined, CarOutlined, FileTextOutlined, DollarOutlined, FileDoneOutlined, StarOutlined } from '@ant-design/icons';
+import { AreaChartOutlined, UserOutlined, CarOutlined, FileTextOutlined, DollarOutlined, FileDoneOutlined, StarOutlined, GiftOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '../../assets/images/logo.png'; // Using standard logo if available, or just text
 
@@ -43,7 +43,7 @@ const AdminSidebar = () => {
         },
         {
             key: '/admin/ratings',
-            icon: <StarOutlined />, 
+            icon: <StarOutlined />,
             label: 'Đánh giá & Phản hồi',
         },
         {
@@ -56,6 +56,11 @@ const AdminSidebar = () => {
             icon: <AreaChartOutlined />,
             label: 'Quản lý lộ trình',
         },
+        {
+            key: '/admin/promotions',
+            icon: <GiftOutlined />,
+            label: 'Khuyến mãi & Ưu đãi',
+        }
     ];
 
     return (
