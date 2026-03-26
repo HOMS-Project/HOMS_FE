@@ -96,7 +96,7 @@ const SurveyPricingModal = ({ visible, onClose, ticket, survey, pricing, tourRef
                                     <InfoRow icon={<InboxOutlined />} label="Đóng gói" value={<Tag color={survey.needsPacking ? 'blue' : 'default'} style={{ margin: 0 }}>{survey.needsPacking ? 'Có' : 'Không'}</Tag>} />
                                     <InfoRow icon={<ToolOutlined />} label="Tháo lắp" value={<Tag color={survey.needsAssembling ? 'blue' : 'default'} style={{ margin: 0 }}>{survey.needsAssembling ? 'Có' : 'Không'}</Tag>} />
                                     <InfoRow icon={<SafetyOutlined />} label="Bảo hiểm" value={survey.insuranceRequired ? <><Tag color="gold" style={{ margin: 0 }}>Có</Tag><span style={{ color: '#888', fontSize: 12, marginLeft: 4 }}>{(survey.declaredValue || 0).toLocaleString()} ₫</span></> : <Tag color="default" style={{ margin: 0 }}>Không</Tag>} />
-                                    <InfoRow icon={<ClockCircleOutlined />} label="Ước tính" value={`${survey.estimatedHours || '—'} giờ`} />
+                                    <InfoRow icon={<ClockCircleOutlined />} label="Ước tính" value={`${survey.estimatedHours || pricing.breakdown?.estimatedHours || '—'} giờ`} />
                                 </div>
                             </Col>
                             {survey.notes && (
@@ -178,13 +178,14 @@ const SurveyPricingModal = ({ visible, onClose, ticket, survey, pricing, tourRef
                         {(() => {
                             const bd = pricing?.breakdown || {};
                             const lines =[
-                                { icon: <ArrowRightOutlined />, label: 'Phí vận chuyển cơ bản', value: bd.baseTransportFee, always: true },
-                                { icon: <CarOutlined />, label: 'Phí xe tải (theo km)', value: bd.vehicleFee, always: true },
+                                { icon: <ArrowRightOutlined />, label: 'Phí vận chuyển cơ bản', value: bd.baseTransportFee, always: false },
+                                { icon: <CarOutlined />, label: 'Phí xe tải', value: bd.vehicleFee, always: false },
                                 { icon: <TeamOutlined />, label: 'Phí nhân công', value: bd.laborFee, always: true },
-                                { icon: <AppstoreOutlined />, label: 'Phí dịch vụ đồ vật', value: bd.serviceFee, always: false },
-                                { icon: <EnvironmentOutlined />, label: 'Phụ phí chặng xa (>30km)', value: bd.distanceSurcharge, always: false },
+                                { icon: <EnvironmentOutlined />, label: 'Phụ phí quãng đường (>30km)', value: bd.distanceFee, always: false },
                                 { icon: <TeamOutlined />, label: 'Phí khiêng vác bộ', value: bd.carryFee, always: false },
                                 { icon: <AppstoreOutlined />, label: 'Phí tầng lầu', value: bd.floorFee, always: false },
+                                { icon: <ToolOutlined />, label: 'Phí tháo lắp', value: bd.assemblingFee, always: false },
+                                { icon: <InboxOutlined />, label: 'Phí đóng gói', value: bd.packingFee, always: false },
                                 { icon: <SafetyOutlined />, label: 'Phí bảo hiểm', value: bd.insuranceFee, always: false },
                                 { icon: <InfoCircleOutlined />, label: 'Phí quản lý', value: bd.managementFee, always: false },
                             ].filter(l => l.always || (l.value != null && l.value > 0));
