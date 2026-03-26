@@ -30,7 +30,7 @@ import { PiScrollDuotone } from 'react-icons/pi';
 import dayjs from 'dayjs';
 import { requestTicketService, surveyService } from '../../services/surveysService';
 import AIVisionAnalyzer from '../../components/AIVisionAnalyzer/AIVisionAnalyzer';
-import { normalizeAIItems, SECONDARY_KEY_RULES, matchSecondaryKey } from '../../services/ai/catalogMappingService';
+import { normalizeAIItems, SECONDARY_KEY_RULES, matchSecondaryKey, normalizeCondition } from '../../services/ai/catalogMappingService';
 
 // ─── Icon badge helper ────────────────────────────────────────────────────────
 const CatIcon = ({ icon: Icon, color = '#44624A', size = 18 }) => (
@@ -595,7 +595,7 @@ const SurveyInput = () => {
             itemType: getItemType(item.name),   // ← map to BE enum
             actualVolume: item.actualVolume || 0,
             actualWeight: item.actualWeight || 0,
-            condition: item.condition || 'GOOD',
+            condition: normalizeCondition(item.condition),
             notes: item.notes || ''
           })) || []),
           ...secondaryItemsPayload,

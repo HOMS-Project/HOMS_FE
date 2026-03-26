@@ -74,6 +74,29 @@ export const matchSecondaryKey = (name = '') => {
   return null;
 };
 
+/**
+ * Normalizes Vietnamese condition strings from AI to backend enums ('GOOD', 'FRAGILE', 'DAMAGED').
+ * @param {string} cond - raw condition from AI
+ * @returns {string} - standardized enum
+ */
+export const normalizeCondition = (cond = '') => {
+  if (!cond) return 'GOOD';
+  const c = cond.trim().toUpperCase();
+
+  // FRAGILE keywords
+  if (['DỄ VỠ', 'DE VO', 'FRAGILE', 'CẨN THẬN', 'CAN THAN'].some(k => c.includes(k))) {
+    return 'FRAGILE';
+  }
+
+  // DAMAGED keywords
+  if (['HƯ HỎNG', 'HU HONG', 'CŨ', 'CU', 'VỠ', 'VO', 'DAMAGED', 'TRẦY XƯỚC', 'TRAY XUOC'].some(k => c.includes(k))) {
+    return 'DAMAGED';
+  }
+
+  // DEFAULT/GOOD
+  return 'GOOD';
+};
+
 // ─── CATALOG CATEGORY HINTS ──────────────────────────────────────────────────
 // Maps Vietnamese item name patterns → PRIMARY_CATALOG category name.
 // If a hint is found, scoring is restricted to only that category's presets.
@@ -277,7 +300,7 @@ export const normalizeAIItems = (
         name: `${match.catalogName} (${match.preset.label})`,
         actualVolume: match.preset.volume,
         actualWeight: match.preset.weight,
-        condition: aiItem.condition || 'GOOD',
+        condition: normalizeCondition(aiItem.condition),
         notes: aiItem.notes || '',
         _source: 'AI_MAPPED',
         _confidence: match.confidence,
@@ -300,7 +323,7 @@ export const normalizeAIItems = (
       name: aiItem.name,
       actualWeight: aiItem.actualWeight || 0,
       actualVolume: aiItem.actualVolume || 0,
-      condition: aiItem.condition || 'GOOD',
+      condition: normalizeCondition(aiItem.condition),
       notes: aiItem.notes || '',
       _source: 'AI_RAW',
       _aiRaw: {
