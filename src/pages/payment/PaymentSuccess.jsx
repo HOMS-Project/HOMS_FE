@@ -9,7 +9,28 @@ const PaymentSuccess = () => {
   const navigate = useNavigate();
   const ticketId = searchParams.get('ticketId');
   const code = searchParams.get('code');
+const type = searchParams.get('type');
+const getTitle = () => {
+  if (code !== '00') return "Đã xử lý giao dịch!";
 
+  if (type === "MOVING_REMAINING") {
+    return "Thanh toán hoàn tất đơn hàng!";
+  }
+
+  if (type === "MOVING_DEPOSIT") {
+    return "Thanh toán đặt cọc thành công!";
+  }
+
+  return "Thanh toán thành công!";
+};
+
+const getSubTitle = () => {
+  if (type === "MOVING_REMAINING") {
+    return "Đơn hàng của bạn đã được thanh toán đầy đủ.";
+  }
+
+  return "Chúng tôi sẽ liên hệ để tiến hành khảo sát trong thời gian sớm nhất.";
+};
   useEffect(() => {
     // If returning from PayOS with success, manually trigger a backend verification.
     // This provides a fallback for local environments without ngrok webhooks, 
@@ -22,9 +43,9 @@ const PaymentSuccess = () => {
 
   return (
     <Result
-      status={code === '00' ? "success" : "warning"}
-      title={code === '00' ? "Thanh toán đặt cọc thành công!" : "Đã xử lý giao dịch!"}
-      subTitle="Chúng tôi sẽ liên hệ để tiến hành khảo sát trong thời gian sớm nhất."
+       status={code === '00' ? "success" : "warning"}
+  title={getTitle()}
+  subTitle={getSubTitle()}
       extra={[
         <Button type="primary" key="console" onClick={() => navigate('/customer/order')}>
           Quản lý đơn hàng
