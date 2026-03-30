@@ -141,6 +141,43 @@ const MyContract = () => {
   
   }, []);
 
+  const openDetail = async (contractId) => {
+    setDetailOpen(true);
+    setDetailLoading(true);
+    try {
+      const res = await ContractService.getContractDetail(contractId);
+      if (res.success) setSelectedContract(res.data);
+    } catch {
+      message.error('Không thể tải chi tiết hợp đồng.');
+      setDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeDetail = () => { setDetailOpen(false); setSelectedContract(null); };
+
+const handleDownload = async (contractId) => {
+  try {
+    const response = await ContractService.downloadContract(contractId, 'pdf');
+
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `hop-dong-${contractId}.pdf`);
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+  } catch {
+    message.error('Tải xuống thất bại.');
+  }
+};
+
   
 
   return (
