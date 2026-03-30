@@ -178,7 +178,52 @@ const handleDownload = async (contractId) => {
   }
 };
 
-  
+  const columns = [
+    {
+      title: 'Số hợp đồng', dataIndex: 'contractNumber',
+      render: (val) => <Text strong style={{ color: '#1e40af', fontFamily: 'monospace', fontSize: 13 }}>{val}</Text>,
+    },
+    {
+      title: 'Trạng thái', dataIndex: 'status', width: 130,
+      render: (status) => <StatusTag status={status} />,
+    },
+    {
+      title: 'Hiệu lực từ', dataIndex: 'validFrom', width: 130,
+      render: (date) => date ? <Text>{dayjs(date).format('DD/MM/YYYY')}</Text> : <Text type="secondary">—</Text>,
+    },
+    {
+      title: 'Hiệu lực đến', dataIndex: 'validUntil', width: 130,
+      render: (date) => {
+        if (!date) return <Text type="secondary">—</Text>;
+        const isNear = dayjs(date).diff(dayjs(), 'day') <= 30;
+        return (
+          <Text style={{ color: isNear ? '#ef4444' : undefined, fontWeight: isNear ? 600 : 400 }}>
+            {dayjs(date).format('DD/MM/YYYY')}
+            {isNear && <ExclamationCircleOutlined style={{ marginLeft: 6 }} />}
+          </Text>
+        );
+      },
+    },
+    {
+      title: 'Ngày tạo', dataIndex: 'createdAt', width: 130,
+      render: (date) => <Text type="secondary">{dayjs(date).format('DD/MM/YYYY')}</Text>,
+    },
+    {
+      title: 'Thao tác', key: 'actions', width: 100, align: 'center',
+      render: (_, record) => (
+        <Space size={4}>
+          <Tooltip title="Xem chi tiết">
+            <Button type="text" icon={<EyeOutlined />} size="small"
+              style={{ color: '#3b82f6' }} onClick={() => openDetail(record._id)} />
+          </Tooltip>
+          <Tooltip title="Tải xuống">
+            <Button type="text" icon={<DownloadOutlined />} size="small"
+              style={{ color: '#64748b' }} onClick={() => handleDownload(record._id)} />
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <>
