@@ -126,7 +126,17 @@ const DispatchedOrders = () => {
             title: 'Trạng thái',
             dataIndex: 'status',
             key: 'status',
-            render: (status) => <Tag color={getStatusColor(status)}>{status}</Tag>
+            render: (status) => {
+                let color = getStatusColor(status);
+                let text = status;
+                if (status === 'ASSIGNED') text = 'Đã phân công';
+                if (status === 'IN_DISPATCH') text = 'Đang điều phối';
+                if (status === 'ACCEPTED') text = 'Tài xế đã nhận';
+                if (status === 'IN_PROGRESS') text = 'Đang thực hiện';
+                if (status === 'COMPLETED') text = 'Đã hoàn tất';
+                if (status === 'CANCELLED') text = 'Đã hủy';
+                return <Tag color={color}>{text}</Tag>;
+            }
         },
         {
             title: 'Thao tác',
@@ -207,7 +217,14 @@ const DispatchedOrders = () => {
                             <Text strong>Khách hàng: </Text> <Text>{selectedInvoice.customerId?.fullName} - {selectedInvoice.customerId?.phone}</Text>
                         </div>
                         <div>
-                            <Text strong>Trạng thái đơn: </Text> <Tag color={getStatusColor(selectedInvoice.status)}>{selectedInvoice.status}</Tag>
+                            <Text strong>Trạng thái đơn: </Text> 
+                            <Tag color={getStatusColor(selectedInvoice.status)}>
+                                {selectedInvoice.status === 'ASSIGNED' ? 'Đã phân công' :
+                                 selectedInvoice.status === 'ACCEPTED' ? 'Tài xế đã nhận' :
+                                 selectedInvoice.status === 'IN_PROGRESS' ? 'Đang thực hiện' :
+                                 selectedInvoice.status === 'COMPLETED' ? 'Đã hoàn tất' :
+                                 selectedInvoice.status === 'CANCELLED' ? 'Đã hủy' : selectedInvoice.status}
+                            </Tag>
                         </div>
 
                         {selectedInvoice.dispatchAssignmentId ? (
