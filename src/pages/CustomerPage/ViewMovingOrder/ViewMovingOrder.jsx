@@ -119,7 +119,36 @@ const IncidentTag = ({ incident, status, onClick }) => {
     </StatusTag>
   );
 };
+const handleRemainingPayment = (ticket) => {
+  confirm({
+    title: "Xác nhận thanh toán phần còn lại",
+    content: (
+      <>
+        <p>Bạn sắp thanh toán <b>phần còn lại của đơn hàng</b>.</p>
+        <p>
+          Số tiền:{" "}
+          <b style={{ color: "#d9363e" }}>
+            {(ticket.pricing.totalPrice / 2).toLocaleString()} ₫
+          </b>
+        </p>
+      </>
+    ),
+    onOk: async () => {
+      try {
+        const remainingAmount = Math.floor(ticket.pricing.totalPrice * 0.5);
 
+        const res = await orderService.createMovingRemaining(
+          ticket._id,
+          remainingAmount
+        );
+
+        window.location.href = res.data.checkoutUrl;
+      } catch (err) {
+        message.error("Lỗi thanh toán");
+      }
+    },
+  });
+};
 /* ─── OrderCard ───────────────────────────────────────────── */
 const OrderCard = ({
   ticket,
@@ -129,7 +158,7 @@ const OrderCard = ({
   onCancelQuote,
   onRateService,    // [RATING] handler mở modal đánh giá
   tourRefs,   
-    onDepositPayment,      // Refs for Ant Design Tour
+    onDepositPayment,   
 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -266,7 +295,7 @@ const canPayRemaining =
           {canPayRemaining && (
   <button
     className="mo-btn mo-btn--deposit"
-    onClick={() => onDepositPayment(ticket)}
+   onClick={() => handleRemainingPayment(ticket)}
   >
     <CreditCardOutlined /> Tất toán
   </button>
