@@ -118,34 +118,29 @@ export const updateTicketStatus = async (ticketId, newStatus) => {
     }
 };
 
-// Cancel order
-// export const cancelOrder = async (ticketId) => {
-//     try {
-//         const response = await api.put(`/request-tickets/${ticketId}/cancel`);
-//         return response.data;
-//     } catch (error) {
-//         console.error('Error cancelling order:', error);
-//         normalizeApiError(error);
-//     }
-// };
+// Create payment link for survey deposit
 export const createPaymentLink = async (ticketId, amount) => {
     try {
         const response = await api.post(`/request-tickets/${ticketId}/create-payment-link`, { amount });
         return response.data;
     } catch (error) {
-        console.error('Error creating payment link:', error);
+        console.error('Error creating survey payment link:', error);
         normalizeApiError(error);
     }
 };
+
+// Create payment link for moving deposit (50%)
 export const createMovingDeposit = async (ticketId) => {
     try {
-        const response = await api.post(`/request-tickets/${ticketId}/deposit`)
+        const response = await api.post(`/request-tickets/${ticketId}/deposit`);
         return response.data;
     } catch (error) {
-        console.error('Error creating payment link:', error);
+        console.error('Error creating deposit payment:', error);
         normalizeApiError(error);
     }
-}
+};
+
+// Create payment link for remaining amount (all-in)
 export const createMovingRemaining = async (ticketId) => {
     try {
         const response = await api.post(`/request-tickets/${ticketId}/remaining`);
@@ -155,6 +150,7 @@ export const createMovingRemaining = async (ticketId) => {
         normalizeApiError(error);
     }
 };
+
 export const acceptSurveyTime = async (ticketId, selectedTime) => {
     try {
         const response = await api.put(`/request-tickets/${ticketId}/accept-survey-time`, {
@@ -176,6 +172,7 @@ export const rejectSurveyTime = async (ticketId) => {
         normalizeApiError(error);
     }
 };
+
 export const cancelOrder = async (ticketId, reason) => {
     try {
         const response = await api.put(`/request-tickets/${ticketId}/cancel`, {
@@ -187,49 +184,52 @@ export const cancelOrder = async (ticketId, reason) => {
         normalizeApiError(error);
     }
 };
+
 export const fetchUserTickets = async (userId, searchCode) => {
-  try {
-    const response = await api.get('/request-tickets', {
-      params: { customerId: userId }
-    });
+    try {
+        const response = await api.get('/request-tickets', {
+            params: { customerId: userId }
+        });
 
-    let tickets = response.data?.data || [];
+        let tickets = response.data?.data || [];
 
-    // filter đúng user
-    tickets = tickets.filter(t =>
-      (t.customerId && t.customerId._id === userId) ||
-      t.customerId === userId
-    );
+        // filter đúng user
+        tickets = tickets.filter(t =>
+            (t.customerId && t.customerId._id === userId) ||
+            t.customerId === userId
+        );
 
-    // sort mới nhất
-    tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        // sort mới nhất
+        tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    // search code
-    if (searchCode) {
-      const keyword = searchCode.toLowerCase();
+        // search code
+        if (searchCode) {
+            const keyword = searchCode.toLowerCase();
 
-      tickets = tickets.filter(t =>
-        (t.code && t.code.toLowerCase().includes(keyword)) ||
-        (t.invoice?.code && t.invoice.code.toLowerCase().includes(keyword))
-      );
+            tickets = tickets.filter(t =>
+                (t.code && t.code.toLowerCase().includes(keyword)) ||
+                (t.invoice?.code && t.invoice.code.toLowerCase().includes(keyword))
+            );
+        }
+
+        return tickets;
+
+    } catch (error) {
+        console.error("Fetch tickets error", error);
+        normalizeApiError(error);
     }
-
-    return tickets;
-
-  } catch (error) {
-    console.error("Fetch tickets error", error);
-    normalizeApiError(error);
-  }
 };
+
 const orderService = {
     createOrder,
     getMyOrders,
     getOrderById,
+    updateTicketStatus,
     cancelOrder,
     createPaymentLink,
     createMovingDeposit,
-      createMovingRemaining, 
-      acceptSurveyTime,
+    createMovingRemaining,
+    acceptSurveyTime,
     rejectSurveyTime,
     fetchUserTickets
 };
