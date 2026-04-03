@@ -30,7 +30,7 @@ const buildRequestTicketPayload = (orderData) => {
 
     const moveType = Number(orderData.serviceId) === 1 ? 'FULL_HOUSE' : 'SPECIFIC_ITEMS';
 
-    const items = toItemArray(
+    const items = orderData.itemsRich || toItemArray(
         orderData.manualItems,
         orderData.aiDetectedItems,
         orderData.packedBoxes

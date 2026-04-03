@@ -11,6 +11,7 @@ import Deposit from "../../pages/CustomerPage/Deposit/Deposit";
 import Dashboard from "../../pages/CustomerPage/Dashboard/Dashboard";
 import SignContract from "../../pages/CustomerPage/SignContract/SignContract";
 import MyContract from "../../pages/CustomerPage/Contract/MyContract";
+import ItemMovingAnalysis from "../../pages/CustomerPage/ItemMovingAnalysis/ItemMovingAnalysis";
 // import CustomerLayout from "../../pages/CustomerPage/components/layout/CustomerLayout";
 import ProtectedRoute from "../../components/ProtectRoute/ProtectedRoute";
 import VideoChat from "../../pages/VideoChat/VideoChat";
@@ -71,6 +72,15 @@ const RoutesCus = () => {
           element={
             <ProtectedRoute allowedRoles={["customer"]}>
               <ConfirmMovingOrder />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/item-moving-analysis"
+          element={
+            <ProtectedRoute allowedRoles={["customer"]}>
+              <ItemMovingAnalysis />
             </ProtectedRoute>
           }
         />
