@@ -146,6 +146,15 @@ export const createMovingDeposit = async (ticketId) => {
         normalizeApiError(error);
     }
 }
+export const createMovingRemaining = async (ticketId) => {
+    try {
+        const response = await api.post(`/request-tickets/${ticketId}/remaining`);
+        return response.data;
+    } catch (error) {
+        console.error('Error creating remaining payment:', error);
+        normalizeApiError(error);
+    }
+};
 export const acceptSurveyTime = async (ticketId, selectedTime) => {
     try {
         const response = await api.put(`/request-tickets/${ticketId}/accept-survey-time`, {
@@ -219,6 +228,7 @@ const orderService = {
     cancelOrder,
     createPaymentLink,
     createMovingDeposit,
+      createMovingRemaining, 
       acceptSurveyTime,
     rejectSurveyTime,
     fetchUserTickets
