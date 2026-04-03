@@ -185,7 +185,7 @@ const ResourceAllocation = () => {
             title: 'Trạng thái',
             dataIndex: 'status',
             key: 'status',
-            render: (status) => <Tag color="blue">{status}</Tag>
+            render: (status) => <Tag color="blue">{status === 'CONFIRMED' ? 'Đã xác nhận' : status}</Tag>
         },
         {
             title: 'Thao tác',

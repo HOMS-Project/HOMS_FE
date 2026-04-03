@@ -18,6 +18,7 @@ import RoutesAdmin from "./routes/AdminRoutes/RoutesAdmin";
 import RoutesDispatcher from './routes/DispatcherRoutes/DispatcherRoutes';
 import RoutesStaff from "./routes/StaffRoutes/RoutesStaff";
 import { initCsrfToken } from './services/api';
+import ScrollToTop from "./components/common/ScrollToTop";
 
 function App() {
    const [csrfReady, setCsrfReady] = useState(false);
@@ -31,6 +32,7 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
       <BrowserRouter>
+        <ScrollToTop />
         <UserProvider>
           <Routes>
             <Route path="/" element={<HomeRedirect />} />
