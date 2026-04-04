@@ -59,7 +59,6 @@
 
 .ima-dragger {
   background: #ffffff !important;
-  border: 2px dashed #c0cfb2 !important;
   border-radius: 14px !important;
   transition: border-color 0.2s, background 0.2s;
 }
@@ -197,8 +196,8 @@
   border: 1px solid #c0cfb2;
   border-radius: 14px;
   padding: 16px;
-  height: 600px;
-  /* Fixed matching height */
+  height: 780px;
+  /* Increased from 600 to fit items better */
   display: flex;
   flex-direction: column;
 }
@@ -273,8 +272,8 @@
   border: 1px solid #c0cfb2;
   border-radius: 14px;
   padding: 16px 20px;
-  height: 600px;
-  /* Fixed matching height */
+  height: 780px;
+  /* Increased from 600 to fit 7+ items and extras */
   display: flex;
   flex-direction: column;
 }
@@ -322,7 +321,7 @@
   border: 1px solid #c0cfb2;
   border-radius: 10px;
   overflow: hidden;
-  min-height: 320px;
+  min-height: 400px;
 }
 
 .ima-table-header {
@@ -337,7 +336,8 @@
 .ima-table-body {
   background: #ffffff;
   flex-grow: 1;
-  /* Allow to expand within fixed container */
+  /* Allow to expand within fixed container, scroll after ~7-8 items */
+  max-height: 400px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -395,6 +395,7 @@
 /* ─── Summary bar ────────────────────────────────────────────────────────── */
 .ima-summary-bar {
   margin-top: 16px;
+  margin-bottom: 24px;
   background: linear-gradient(135deg, #44624a 0%, #2d4f36 100%);
   border-radius: 14px;
   padding: 18px 28px;
@@ -466,11 +467,38 @@
   background: #f8fafc;
   border: 1px solid #c0cfb2;
   border-radius: 10px;
-  padding: 14px 18px;
-  margin-bottom: 14px;
-  font-size: 13px;
-  color: #555;
-  line-height: 1.7;
+  padding: 20px 24px;
+  margin-bottom: 18px;
+  font-size: 13.5px;
+  color: #4b5563;
+  line-height: 1.8;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.ima-agreement-section {
+  margin-bottom: 20px;
+}
+
+.ima-agreement-section:last-child {
+  margin-bottom: 0;
+}
+
+.ima-agreement-text strong {
+  color: #44624a;
+}
+
+.ima-agreement-text ul {
+  padding-left: 18px;
+  margin: 8px 0 0;
+}
+
+.ima-agreement-text li {
+  margin-bottom: 6px;
+}
+
+.ima-agreement-text li:last-child {
+  margin-bottom: 0;
 }
 
 .ima-agreement-text p {

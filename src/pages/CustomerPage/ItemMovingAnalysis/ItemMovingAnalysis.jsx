@@ -291,6 +291,27 @@ const ItemListPanel = ({ form, primaryPickerCat, setPrimaryPickerCat, primaryPic
     </div>
 );
 
+// ─── Summary Bar (Reusable) ──────────────────────────────────────────────────
+const SummaryBar = ({ totalVolume, totalWeight, totalPrice }) => (
+    <div className="ima-summary-bar">
+        <div className="ima-summary-stats">
+            <div className="ima-stat">
+                <span className="ima-stat-label">Thể tích</span>
+                <span className="ima-stat-value">{totalVolume} m³</span>
+            </div>
+            <div className="ima-stat">
+                <span className="ima-stat-label">Cân nặng</span>
+                <span className="ima-stat-value">{totalWeight} kg</span>
+            </div>
+        </div>
+        <div className="ima-summary-price">
+            <span className="ima-price-label">Chi phí ước tính</span>
+            <span className="ima-price-value">{totalPrice.toLocaleString()} VNĐ</span>
+            <span className="ima-price-note">Giá cuối sẽ được quyết định bởi chuyên viên sau khi xem xét</span>
+        </div>
+    </div>
+);
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const ItemMovingAnalysis = () => {
     const navigate = useNavigate();
@@ -391,10 +412,42 @@ const ItemMovingAnalysis = () => {
         try {
             message.loading({ content: 'Đang gửi yêu cầu...', key: 'submit' });
             const itemsRich = [
-                ...primary.map(i => ({ name: i.name, quantity: 1, actualVolume: i.actualVolume || 0, actualWeight: i.actualWeight || 0, notes: i.notes || '', isSpecialItem: !!i.isSpecial })),
-                ...secondaryItems.map(({ key, tierIdx }) => { const cat = SECONDARY_CATALOG.find(c => c.key === key); const t = QTY_TIERS[tierIdx]; return { name: `[SEC] ${cat?.label}`, quantity: 1, actualVolume: +(t.value * t.volumeEach).toFixed(2), actualWeight: +(t.value * t.weightEach).toFixed(1), notes: t.label, isSpecialItem: false }; }),
+                ...primary.map(i => ({
+                    name: i.name,
+                    quantity: 1,
+                    actualVolume: i.actualVolume || 0,
+                    actualWeight: i.actualWeight || 0,
+                    condition: i.condition || 'GOOD',
+                    notes: i.notes || '',
+                    isSpecialItem: !!i.isSpecial,
+                    requiresManualHandling: !!i.isSpecial, // special items need manual handling
+                })),
+                ...secondaryItems.map(({ key, tierIdx }) => {
+                    const cat = SECONDARY_CATALOG.find(c => c.key === key);
+                    const t = QTY_TIERS[tierIdx];
+                    return {
+                        name: `[SEC] ${cat?.label}`,
+                        quantity: t.value,
+                        actualVolume: +(t.value * t.volumeEach).toFixed(2),
+                        actualWeight: +(t.value * t.weightEach).toFixed(1),
+                        condition: 'GOOD',
+                        notes: t.label,
+                        isSpecialItem: false,
+                        requiresManualHandling: false,
+                    };
+                }),
             ];
-            await createOrder({ ...orderData, itemsRich });
+
+            // Pass AI logistics estimate as aiEstimate so dispatcher review form is pre-filled
+            const aiEstimate = aiContext ? {
+                suggestedVehicle:    aiContext.suggestedVehicle || null,
+                suggestedStaffCount: aiContext.suggestedStaffCount || 2,
+                totalActualVolume:   totalVolume,
+                totalActualWeight:   totalWeight,
+                distanceKm:          orderData?.distanceKm || 0,
+            } : undefined;
+
+            await createOrder({ ...orderData, itemsRich, aiEstimate });
             message.success({ content: 'Tạo yêu cầu thành công!', key: 'submit', duration: 2 });
             navigate('/customer/order');
         } catch (err) {
@@ -503,6 +556,8 @@ const ItemMovingAnalysis = () => {
                     ══════════════════════════════════════════════════════ */}
                     {mode === 'ai-result' && (
                         <Form form={form} layout="vertical" onValuesChange={recalculate}>
+                            <SummaryBar totalVolume={totalVolume} totalWeight={totalWeight} totalPrice={totalPrice} />
+
                             <div className="ima-result-topbar">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 18 }} />
@@ -571,6 +626,8 @@ const ItemMovingAnalysis = () => {
                     ══════════════════════════════════════════════════════ */}
                     {mode === 'manual' && (
                         <Form form={form} layout="vertical" onValuesChange={recalculate}>
+                            <SummaryBar totalVolume={totalVolume} totalWeight={totalWeight} totalPrice={totalPrice} />
+
                             <div className="ima-result-topbar">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <EditOutlined style={{ color: '#44624a', fontSize: 16 }} />
@@ -633,30 +690,114 @@ const ItemMovingAnalysis = () => {
     function renderSummaryAndAgreement() {
         return (
             <>
-                {/* Summary bar */}
-                <div className="ima-summary-bar">
-                    <div className="ima-summary-stats">
-                        <div className="ima-stat">
-                            <span className="ima-stat-label">Thể tích</span>
-                            <span className="ima-stat-value">{totalVolume} m³</span>
-                        </div>
-                        <div className="ima-stat">
-                            <span className="ima-stat-label">Cân nặng</span>
-                            <span className="ima-stat-value">{totalWeight} kg</span>
-                        </div>
-                    </div>
-                    <div className="ima-summary-price">
-                        <span className="ima-price-label">Chi phí ước tính</span>
-                        <span className="ima-price-value">{totalPrice.toLocaleString()} VNĐ</span>
-                        <span className="ima-price-note">Chốt giá cuối bởi chuyên viên</span>
-                    </div>
-                </div>
+                <SummaryBar totalVolume={totalVolume} totalWeight={totalWeight} totalPrice={totalPrice} />
 
                 {/* Agreement */}
                 <div className="ima-agreement-card">
                     <div className="ima-agreement-text">
-                        <p><strong>ĐIỀU KHOẢN DỊCH VỤ VẬN CHUYỂN ĐỒ VẬT LẺ</strong></p>
-                        <p>Khách hàng cam kết khai báo đúng các vật dụng có giá trị cao hoặc dễ vỡ. Phát sinh ngoài danh sách có thể bị tính phụ phí hoặc từ chối phục vụ. Chi phí ước tính chỉ mang tính tham khảo — chuyên viên sẽ xác nhận giá chính thức. HomS cam kết bọc lót toàn bộ đồ đạc theo quy trình chuẩn.</p>
+                        <Title level={5} style={{ color: '#44624a', marginBottom: 16 }}>ĐIỀU KHOẢN DỊCH VỤ VẬN CHUYỂN ĐỒ VẬT LẺ</Title>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>1. Khai báo tài sản</strong></p>
+                            <ul>
+                                <li>Khách hàng có trách nhiệm khai báo đầy đủ, chính xác các vật dụng vận chuyển, đặc biệt là tài sản có giá trị cao, dễ vỡ, dễ hư hỏng.</li>
+                                <li>
+                                    Trường hợp phát sinh vật phẩm ngoài danh sách đã khai báo, đơn vị vận chuyển có quyền:
+                                    <ul>
+                                        <li>Từ chối vận chuyển, hoặc</li>
+                                        <li>Áp dụng phụ phí tương ứng.</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>2. Hàng hóa không nhận vận chuyển</strong></p>
+                            <ul>
+                                <li>Không nhận vận chuyển các mặt hàng thuộc danh mục cấm theo quy định pháp luật (vũ khí, chất cấm, hàng lậu, chất dễ cháy nổ…).</li>
+                                <li>Không chịu trách nhiệm với hàng hóa bị thu giữ do vi phạm pháp luật từ phía khách hàng.</li>
+                            </ul>
+                        </div>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>3. Giá dịch vụ và thanh toán</strong></p>
+                            <ul>
+                                <li>Chi phí hiển thị trên hệ thống chỉ mang tính ước tính, có thể thay đổi dựa trên thực tế (khối lượng, khoảng cách, điều kiện vận chuyển…).</li>
+                                <li>Giá chính thức sẽ được xác nhận bởi nhân viên/điều phối trước khi thực hiện dịch vụ. Khách hàng có trách nhiệm thanh toán đầy đủ theo giá đã được xác nhận.</li>
+                            </ul>
+                        </div>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>4. Thời gian và tiến độ</strong></p>
+                            <ul>
+                                <li>Thời gian vận chuyển là dự kiến và có thể thay đổi do yếu tố khách quan (thời tiết, giao thông, sự cố kỹ thuật…).</li>
+                                <li>Đơn vị vận chuyển không chịu trách nhiệm đối với các chậm trễ ngoài tầm kiểm soát.</li>
+                            </ul>
+                        </div>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>5. Đóng gói và bảo quản</strong></p>
+                            <ul>
+                                <li>HomS cam kết thực hiện bọc lót, đóng gói theo quy trình tiêu chuẩn.</li>
+                                <li>Đối với các vật phẩm đặc biệt (đồ điện tử cao cấp, đồ cổ, hàng siêu dễ vỡ…), khách hàng cần yêu cầu dịch vụ đóng gói chuyên biệt (có thể phát sinh phí).</li>
+                            </ul>
+                        </div>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>6. Trách nhiệm và bồi thường</strong></p>
+                            <ul>
+                                <li>Đơn vị vận chuyển chịu trách nhiệm với thiệt hại trực tiếp xảy ra trong quá trình vận chuyển do lỗi của mình.</li>
+                                <li>Mức bồi thường tối đa:
+                                    <ul>
+                                        <li>Dựa trên giá trị khai báo, hoặc</li>
+                                        <li>Theo mức trần quy định của công ty nếu không có khai báo trước.</li>
+                                    </ul>
+                                </li>
+                                <li>Không chịu trách nhiệm đối với:
+                                    <ul>
+                                        <li>Hư hỏng nội tại của hàng hóa</li>
+                                        <li>Hao mòn tự nhiên</li>
+                                        <li>Thiệt hại do đóng gói không đạt yêu cầu từ phía khách hàng</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>7. Xác nhận giao nhận</strong></p>
+                            <ul>
+                                <li>Khách hàng (hoặc người được ủy quyền) cần kiểm tra và xác nhận tình trạng hàng hóa tại thời điểm giao nhận.</li>
+                                <li>Sau khi ký xác nhận hoàn tất, mọi khiếu nại phát sinh sau đó có thể không được giải quyết.</li>
+                            </ul>
+                        </div>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>8. Hủy và thay đổi dịch vụ</strong></p>
+                            <ul>
+                                <li>Việc hủy dịch vụ cần thực hiện trước thời gian đã đặt tối thiểu 24 giờ.</li>
+                                <li>Trường hợp hủy muộn hoặc thay đổi đột xuất, có thể phát sinh phí.</li>
+                            </ul>
+                        </div>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>9. Quyền từ chối phục vụ</strong></p>
+                            <ul>
+                                <li>HomS có quyền từ chối cung cấp dịch vụ trong các trường hợp:</li>
+                                <ul>
+                                    <li>Thông tin khách hàng không minh bạch</li>
+                                    <li>Hàng hóa thuộc danh mục cấm</li>
+                                    <li>Điều kiện vận chuyển không đảm bảo an toàn</li>
+                                </ul>
+                            </ul>
+                        </div>
+
+                        <div className="ima-agreement-section">
+                            <p><strong>10. Giải quyết tranh chấp</strong></p>
+                            <ul>
+                                <li>Mọi tranh chấp sẽ được ưu tiên giải quyết qua thương lượng.</li>
+                                <li>Trường hợp không đạt thỏa thuận sẽ xử lý theo quy định pháp luật hiện hành.</li>
+                            </ul>
+                        </div>
                     </div>
                     <Checkbox checked={agreed} onChange={e => setAgreed(e.target.checked)} className="ima-agree-check">
                         Tôi đã đọc và đồng ý với các Điều khoản & Thỏa thuận dịch vụ
@@ -668,7 +809,7 @@ const ItemMovingAnalysis = () => {
                             disabled={!agreed}
                             className={`ima-submit-btn${agreed ? ' ima-submit-btn--active' : ''}`}
                         >
-                            GỬI YÊU CẦU & NHẬN BÁO GIÁ
+                            GỬI YÊU CẦU
                         </Button>
                     </div>
                 </div>
