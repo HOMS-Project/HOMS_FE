@@ -396,68 +396,21 @@ const LandingPage = () => {
                         </div>
 
                         {/* Mảng màu nền cho 4 bước */}
-                        <div className="process-grid">
-                            {processData.map((step, index) => {
-                                // Logic màu sắc
-                                const bgColors = ['#FFFFFF', '#C0CFB2', '#8BA888', '#44624A'];
-                                const textColors = ['#2D4F36', '#2D4F36', '#fff', '#fff']; // 2 bước cuối nền đậm nên chữ trắng
-                                const numberColors = ['#2D4F36', '#2D4F36', '#2D4F36', '#fff']; // Màu số thứ tự
-                                const numberBg = ['#F5F5F5', '#fff', '#fff', '#2D4F36']; // Nền của vòng tròn số
-
-                                return (
-                                    <React.Fragment key={step.id}>
-                                        <div className="process-item-wrapper">
-                                            {/* Thẻ Card */}
-                                            <div
-                                                className="process-card-horizontal"
-                                                style={{
-                                                    backgroundColor: bgColors[index],
-                                                    color: textColors[index]
-                                                }}
-                                            >
-                                                {/* Số thứ tự bên trái */}
-                                                <div
-                                                    className="process-number-left"
-                                                    style={{
-                                                        color: index === 3 ? '#2D4F36' : '#fff', // Riêng bước 4 đảo màu
-                                                        backgroundColor: index === 3 ? '#fff' : '#2D4F36'
-                                                    }}
-                                                >
-                                                    {step.number}
-                                                </div>
-
-                                                {/* Nội dung bên phải (Title & Des) */}
-                                                <div className="process-content-right">
-                                                    <h3 style={{
-                                                        color: textColors[index],
-                                                        marginBottom: '4px'
-                                                    }}>
-                                                        {step.title}
-                                                    </h3>
-                                                    <p style={{
-                                                        color: textColors[index],
-                                                        opacity: 0.9,
-                                                        fontSize: '13px',
-                                                        margin: 0
-                                                    }}>
-                                                        {step.description}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {/* Nét đứt (---) chỉ hiện ở giữa cột 1 và 2 */}
-                                            {(index === 0 || index === 2) && (
-                                                <div className="process-dash">
-                                                    ---
-                                                </div>
-                                            )}
-
-                                            {/* Nét đứt dọc (giả lập kết nối xuống) - Hiện sau phần tử thứ 2 */}
-                                            {index === 1 && <div className="vertical-dash-connector">|</div>}
+                        <div className="process-steps-container">
+                            {processData.map((step, index) => (
+                                <div key={step.id} className="process-step-item">
+                                    <div className="process-card-modern">
+                                        <div className="process-icon-badge">
+                                            {step.number}
                                         </div>
-                                    </React.Fragment>
-                                );
-                            })}
+                                        <div className="process-text-content">
+                                            <h3>{step.title}</h3>
+                                            <p>{step.description}</p>
+                                        </div>
+                                    </div>
+                                    {index < processData.length - 1 && <div className="process-connector"></div>}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </section>
