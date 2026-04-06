@@ -390,7 +390,30 @@ const ItemMovingAnalysis = () => {
                 const deduped = newSecondary.filter(ns => !secondaryItems.some(s => s.key === ns.key)).map(ns => ({ ...ns, tierIdx: 0 }));
                 if (deduped.length) setSecondaryItems(prev => [...prev, ...deduped]);
             }
-            setAiContext({ suggestedVehicle: parsed.suggestedVehicle || '500KG', suggestedStaffCount: parsed.suggestedStaffCount || 2 });
+            
+            // BE Logic Replication for Vehicle and Staff
+            const itemsToCalc = parsed.items || [];
+            let calcVol = 0, calcWgt = 0;
+            itemsToCalc.forEach(item => {
+                calcVol += Number(item.actualVolume) || 0;
+                calcWgt += Number(item.actualWeight) || 0;
+            });
+            
+            let suggestedVehicle = '500KG';
+            if (calcWgt > 1000 || calcVol > 5) {
+                suggestedVehicle = '1.5TON';
+            } else if (calcWgt > 500 || calcVol > 2.5) {
+                suggestedVehicle = '1TON';
+            }
+            if (calcWgt > 1500 || calcVol > 8) {
+                suggestedVehicle = '2TON';
+            }
+            
+            let suggestedStaffCount = 2;
+            if (calcVol > 5 || calcWgt > 500) suggestedStaffCount += 1;
+            // Floor/elevator not known here, so leave at base calculation
+
+            setAiContext({ suggestedVehicle, suggestedStaffCount });
             setMode('ai-result');
             recalculate();
             message.success({ content: 'Phân tích hoàn tất!', key: 'ai', duration: 3 });

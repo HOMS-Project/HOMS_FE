@@ -373,9 +373,13 @@ const SurveyInput = () => {
         return { primary, secondary, critical };
       };
 
-      // ── CASE 1: Real SurveyData from DB (has _id) ───────────────────────────
+      // ── CASE 1: Real SurveyData from DB ─────────────────────────
       if (surveyData && surveyData._id) {
-        console.log("DEBUG: FILLING FORM WITH SURVEY DATA:", surveyData);
+        console.log('DEBUG: FILLING FORM WITH SURVEY DATA:', surveyData);
+        if (ticket.moveType === 'SPECIFIC_ITEMS' || ticket.moveType === 'TRUCK_RENTAL') {
+          message.info('Đã tải danh sách đồ đạc từ phân tích AI của khách hàng. Vui lòng kiểm tra và điều chỉnh.');
+        }
+
         setIsInsuranceChecked(surveyData.insuranceRequired);
         const { primary, secondary, critical } = parseItemsToBuckets(surveyData.items);
         setCriticalItems(critical);
@@ -389,69 +393,21 @@ const SurveyInput = () => {
         }
         const staffCount = surveyData.suggestedStaffCount || 2;
         const floors = surveyData.floors || 0;
-        form.setFieldsValue({
-          floors,
-          carryMeter: surveyData.carryMeter,
-          distanceKm: estimatedKm,
-          hasElevator: surveyData.hasElevator,
-          needsAssembling: surveyData.needsAssembling,
-          needsPacking: surveyData.needsPacking,
-          insuranceRequired: surveyData.insuranceRequired,
-          declaredValue: surveyData.declaredValue,
-          suggestedVehicle: surveyData.suggestedVehicle,
-          suggestedStaffCount: staffCount,
-          estimatedHours: surveyData.estimatedHours || computeEstimatedHours({ distanceKm: estimatedKm, floors, suggestedStaffCount: staffCount }),
-          notes: surveyData.notes,
-          items: primary.length > 0 ? primary : [{}]
-        });
-
-      // ── CASE 2: Synthetic data from ticket.items (WAITING_REVIEW) ────────────
-      } else if (surveyData && surveyData._isSynthetic) {
-        console.log("DEBUG: FILLING FORM FROM TICKET.ITEMS (WAITING_REVIEW):", surveyData);
-        message.info('Đã tải danh sách đồ đạc từ phân tích AI của khách hàng. Vui lòng kiểm tra và điều chỉnh.');
-
-        // ticket.items now has actualVolume, actualWeight, condition from AI analysis
-        const mappedItems = (surveyData.items || []).map(item => ({
-          name: item.name,    // backend already appended "(xN)" if quantity > 1
-          itemType: item.itemType || 'OTHER',
-          actualVolume: item.actualVolume || 0,
-          actualWeight: item.actualWeight || 0,
-          condition: item.condition || 'GOOD',
-          notes: item.notes || '',
-          _source: 'AI_TICKET',
-        }));
-
-        // Separate into buckets using the same logic
-        const { primary, secondary, critical } = parseItemsToBuckets(mappedItems);
-        setCriticalItems(critical);
-        setSecondaryItems(secondary);
-        setIsInsuranceChecked(surveyData.insuranceRequired || false);
-
-        // Auto-calculate route distance (override with aiEstimate if available)
-        let estimatedKm = surveyData.distanceKm || 0;
-        if (!estimatedKm && ticket.pickup?.coordinates && ticket.delivery?.coordinates) {
-          estimatedKm = await getRouteDistance(ticket.pickup.coordinates, ticket.delivery.coordinates);
-          estimatedKm = Math.round(estimatedKm * 10) / 10;
-          if (estimatedKm > 0) message.success(`Đã tự động tính toán khoảng cách: ${estimatedKm} km`);
-        }
-
-        const defaultStaff = surveyData.suggestedStaffCount || 2;
-        const defaultHours = surveyData.estimatedHours ||
-          computeEstimatedHours({ distanceKm: estimatedKm, floors: surveyData.floors || 0, suggestedStaffCount: defaultStaff });
 
         setTimeout(() => {
           form.setFieldsValue({
-            floors:             surveyData.floors       || 0,
-            carryMeter:         surveyData.carryMeter   || 0,
-            distanceKm:         estimatedKm,
-            hasElevator:        surveyData.hasElevator  || false,
-            needsAssembling:    surveyData.needsAssembling || false,
-            needsPacking:       surveyData.needsPacking || false,
-            insuranceRequired:  surveyData.insuranceRequired || false,
-            declaredValue:      surveyData.declaredValue || 0,
-            suggestedVehicle:   surveyData.suggestedVehicle || undefined,
-            suggestedStaffCount:defaultStaff,
-            estimatedHours:     defaultHours,
+            floors,
+            carryMeter: surveyData.carryMeter || 0,
+            distanceKm: estimatedKm,
+            hasElevator: surveyData.hasElevator || false,
+            needsAssembling: surveyData.needsAssembling || false,
+            needsPacking: surveyData.needsPacking || false,
+            insuranceRequired: surveyData.insuranceRequired || false,
+            declaredValue: surveyData.declaredValue || 0,
+            suggestedVehicle: surveyData.suggestedVehicle,
+            suggestedStaffCount: staffCount,
+            estimatedHours: surveyData.estimatedHours || computeEstimatedHours({ distanceKm: estimatedKm, floors, suggestedStaffCount: staffCount }),
+            notes: surveyData.notes,
             items: primary.length > 0 ? primary : [{}]
           });
         }, 50);
