@@ -84,6 +84,13 @@ const INCIDENT_STATUS = {
   Dismissed: { label: "Từ chối xử lý", cls: "mo-tag--red" },
 };
 
+const MOVE_TYPE = {
+  FULL_HOUSE: { label: "Chuyển Nhà Trọn Gói", cls: "mo-tag--geekblue" },
+  SPECIFIC_ITEMS: { label: "Chuyển Đồ Đạc", cls: "mo-tag--cyan" },
+  TRUCK_RENTAL: { label: "Thuê Xe Tải", cls: "mo-tag--purple" },
+  OFFICE_MOVING: { label: "Chuyển Văn Phòng", cls: "mo-tag--orange" },
+};
+
 /* ─── filter tabs config ──────────────────────────────────── */
 const FILTERS = [
   { key: "ALL", label: "Tất cả" },
@@ -156,6 +163,7 @@ const OrderCard = ({
   const canPayRemaining =
     ["IN_PROGRESS", "COMPLETED"].includes(ticket.invoice?.status) &&
     ticket.invoice?.paymentStatus === "PARTIAL";
+  const moveType = ticket.moveType ? (MOVE_TYPE[ticket.moveType] || { label: ticket.moveType, cls: "mo-tag--gray" }) : null;
   return (
     <div className={`mo-card ${isQuoted ? "mo-card--highlight" : ""}`}>
       {/* ── QUOTED: Action notice banner ── */}
@@ -185,6 +193,9 @@ const OrderCard = ({
           )}
         </div>
         <div className="mo-card__head-right" ref={tourRefs?.refStatus} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {moveType && (
+            <StatusTag cls={moveType.cls}>{moveType.label}</StatusTag>
+          )}
           {incidentSt && (
             <IncidentTag incident={incident} status={incidentSt} onClick={() => onViewIncident(incident)} />
           )}

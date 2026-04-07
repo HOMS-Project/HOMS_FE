@@ -218,8 +218,8 @@ const SurveyInput = () => {
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      // Backend: Lấy các ticket cần khảo sát hoặc đã khảo sát xong
-      const res = await requestTicketService.getTickets({ status: 'WAITING_SURVEY,SURVEYED,QUOTED' });
+      // Include WAITING_REVIEW (district dispatcher reviews AI data for SPECIFIC_ITEMS/TRUCK_RENTAL)
+      const res = await requestTicketService.getTickets({ status: 'WAITING_REVIEW,WAITING_SURVEY,SURVEYED,QUOTED' });
       setTickets(res.data || []);
     } catch (error) {
       message.error('Lỗi tải danh sách yêu cầu.');
@@ -341,49 +341,49 @@ const SurveyInput = () => {
       const res = await surveyService.getSurveyByTicket(ticket._id);
       console.log("DEBUG: LẤY ĐƯỢC SURVEY TỪ BE:", res);
 
-      const surveyData = res.data?.data || res.data; // Phòng hờ BE trả về { success, data } hoặc nội dung trực tiếp
+      const surveyData = res.data?.data || res.data;
 
-      if (surveyData && surveyData._id) {
-        console.log("DEBUG: FILLING FORM WITH DATA:", surveyData);
-        setIsInsuranceChecked(surveyData.insuranceRequired);
-
-        // ── Parse items back into the 3 buckets ──────────────────────────────
-        const restoredPrimary = [];
-        const restoredSecondary = [];
-        const restoredCritical = new Set();
-
-        (surveyData.items || []).forEach(item => {
+      // ── Helper: parse items into 3 buckets (primary / secondary / critical) ─
+      const parseItemsToBuckets = (items = []) => {
+        const primary = [];
+        const secondary = [];
+        const critical = new Set();
+        items.forEach(item => {
           const name = item.name || '';
-          // Critical items: "⚠️ [ĐỒ QUAN TRỌNG] <label>"
           if (name.startsWith('⚠️ [ĐỒ QUAN TRỌNG]')) {
             const match = CRITICAL_ITEMS.find(c => name.includes(c.label));
-            if (match) restoredCritical.add(match.key);
-          }
-          // Secondary items: "[SEC:key] label (tier)" — machine-readable prefix OR backward compat (includes label)
-          else if (name.startsWith('[SEC:') || SECONDARY_CATALOG.some(c => name.includes(c.label))) {
+            if (match) critical.add(match.key);
+          } else if (name.startsWith('[SEC:') || SECONDARY_CATALOG.some(c => name.includes(c.label))) {
             let key;
             if (name.startsWith('[SEC:')) {
               key = name.match(/^\[SEC:([^\]]+)\]/)?.[1];
             } else {
               key = SECONDARY_CATALOG.find(c => name.includes(c.label))?.key;
             }
-
             if (key) {
               const tierIdx = QTY_TIERS.findIndex(t => name.includes(`(${t.label})`));
-              restoredSecondary.push({ key, tierIdx: tierIdx >= 0 ? tierIdx : 0 });
+              secondary.push({ key, tierIdx: tierIdx >= 0 ? tierIdx : 0 });
             } else {
-              restoredPrimary.push(item);
+              primary.push(item);
             }
-          }
-          else {
-            // Everything else is a primary item
-            restoredPrimary.push(item);
+          } else {
+            primary.push(item);
           }
         });
+        return { primary, secondary, critical };
+      };
 
-        setCriticalItems(restoredCritical);
-        setSecondaryItems(restoredSecondary);
-        // ─────────────────────────────────────────────────────────────────────
+      // ── CASE 1: Real SurveyData from DB ─────────────────────────
+      if (surveyData && surveyData._id) {
+        console.log('DEBUG: FILLING FORM WITH SURVEY DATA:', surveyData);
+        if (ticket.moveType === 'SPECIFIC_ITEMS' || ticket.moveType === 'TRUCK_RENTAL') {
+          message.info('Đã tải danh sách đồ đạc từ phân tích AI của khách hàng. Vui lòng kiểm tra và điều chỉnh.');
+        }
+
+        setIsInsuranceChecked(surveyData.insuranceRequired);
+        const { primary, secondary, critical } = parseItemsToBuckets(surveyData.items);
+        setCriticalItems(critical);
+        setSecondaryItems(secondary);
 
         let estimatedKm = surveyData.distanceKm || 0;
         if (!estimatedKm && ticket.pickup?.coordinates && ticket.delivery?.coordinates) {
@@ -391,71 +391,58 @@ const SurveyInput = () => {
           estimatedKm = Math.round(estimatedKm * 10) / 10;
           if (estimatedKm > 0) message.success(`Đã tự động tính toán khoảng cách: ${estimatedKm} km`);
         }
-
         const staffCount = surveyData.suggestedStaffCount || 2;
         const floors = surveyData.floors || 0;
-        const computedHours = computeEstimatedHours({
-          distanceKm: estimatedKm,
-          floors,
-          suggestedStaffCount: staffCount
-        });
-        form.setFieldsValue({
-          floors: surveyData.floors,
-          carryMeter: surveyData.carryMeter,
-          distanceKm: estimatedKm,
-          hasElevator: surveyData.hasElevator,
-          needsAssembling: surveyData.needsAssembling,
-          needsPacking: surveyData.needsPacking,
-          insuranceRequired: surveyData.insuranceRequired,
-          declaredValue: surveyData.declaredValue,
-          suggestedVehicle: surveyData.suggestedVehicle,
-          suggestedStaffCount: staffCount,
-          estimatedHours: surveyData.estimatedHours || computedHours,
-          notes: surveyData.notes,
-          items: restoredPrimary.length > 0 ? restoredPrimary : [{}]
-        });
+
+        setTimeout(() => {
+          form.setFieldsValue({
+            floors,
+            carryMeter: surveyData.carryMeter || 0,
+            distanceKm: estimatedKm,
+            hasElevator: surveyData.hasElevator || false,
+            needsAssembling: surveyData.needsAssembling || false,
+            needsPacking: surveyData.needsPacking || false,
+            insuranceRequired: surveyData.insuranceRequired || false,
+            declaredValue: surveyData.declaredValue || 0,
+            suggestedVehicle: surveyData.suggestedVehicle,
+            suggestedStaffCount: staffCount,
+            estimatedHours: surveyData.estimatedHours || computeEstimatedHours({ distanceKm: estimatedKm, floors, suggestedStaffCount: staffCount }),
+            notes: surveyData.notes,
+            items: primary.length > 0 ? primary : [{}]
+          });
+        }, 50);
+
+      // ── CASE 3: No data at all — fresh empty form ────────────────────────────
       } else {
-        // Tính distanceKm tự động từ toạ độ
         let estimatedKm = 0;
         if (ticket.pickup?.coordinates && ticket.delivery?.coordinates) {
           estimatedKm = await getRouteDistance(ticket.pickup.coordinates, ticket.delivery.coordinates);
-          estimatedKm = Math.round(estimatedKm * 10) / 10; // Làm tròn 1 chữ số thập phân
+          estimatedKm = Math.round(estimatedKm * 10) / 10;
           if (estimatedKm > 0) message.success(`Đã tự động tính toán khoảng cách: ${estimatedKm} km`);
         }
-
         setTimeout(() => {
-          // Giá trị mặc định cho form mới
           const defaultStaff = 2;
-          const defaultHours = computeEstimatedHours({ distanceKm: estimatedKm, floors: 0, suggestedStaffCount: defaultStaff });
           form.setFieldsValue({
-            floors: 0,
-            carryMeter: 0,
-            distanceKm: estimatedKm,
-            items: [{}],
-            suggestedStaffCount: defaultStaff,
-            estimatedHours: defaultHours
+            floors: 0, carryMeter: 0, distanceKm: estimatedKm,
+            items: [{}], suggestedStaffCount: defaultStaff,
+            estimatedHours: computeEstimatedHours({ distanceKm: estimatedKm, floors: 0, suggestedStaffCount: defaultStaff })
           });
         }, 50);
       }
     } catch (error) {
-      // Chưa có survey nào được tạo (lỗi 404 từ API getSurveyByTicket là bình thường với ticket mới)
+      // 404 = no survey yet and not a WAITING_REVIEW ticket — fresh form
       let estimatedKm = 0;
       if (ticket.pickup?.coordinates && ticket.delivery?.coordinates) {
         estimatedKm = await getRouteDistance(ticket.pickup.coordinates, ticket.delivery.coordinates);
         estimatedKm = Math.round(estimatedKm * 10) / 10;
         if (estimatedKm > 0) message.success(`Đã tự động tính toán khoảng cách: ${estimatedKm} km`);
       }
-
       setTimeout(() => {
         const defaultStaff = 2;
-        const defaultHours = computeEstimatedHours({ distanceKm: estimatedKm, floors: 0, suggestedStaffCount: defaultStaff });
         form.setFieldsValue({
-          floors: 0,
-          carryMeter: 0,
-          distanceKm: estimatedKm,
-          items: [{}],
-          suggestedStaffCount: defaultStaff,
-          estimatedHours: defaultHours
+          floors: 0, carryMeter: 0, distanceKm: estimatedKm,
+          items: [{}], suggestedStaffCount: defaultStaff,
+          estimatedHours: computeEstimatedHours({ distanceKm: estimatedKm, floors: 0, suggestedStaffCount: defaultStaff })
         });
       }, 50);
     }
@@ -654,6 +641,27 @@ const SurveyInput = () => {
   // Cấu hình bảng
   const columns = [
     {
+      title: 'Loại dịch vụ',
+      dataIndex: 'moveType',
+      render: (moveType) => {
+        const map = {
+          FULL_HOUSE:     { label: 'Chuyển nhà',  color: '#44624a' },
+          SPECIFIC_ITEMS: { label: 'Đồ vật lẻ',   color: '#8ba888' },
+          TRUCK_RENTAL:   { label: 'Thuê xe',      color: '#c0cfb2', textColor: '#44624a' },
+        };
+        const cfg = map[moveType] || { label: moveType, color: '#ccc' };
+        return (
+          <span style={{
+            display: 'inline-block', background: cfg.color,
+            color: cfg.textColor || '#fff', borderRadius: 12,
+            padding: '1px 10px', fontSize: 12, fontWeight: 700
+          }}>
+            {cfg.label}
+          </span>
+        );
+      }
+    },
+    {
       title: 'Mã Ticket',
       dataIndex: 'code',
       fontWeight: 'bold',
@@ -676,27 +684,33 @@ const SurveyInput = () => {
       title: 'Trạng thái',
       dataIndex: 'status',
       render: (status) => {
-        let color = 'blue';
-        let label = 'Chờ khảo sát';
-        if (status === 'SURVEYED') { color = 'cyan'; label = 'Đã khảo sát'; }
-        if (status === 'QUOTED') { color = 'green'; label = 'Đã báo giá'; }
-        if (status === 'ACCEPTED') { color = 'geekblue'; label = 'Đã chốt đơn'; }
-        if (status === 'CONVERTED') { color = 'purple'; label = 'Đã tạo HĐ'; }
-        return <Tag color={color}>{label}</Tag>;
+        const statusMap = {
+          WAITING_REVIEW: { color: 'gold',     label: 'Chờ xem xét' },
+          WAITING_SURVEY: { color: 'blue',     label: 'Chờ khảo sát' },
+          SURVEYED:       { color: 'cyan',     label: 'Đã khảo sát' },
+          QUOTED:         { color: 'green',    label: 'Đã báo giá' },
+          ACCEPTED:       { color: 'geekblue', label: 'Đã chốt đơn' },
+          CONVERTED:      { color: 'purple',   label: 'Đã tạo HĐ' },
+        };
+        const cfg = statusMap[status] || { color: 'default', label: status };
+        return <Tag color={cfg.color}>{cfg.label}</Tag>;
       }
     },
     {
       title: 'Thao tác',
       render: (_, record) => {
         const isReadOnly = ['QUOTED', 'ACCEPTED', 'CONVERTED'].includes(record.status);
+        const isReview = record.status === 'WAITING_REVIEW';
         return (
           <Button
-            type={isReadOnly ? "default" : "primary"}
+            type={isReadOnly ? 'default' : 'primary'}
             style={isReadOnly ? {} : { background: '#44624A', borderColor: '#44624A' }}
-            icon={isReadOnly ? <EditOutlined /> : <EditOutlined />} // Cần đổi icon sang con mắt nếu xem
+            icon={<EditOutlined />}
             onClick={() => openSurveyModal(record)}
           >
-            {isReadOnly ? 'Xem Khảo Sát' : 'Nhập Khảo Sát'}
+            {isReadOnly ? 'Xem Kết Quả'
+              : isReview ? 'Xem xét & Báo giá'
+              : 'Nhập Khảo Sát'}
           </Button>
         );
       }
@@ -704,6 +718,7 @@ const SurveyInput = () => {
   ];
 
   const isReadOnly = selectedTicket && ['QUOTED', 'ACCEPTED', 'CONVERTED'].includes(selectedTicket.status);
+  const isReviewMode = selectedTicket?.status === 'WAITING_REVIEW';
 
   // Open a small modal that shows the item's location on the AI image
   const handleShowItemOnImage = (itemVal) => {
@@ -751,7 +766,14 @@ const SurveyInput = () => {
         centered
         forceRender
         className="survey-modal"
-        title={<Title level={3} style={{ textAlign: 'center', color: '#44624A', margin: 0 }}>PHIẾU KHẢO SÁT: {selectedTicket?.code}</Title>}
+        title={
+          <Title level={3} style={{ textAlign: 'center', color: '#44624A', margin: 0 }}>
+            {isReviewMode ? 'XEM XÉT & BÁO GIÁ' : 'PHIẾU KHẢO SÁT'}: {selectedTicket?.code}
+            {isReviewMode && (
+              <Tag color="gold" style={{ marginLeft: 12, fontSize: 12, verticalAlign: 'middle' }}>Xem xét dữ liệu AI</Tag>
+            )}
+          </Title>
+        }
       >
         <Form form={form} layout="vertical" onFinish={handleSaveSurvey} style={{ marginTop: 20 }} disabled={isReadOnly}>
           <Row gutter={24}>

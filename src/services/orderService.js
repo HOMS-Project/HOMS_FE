@@ -30,7 +30,7 @@ const buildRequestTicketPayload = (orderData) => {
 
     const moveType = Number(orderData.serviceId) === 1 ? 'FULL_HOUSE' : 'SPECIFIC_ITEMS';
 
-    const items = toItemArray(
+    const items = orderData.itemsRich || toItemArray(
         orderData.manualItems,
         orderData.aiDetectedItems,
         orderData.packedBoxes
@@ -46,10 +46,11 @@ const buildRequestTicketPayload = (orderData) => {
         orderData.depositAmount ? `Deposit amount: ${orderData.depositAmount}` : null
     ].filter(Boolean);
 
-    return {
+    const payload = {
         moveType,
         pickup: {
             address: pickupLocation?.address || '',
+            district: pickupLocation?.district || pickupLocation?.ward || '',
             coordinates: {
                 lat: pickupLocation?.lat,
                 lng: pickupLocation?.lng
@@ -57,6 +58,7 @@ const buildRequestTicketPayload = (orderData) => {
         },
         delivery: {
             address: dropoffLocation?.address || '',
+            district: dropoffLocation?.district || dropoffLocation?.ward || '',
             coordinates: {
                 lat: dropoffLocation?.lat,
                 lng: dropoffLocation?.lng
@@ -66,6 +68,13 @@ const buildRequestTicketPayload = (orderData) => {
         items,
         notes: notesParts.join(' | ')
     };
+
+    // Include AI estimate for SPECIFIC_ITEMS/TRUCK_RENTAL so WAITING_REVIEW form is pre-filled
+    if (orderData.aiEstimate) {
+        payload.aiEstimate = orderData.aiEstimate;
+    }
+
+    return payload;
 };
 
 const normalizeApiError = (error) => {
