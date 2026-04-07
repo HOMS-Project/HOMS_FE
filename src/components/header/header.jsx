@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {  Layout, Row, Col, Button, Input, Drawer, Menu, Avatar, Dropdown, Badge, Popover, List, Typography } from "antd";
-import { MenuOutlined, SearchOutlined, RightOutlined, BellOutlined } from "@ant-design/icons";
+import { MenuOutlined, SearchOutlined, RightOutlined, BellOutlined, MenuUnfoldOutlined, MenuFoldOutlined } from "@ant-design/icons";
 import "./header.css";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import useUser from "../../contexts/UserContext";
@@ -8,7 +8,7 @@ import useNotificationSocket from "../../hooks/useNotificationSocket";
 import { getNotifications,markNotificationRead } from "../../services/notificationService";
 const { Header } = Layout;
 const { Text } = Typography;
-const AppHeader = () => {
+const AppHeader = ({ collapsed, onToggleSidebar }) => {
 
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
   const [activeMenu, setActiveMenu] = useState("dashboard"); // State để track menu đang active
@@ -292,25 +292,59 @@ useEffect(() => {
       {/* Mobile Drawer giữ nguyên logic cũ */}
       {!isDispatcherMode && (
         <Drawer
-          title="Menu"
+          title={<div style={{ color: '#2D4F36', fontWeight: 700 }}>HOMS Menu</div>}
           placement="right"
           onClose={() => setMobileMenuVisible(false)}
           open={mobileMenuVisible}
-          width={250}
+          width={280}
         >
-          <Menu
-            mode="vertical"
-            selectedKeys={[activeMenu]}
-            items={navItems.map((item) => ({ key: item.key, label: item.label }))}
-            onClick={(e) => {
-              const selectedItem = navItems.find((item) => item.key === e.key);
-              if (selectedItem) {
-                handleMenuClick(e.key, selectedItem.path);
-              }
-              setMobileMenuVisible(false);
-            }}
-            style={{ border: "none" }}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+            <div>
+              <Menu
+                mode="vertical"
+                selectedKeys={[activeMenu]}
+                items={navItems.map((item) => ({ key: item.key, label: item.label }))}
+                onClick={(e) => {
+                  const selectedItem = navItems.find((item) => item.key === e.key);
+                  if (selectedItem) {
+                    handleMenuClick(e.key, selectedItem.path);
+                  }
+                  setMobileMenuVisible(false);
+                }}
+                style={{ border: "none" }}
+              />
+            </div>
+            
+            <div style={{ padding: '20px', borderTop: '1px solid #eee' }}>
+              {!user ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <Link to="/login" onClick={() => setMobileMenuVisible(false)}>
+                    <Button type="default" block size="large" style={{ borderRadius: '8px' }}>
+                      Đăng Nhập
+                    </Button>
+                  </Link>
+                  <Link to="/register" onClick={() => setMobileMenuVisible(false)}>
+                    <Button type="primary" block size="large" style={{ borderRadius: '8px', background: '#2D4F36' }}>
+                      Đăng Kí
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }} onClick={() => { navigate("/customer/profile"); setMobileMenuVisible(false); }}>
+                    <Avatar src={user.avatar} size={40}>{user.fullName?.charAt(0)}</Avatar>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontWeight: 600, fontSize: '15px' }}>{user.fullName || user.name}</div>
+                      <div style={{ fontSize: '12px', color: '#888' }}>Xem hồ sơ</div>
+                    </div>
+                  </div>
+                  <Button danger type="primary" block onClick={handleLogout} style={{ borderRadius: '8px' }}>
+                    Đăng Xuất
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </Drawer>
       )}
     </Header>
