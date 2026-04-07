@@ -112,6 +112,11 @@ useEffect(() => {
           </List.Item>
         )}
       />
+      <div style={{ textAlign: "center", marginTop: "8px", borderTop: "1px solid #f0f0f0", paddingTop: "8px", paddingBottom: "4px" }}>
+        <Link to="/customer/notifications" style={{ color: "#2D4F36", fontWeight: 600 }} onClick={() => setUnreadCount(prev => prev)}>
+          Xem toàn bộ thông báo
+        </Link>
+      </div>
     </div>
   );
   const handleMenuClick = (key, path) => {
@@ -141,10 +146,15 @@ useEffect(() => {
               <div
                 className="logo"
                 onClick={() => {
+                  const isGeneral = user?.isGeneral || user?.dispatcherProfile?.isGeneral;
                   let dashboardPath = "/";
-                  if (user?.role === "admin") dashboardPath = "/admin";
-                  else if (user?.role === "dispatcher") dashboardPath = "/dispatcher";
-                  else if (user?.role === "customer") dashboardPath = "/";
+                  if (user?.role === "admin") {
+                    dashboardPath = "/admin";
+                  } else if (user?.role === "dispatcher") {
+                    dashboardPath = isGeneral ? "/dispatcher/dashboard" : "/dispatcher/surveys";
+                  } else if (user?.role === "customer") {
+                    dashboardPath = "/";
+                  }
 
                   navigate(dashboardPath);
                   window.scrollTo({ top: 0, behavior: "smooth" });

@@ -113,6 +113,12 @@ export const setupInterceptors = (contextLogout) => {
         return Promise.reject(error);
       }
 
+      // Handle 403 Forbidden (likely CSRF)
+      if (error.response?.status === 403) {
+        console.warn("⚠️ CSRF Forbidden Error detected. Clearing local token cache...");
+        csrfToken = null; // Force re-init on next request
+      }
+
       // Do not show toast for 401 Unauthorized globally since it might trigger auth flows or silent refreshes
       if (error.response?.status !== 401 && error.response?.status !== 403) {
         notification.error({

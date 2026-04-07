@@ -172,12 +172,27 @@ export const acceptSurveyTime = async (ticketId, selectedTime) => {
     }
 };
 
-export const rejectSurveyTime = async (ticketId) => {
+export const rejectSurveyTime = async (ticketId, reason, proposedTime) => {
     try {
-        const response = await api.put(`/request-tickets/${ticketId}/reject-survey-time`);
+        const response = await api.put(`/request-tickets/${ticketId}/reject-survey-time`, {
+            reason,
+            proposedTime
+        });
         return response.data;
     } catch (error) {
         console.error("Error rejecting survey time:", error);
+        normalizeApiError(error);
+    }
+};
+
+export const dispatcherAcceptTime = async (ticketId, selectedTime) => {
+    try {
+        const response = await api.put(`/request-tickets/${ticketId}/dispatcher-accept-time`, {
+            selectedTime
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Error dispatcher accepting survey time:", error);
         normalizeApiError(error);
     }
 };
@@ -240,6 +255,7 @@ const orderService = {
     createMovingRemaining,
     acceptSurveyTime,
     rejectSurveyTime,
+    dispatcherAcceptTime,
     fetchUserTickets
 };
 

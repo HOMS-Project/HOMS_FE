@@ -32,6 +32,8 @@ import ViewIncidentModal from "../../../components/MovingOrder/ViewIncidentModal
 import SurveyPricingModal from "../../../components/MovingOrder/SurveyPricingModal";
 import SurveyTimeModal from "../../../components/MovingOrder/SurveyTimeModal";
 import RateServiceModal from "../../../components/ServiceRating/RateServiceModal";
+import CancelTicketModal from "../../../components/MovingOrder/CancelTicketModal";
+import RescheduleSurveyModal from "../../../components/MovingOrder/RescheduleSurveyModal";
 import "./style.css";
 
 const { Content } = Layout;
@@ -137,6 +139,8 @@ const OrderCard = ({
   tourRefs,
   onDepositPayment,      // Refs for Ant Design Tour
   onPayRemaining,
+  onCancelTicketRequest,
+  onRescheduleSurveyRequest,
 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -269,6 +273,20 @@ const OrderCard = ({
               </button>
             </>
           )}
+
+          {/* New Actions for Created / Waiting Survey */}
+          {(ticket.status === "CREATED" || ticket.status === "WAITING_SURVEY") && (
+            <button className="mo-btn mo-btn--reject" onClick={() => onCancelTicketRequest(ticket)}>
+              <CloseCircleOutlined /> Hủy yêu cầu
+            </button>
+          )}
+
+          {(ticket.status === "WAITING_SURVEY" && ticket.scheduledTime) && (
+            <button className="mo-btn mo-btn--deposit" style={{backgroundColor: '#e67e22', color: '#fff'}} onClick={() => onRescheduleSurveyRequest(ticket)}>
+              <CalendarOutlined /> Đổi giờ khảo sát
+            </button>
+          )}
+
           {isAcceptedUnpaid && (
             <button className="mo-btn mo-btn--deposit" onClick={() => (window.location.href = `/customer/sign-contract/${ticket._id}`)}>
               <CreditCardOutlined /> Thanh toán cọc
@@ -384,6 +402,11 @@ const ViewMovingOrder = () => {
   // [RATING] State cho modal đánh giá
   const [isRateModalVisible, setIsRateModalVisible] = useState(false);
   const [ticketToRate, setTicketToRate] = useState(null);
+
+  // States for Cancel / Reschedule Modals
+  const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [isRescheduleModalVisible, setIsRescheduleModalVisible] = useState(false);
+  const [actionTicket, setActionTicket] = useState(null);
 
   // [TOUR] State & Refs
   const refStatus = useRef(null);
@@ -642,6 +665,24 @@ const ViewMovingOrder = () => {
     });
   };
 
+  const handleCancelTicketRequest = (ticket) => {
+    setActionTicket(ticket);
+    setIsCancelModalVisible(true);
+  };
+
+  const handleRescheduleSurveyRequest = (ticket) => {
+    setActionTicket(ticket);
+    setIsRescheduleModalVisible(true);
+  };
+
+  const handleActionSuccess = (ticketId, updatedFields) => {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t._id === ticketId ? { ...t, ...updatedFields } : t
+      )
+    );
+  };
+
   /* ── fetch ── */
   useEffect(() => {
     const fetchTickets = async () => {
@@ -763,6 +804,8 @@ const ViewMovingOrder = () => {
                   onPayRemaining={ticket.isMock ? () => message.info('Đây là dữ liệu mẫu.') : handleRemainingPayment}
                   onCancelQuote={ticket.isMock ? () => message.info('Đây là dữ liệu mẫu.') : handleCancelQuote}
                   onRateService={ticket.isMock ? () => message.info('Đây là dữ liệu mẫu.') : handleRateService}
+                  onCancelTicketRequest={ticket.isMock ? () => message.info('Đây là dữ liệu mẫu.') : handleCancelTicketRequest}
+                  onRescheduleSurveyRequest={ticket.isMock ? () => message.info('Đây là dữ liệu mẫu.') : handleRescheduleSurveyRequest}
                 />
               ))}
             </div>
@@ -831,6 +874,20 @@ const ViewMovingOrder = () => {
             onSuccess={handleRateSuccess}
           />
         )}
+
+        <CancelTicketModal
+          visible={isCancelModalVisible}
+          onClose={() => setIsCancelModalVisible(false)}
+          ticket={actionTicket}
+          onSuccess={handleActionSuccess}
+        />
+
+        <RescheduleSurveyModal
+          visible={isRescheduleModalVisible}
+          onClose={() => setIsRescheduleModalVisible(false)}
+          ticket={actionTicket}
+          onSuccess={handleActionSuccess}
+        />
       </Content>
 
       <AppFooter />

@@ -16,6 +16,7 @@ import ItemMovingAnalysis from "../../pages/CustomerPage/ItemMovingAnalysis/Item
 import ProtectedRoute from "../../components/ProtectRoute/ProtectedRoute";
 import VideoChat from "../../pages/VideoChat/VideoChat";
 import AIAssistant from "../../components/AIAssistant/AIAssistant";
+import NotificationPage from "../../pages/CommonPage/Notifications/NotificationPage";
 
 const RoutesCus = () => {
   return (
@@ -125,6 +126,14 @@ const RoutesCus = () => {
           element={
             <ProtectedRoute allowedRoles={["customer"]}>
               <MyContract />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute allowedRoles={["customer"]}>
+              <NotificationPage />
             </ProtectedRoute>
           }
         />

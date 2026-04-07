@@ -19,6 +19,10 @@ export const requestTicketService = {
     // payload = { surveyorId? } — surveyorId required only for FULL_HOUSE
     const response = await api.post(`/request-tickets/${ticketId}/approve`, payload);
     return response.data;
+  },
+  dispatcherAcceptTime: async (ticketId, selectedTime) => {
+    const response = await api.put(`/request-tickets/${ticketId}/dispatcher-accept-time`, { selectedTime });
+    return response.data;
   }
 };
 

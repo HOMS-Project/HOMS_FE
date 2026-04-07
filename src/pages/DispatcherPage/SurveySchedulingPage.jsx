@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  Table, Button, Tag, Modal, Form, Select, message, Space, Card, Typography, Descriptions, DatePicker
+  Table, Button, Tag, Modal, Form, Select, message, Space, Card, Typography, Descriptions, DatePicker, Divider
 } from "antd";
 import {
   CheckCircleOutlined, CloseCircleOutlined, RobotOutlined, UserSwitchOutlined
@@ -17,23 +17,23 @@ const { Option } = Select;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MOVE_TYPE_CONFIG = {
-  FULL_HOUSE:     { label: 'Chuyển nhà',  color: '#44624a', textColor: '#fff' },
-  SPECIFIC_ITEMS: { label: 'Đồ vật lẻ',   color: '#8ba888', textColor: '#fff' },
-  TRUCK_RENTAL:   { label: 'Thuê xe',     color: '#c0cfb2', textColor: '#44624a' },
+  FULL_HOUSE: { label: 'Chuyển nhà', color: '#44624a', textColor: '#fff' },
+  SPECIFIC_ITEMS: { label: 'Đồ vật lẻ', color: '#8ba888', textColor: '#fff' },
+  TRUCK_RENTAL: { label: 'Thuê xe', color: '#c0cfb2', textColor: '#44624a' },
 };
 
 const STATUS_MAP = {
-  CREATED:           { label: 'Chờ xác nhận',   color: 'blue' },
-  WAITING_SURVEY:    { label: 'Đã phân công KS', color: 'green' },
-  WAITING_REVIEW:    { label: 'Chờ xem xét',   color: 'gold' },
-  ASSIGNMENT_FAILED: { label: 'Lỗi phân công',   color: 'red' },
+  CREATED: { label: 'Chờ xác nhận', color: 'blue' },
+  WAITING_SURVEY: { label: 'Đã phân công KS', color: 'green' },
+  WAITING_REVIEW: { label: 'Chờ xem xét', color: 'gold' },
+  ASSIGNMENT_FAILED: { label: 'Lỗi phân công', color: 'red' },
 };
 
 const FILTER_TABS = [
-  { key: 'ALL',           label: 'Tất cả' },
-  { key: 'FULL_HOUSE',    label: 'Chuyển nhà' },
-  { key: 'SPECIFIC_ITEMS',label: 'Đồ vật lẻ' },
-  { key: 'TRUCK_RENTAL',  label: 'Thuê xe' },
+  { key: 'ALL', label: 'Tất cả' },
+  { key: 'FULL_HOUSE', label: 'Chuyển nhà' },
+  { key: 'SPECIFIC_ITEMS', label: 'Đồ vật lẻ' },
+  { key: 'TRUCK_RENTAL', label: 'Thuê xe' },
 ];
 
 const parseSurveyInfoFromNotes = (notesString) => {
@@ -113,6 +113,7 @@ const SurveySchedulingPage = () => {
   const [isApproveModalVisible, setIsApproveModalVisible] = useState(false);  // FULL_HOUSE approve
   const [isRejectModalVisible, setIsRejectModalVisible] = useState(false);
   const [isManualAssignModalVisible, setIsManualAssignModalVisible] = useState(false); // ASSIGNMENT_FAILED fallback
+  const [isAcceptProposedModalVisible, setIsAcceptProposedModalVisible] = useState(false);
 
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [form] = Form.useForm();
@@ -235,6 +236,22 @@ const SurveySchedulingPage = () => {
     }
   };
 
+  const openAcceptProposedModal = (ticket) => {
+    setSelectedTicket(ticket);
+    setIsAcceptProposedModalVisible(true);
+  };
+
+  const handleAcceptProposed = async (time) => {
+    try {
+      await requestTicketService.dispatcherAcceptTime(selectedTicket._id, time);
+      message.success(`Đã chấp nhận giờ khảo sát cho đơn ${selectedTicket.code}`);
+      setIsAcceptProposedModalVisible(false);
+      fetchData();
+    } catch (error) {
+      message.error(error.response?.data?.message || "Lỗi khi chấp nhận giờ!");
+    }
+  };
+
   // ── Table Columns ───────────────────────────────────────────────────────────
   const columns = [
     {
@@ -339,6 +356,18 @@ const SurveySchedulingPage = () => {
                 Từ chối
               </Button>
             </>
+          )}
+
+          {/* WAITING_SURVEY — Show Accept Proposed button if exists */}
+          {record.status === "WAITING_SURVEY" && record.proposedSurveyTimes?.length > 0 && (
+            <Button
+              type="primary"
+              style={{ background: "#8ba888", borderColor: "#8ba888" }}
+              icon={<CheckCircleOutlined />}
+              onClick={() => openAcceptProposedModal(record)}
+            >
+              Xem đề xuất khách
+            </Button>
           )}
 
           {/* ASSIGNMENT_FAILED — Manual fallback */}
@@ -507,6 +536,30 @@ const SurveySchedulingPage = () => {
             </Select>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* ── Modal: Chấp nhận giờ khách đề xuất ── */}
+      <Modal
+        title={`GIỜ KHẢO SÁT KHÁCH ĐỀ XUẤT — #${selectedTicket?.code}`}
+        open={isAcceptProposedModalVisible}
+        onCancel={() => setIsAcceptProposedModalVisible(false)}
+        footer={null}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Text strong>Lý do khách đổi lịch:</Text> <br />
+          <Text type="danger">{selectedTicket?.rescheduleReason || "Không có lý do cụ thể"}</Text>
+        </div>
+        <Divider orientation="left">Chọn một khung giờ để chốt</Divider>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          {selectedTicket?.proposedSurveyTimes?.map((time, idx) => (
+            <Card key={idx} size="small" hoverable onClick={() => handleAcceptProposed(time)}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text strong>{dayjs(time).format("HH:mm - DD/MM/YYYY")}</Text>
+                <Button type="link" icon={<CheckCircleOutlined />}>Chốt giờ này</Button>
+              </div>
+            </Card>
+          ))}
+        </Space>
       </Modal>
     </Card>
   );

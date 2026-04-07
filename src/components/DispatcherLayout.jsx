@@ -43,12 +43,12 @@ const DispatcherLayout = () => {
       key: '/dispatcher/surveys',
       icon: <ScheduleOutlined />,
       label: 'Lên lịch khảo sát',
-      generalOnly: true,
     },
     {
       key: '/dispatcher/calendar',
       icon: <CalendarOutlined />,
       label: 'Lịch khảo sát',
+      regionalOnly: true,
     },
     {
       key: '/dispatcher/survey-input',
@@ -94,18 +94,18 @@ const DispatcherLayout = () => {
           collapsible
           collapsed={collapsed}
           breakpoint="lg"
-          collapsedWidth="0"
+          collapsedWidth="80"
           onCollapse={(c) => setCollapsed(c)}
           width={250}
           style={{ 
             background: '#fff',
-            height: '100vh',
+            height: 'calc(100vh - 64px)',
             position: 'fixed',
             left: 0,
-            top: 0,
+            top: '64px',
             bottom: 0,
-            zIndex: 1001,
-            paddingTop: '64px' // height of AppHeader
+            zIndex: 100,
+            boxShadow: '2px 0 8px rgba(0,0,0,0.05)'
           }}
         >
           {/* Nút thu gọn / mở rộng Sidebar - only show if not auto-collapsed by breakpoint */}
@@ -129,7 +129,7 @@ const DispatcherLayout = () => {
 
         {/* MAIN CONTENT AREA */}
         <Layout style={{ 
-            marginLeft: collapsed ? 0 : 250, 
+            marginLeft: collapsed ? 80 : 250, 
             transition: 'margin-left 0.2s',
             padding: isVideoChatRoute ? 0 : '16px',
             minWidth: 0 
