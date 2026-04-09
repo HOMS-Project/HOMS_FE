@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Input, Select, Button, Tag, Space, Typography, Tooltip, notification, Popconfirm, Row, Col, Avatar, Empty, Modal, Form, InputNumber, DatePicker, Switch, Statistic } from 'antd';
 import dayjs from 'dayjs';
-import { SearchOutlined, EditOutlined, DeleteOutlined, PlusOutlined, DownloadOutlined, CheckCircleOutlined, CarOutlined, DashboardOutlined, ToolOutlined } from '@ant-design/icons';
+import { SearchOutlined, EditOutlined, DeleteOutlined, PlusOutlined, DownloadOutlined, CheckCircleOutlined, CarOutlined, DashboardOutlined, ToolOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import adminVehicleService from '../../../services/adminVehicleService';
 import VehicleModal from './components/VehicleModal';
+import VehicleRouteModal from './components/VehicleRouteModal';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -93,6 +94,8 @@ const VehicleManagement = () => {
     const [editVehicle, setEditVehicle] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [vehicleToDelete, setVehicleToDelete] = useState(null);
+    const [isRouteModalVisible, setRouteModalVisible] = useState(false);
+    const [routeVehicle, setRouteVehicle] = useState(null);
 
     const [form] = Form.useForm();
     // Route viewer removed — modal/action for viewing vehicle route was intentionally removed.
@@ -304,6 +307,16 @@ const VehicleManagement = () => {
             key: 'action',
             render: (_, record) => (
                 <Space size="middle">
+                            {record.status === 'InTransit' && (
+                                <Tooltip title="Lộ trình">
+                                    <Button
+                                        type="text"
+                                        icon={<EnvironmentOutlined />}
+                                        style={{ color: '#19692a' }}
+                                        onClick={() => { setRouteVehicle(record); setRouteModalVisible(true); }}
+                                    />
+                                </Tooltip>
+                            )}
                     <Tooltip title="Chỉnh sửa">
                         <Button type="text" icon={<EditOutlined />} style={{ color: '#1890ff' }} onClick={() => openEditModal(record)} />
                     </Tooltip>
@@ -522,6 +535,13 @@ const VehicleManagement = () => {
             </Modal>
 
             {/* Vehicle Route Viewer removed */}
+            {routeVehicle && (
+                <VehicleRouteModal
+                    visible={isRouteModalVisible}
+                    onClose={() => { setRouteModalVisible(false); setRouteVehicle(null); }}
+                    vehicle={routeVehicle}
+                />
+            )}
         </div>
     );
 };
