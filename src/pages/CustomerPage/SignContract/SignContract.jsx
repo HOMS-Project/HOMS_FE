@@ -16,7 +16,107 @@ const { Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
 // ─── Canvas chữ ký ───────────────────────────────────────────────────────────
+const SignatureCanvas = ({ onSignatureChange }) => {
+  const canvasRef = useRef(null);
+  const isDrawing = useRef(false);
+  const lastPos = useRef(null);
+  const [hasSignature, setHasSignature] = useState(false);
 
+  const getPos = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    const source = e.touches ? e.touches[0] : e;
+    return {
+      x: (source.clientX - rect.left) * (canvas.width / rect.width),
+      y: (source.clientY - rect.top) * (canvas.height / rect.height)
+    };
+  };
+
+  const startDraw = useCallback((e) => {
+    e.preventDefault();
+    isDrawing.current = true;
+    const canvas = canvasRef.current;
+    lastPos.current = getPos(e, canvas);
+  }, []);
+
+  const draw = useCallback((e) => {
+    e.preventDefault();
+    if (!isDrawing.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const pos = getPos(e, canvas);
+
+    ctx.beginPath();
+    ctx.moveTo(lastPos.current.x, lastPos.current.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    lastPos.current = pos;
+    setHasSignature(true);
+    onSignatureChange(canvas.toDataURL('image/png'));
+  }, [onSignatureChange]);
+
+  const stopDraw = useCallback(() => { isDrawing.current = false; }, []);
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSignature(false);
+    onSignatureChange(null);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <canvas
+        ref={canvasRef}
+        width={780}
+        height={180}
+        style={{
+          border: '2px dashed #2D4F36',
+          borderRadius: '8px',
+          cursor: 'crosshair',
+          width: '100%',
+          height: '180px',
+          backgroundColor: '#fafff9',
+          touchAction: 'none'
+        }}
+        onMouseDown={startDraw}
+        onMouseMove={draw}
+        onMouseUp={stopDraw}
+        onMouseLeave={stopDraw}
+        onTouchStart={startDraw}
+        onTouchMove={draw}
+        onTouchEnd={stopDraw}
+      />
+      {!hasSignature && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: '#bbb', fontSize: '15px', pointerEvents: 'none', userSelect: 'none'
+        }}>
+          ✍️ Ký tên của bạn vào đây
+        </div>
+      )}
+      {hasSignature && (
+        <Tooltip title="Xóa chữ ký">
+          <Button
+            icon={<ClearOutlined />}
+            size="small"
+            danger
+            style={{ position: 'absolute', top: 8, right: 8 }}
+            onClick={clearCanvas}
+          >
+            Vẽ lại
+          </Button>
+        </Tooltip>
+      )}
+    </div>
+  );
+};
 
 // ─── Modal OTP ────────────────────────────────────────────────────────────────
 
