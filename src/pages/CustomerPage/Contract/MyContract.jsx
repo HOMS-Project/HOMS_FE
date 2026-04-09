@@ -87,7 +87,84 @@ const ContractDetailModal = ({ contract, open, onClose, onDownload }) => {
         dangerouslySetInnerHTML={{ __html: contract.content }}
       />
 
-    
+      {/* Chữ ký 2 bên */}
+      <Divider orientation="left" style={{ color: '#64748b', fontSize: 13 }}>Chữ ký các bên</Divider>
+      <Row gutter={24}>
+        {/* Bên A — HOMS */}
+        <Col span={12}>
+          <div style={{
+            border: '1px solid #e2e8f0', borderRadius: 10,
+            padding: '20px 16px', textAlign: 'center', background: '#f8fafc'
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: '#0f172a', textTransform: 'uppercase' }}>
+              Bên A — Đại diện HOMS
+            </div>
+            {contract.homsSignature?.signatureImage ? (
+              <img
+                src={contract.homsSignature.signatureImage}
+                alt="Chữ ký HOMS"
+                style={{ maxWidth: 200, maxHeight: 80, border: '1px solid #ddd', borderRadius: 4, background: '#fff', padding: 4 }}
+              />
+            ) : (
+              <div style={{ width: '100%', height: 80, border: '1px dashed #cbd5e1', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>
+                Chưa ký
+              </div>
+            )}
+            <div style={{ marginTop: 10, fontWeight: 600, color: '#1e293b' }}>
+              {contract.homsSignature?.signedByName || 'HOMS Vận Chuyển'}
+            </div>
+            {homsSignedAt && (
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                <CheckCircleOutlined style={{ color: '#10b981', marginRight: 4 }} />
+                {homsSignedAt}
+              </div>
+            )}
+          </div>
+        </Col>
+
+        {/* Bên B — Khách hàng */}
+        <Col span={12}>
+          <div style={{
+            border: `1px solid ${contract.customerSignature?.signedAt ? '#bbf7d0' : '#e2e8f0'}`,
+            borderRadius: 10, padding: '20px 16px', textAlign: 'center',
+            background: contract.customerSignature?.signedAt ? '#f0fdf4' : '#f8fafc'
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: '#0f172a', textTransform: 'uppercase' }}>
+              Bên B — Khách hàng
+            </div>
+            {contract.customerSignature?.signatureImageThumb ? (
+              <img
+                src={contract.customerSignature.signatureImageThumb}
+                alt="Chữ ký khách hàng"
+                style={{ maxWidth: 200, maxHeight: 80, border: '1px solid #ddd', borderRadius: 4, background: '#fff', padding: 4 }}
+              />
+            ) : (
+              <div style={{ width: '100%', height: 80, border: '1px dashed #cbd5e1', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>
+                Chưa ký
+              </div>
+            )}
+            <div style={{ marginTop: 10, fontWeight: 600, color: '#1e293b' }}>
+              {contract.customerId?.fullName || 'Khách hàng'}
+            </div>
+            {customerSignedAt && (
+              <div style={{ fontSize: 12, color: '#10b981', marginTop: 4 }}>
+                <CheckCircleOutlined style={{ marginRight: 4 }} />
+                {customerSignedAt}
+              </div>
+            )}
+          </div>
+        </Col>
+      </Row>
+
+      {/* Hash xác thực */}
+      {contract.contentHash && (
+        <div style={{ marginTop: 16, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, fontSize: 11, color: '#94a3b8', wordBreak: 'break-all' }}>
+          🔒 Mã xác thực SHA-256: {contract.contentHash}
+        </div>
+      )}
+    </Modal>
+  );
+};
 
 const MyContract = () => {
   const [contracts, setContracts]   = useState([]);
