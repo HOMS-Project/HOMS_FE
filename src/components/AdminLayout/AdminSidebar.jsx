@@ -83,7 +83,8 @@ const AdminSidebar = ({ collapsed, onCollapse }) => {
                 left: 0, 
                 top: 0, 
                 bottom: 0,
-                zIndex: 1001 
+                // Ensure modals (Ant Design default z-index 1000) appear above the sidebar
+                zIndex: 900 
             }}
         >
             <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>

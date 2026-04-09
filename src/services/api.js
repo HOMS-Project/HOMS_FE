@@ -122,7 +122,8 @@ export const setupInterceptors = (contextLogout) => {
       }
 
       // Do not show toast for 401 Unauthorized globally since it might trigger auth flows or silent refreshes
-      if (error.response?.status !== 401 && error.response?.status !== 403) {
+      // Allow callers to suppress global error notifications by setting config._suppressErrorNotification = true
+      if (!config?._suppressErrorNotification && error.response?.status !== 401 && error.response?.status !== 403) {
         notification.error({
           message: 'Lỗi hệ thống',
           description: errorMessage,
