@@ -119,6 +119,117 @@ const SignatureCanvas = ({ onSignatureChange }) => {
 };
 
 // ─── Modal OTP ────────────────────────────────────────────────────────────────
+const OtpModal = ({ visible, email, contractId, onSuccess, onClose }) => {
+  const [otp, setOtp] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  // Đếm ngược cho nút gửi lại
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      await api.post(`/customer/contracts/${contractId}/request-otp`);
+      message.success('Đã gửi lại mã OTP!');
+      setCountdown(60);
+      setOtp('');
+    } catch (err) {
+      message.error('Không thể gửi lại OTP: ' + (err.response?.data?.message || ''));
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleVerify = () => {
+    if (otp.length !== 6) {
+      message.warning('Vui lòng nhập đủ 6 chữ số');
+      return;
+    }
+    onSuccess(otp);
+  };
+
+  return (
+    <Modal
+      open={visible}
+      onCancel={onClose}
+      footer={null}
+      centered
+      width={420}
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <MailOutlined style={{ color: '#2D4F36', fontSize: 20 }} />
+          <span>Xác nhận OTP ký hợp đồng</span>
+        </div>
+      }
+    >
+      <div style={{ textAlign: 'center', padding: '16px 0' }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%',
+          background: '#f0f7f1', margin: '0 auto 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <MailOutlined style={{ fontSize: 28, color: '#2D4F36' }} />
+        </div>
+        <Paragraph>
+          Mã OTP <strong>6 chữ số</strong> đã được gửi đến email:
+          <br />
+          <Text strong style={{ color: '#2D4F36', fontSize: 15 }}>{email}</Text>
+        </Paragraph>
+        <Paragraph type="secondary" style={{ fontSize: 13 }}>
+          Mã có hiệu lực trong <strong>5 phút</strong>. Vui lòng kiểm tra hộp thư (kể cả Spam).
+        </Paragraph>
+
+        <Input
+          size="large"
+          maxLength={6}
+          value={otp}
+          onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+          placeholder="_ _ _ _ _ _"
+          style={{
+            textAlign: 'center',
+            fontSize: '28px',
+            letterSpacing: '12px',
+            fontWeight: 'bold',
+            width: '220px',
+            borderColor: '#2D4F36',
+            margin: '8px 0 24px'
+          }}
+          onPressEnter={handleVerify}
+          autoFocus
+        />
+
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Button
+            type="primary"
+            size="large"
+            block
+            loading={verifying}
+            onClick={handleVerify}
+            style={{ background: '#2D4F36', borderColor: '#2D4F36', height: 48, fontSize: 15 }}
+          >
+            Xác nhận & Ký hợp đồng
+          </Button>
+          <Button
+            size="large"
+            block
+            icon={<ReloadOutlined />}
+            loading={resending}
+            disabled={countdown > 0}
+            onClick={handleResend}
+          >
+            {countdown > 0 ? `Gửi lại sau ${countdown}s` : 'Gửi lại mã OTP'}
+          </Button>
+        </Space>
+      </div>
+    </Modal>
+  );
+};
 
 // ─── Trang chính ──────────────────────────────────────────────────────────────
 const SignContract = () => {
