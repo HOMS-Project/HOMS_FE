@@ -29,17 +29,23 @@ const PUBLIC_ENDPOINTS = [
   '/csrf-token',
 ];
 let csrfToken = null;
+let csrfTokenPromise = null;
 
 export const initCsrfToken = async () => {
-  try {
-    const res = await api.get('/csrf-token', {
-  withCredentials: true,
-});
-    csrfToken = res.data.csrfToken;
-    console.log('✅ CSRF token loaded',csrfToken);
-  } catch (err) {
-    console.error('❌ Failed to load CSRF token', err);
+  if (csrfToken) return;
+  if (!csrfTokenPromise) {
+    csrfTokenPromise = api.get('/csrf-token', {
+      withCredentials: true,
+    }).then(res => {
+      csrfToken = res.data.csrfToken;
+      console.log('✅ CSRF token loaded', csrfToken);
+    }).catch(err => {
+      console.error('❌ Failed to load CSRF token', err);
+    }).finally(() => {
+      csrfTokenPromise = null;
+    });
   }
+  await csrfTokenPromise;
 };
 
 // Hàm gắn interceptor
@@ -47,12 +53,13 @@ export const setupInterceptors = (contextLogout) => {
   api.interceptors.request.use(
     async (config) => {
       if (['post', 'put', 'patch', 'delete'].includes(config.method)) {
-      if (!csrfToken) {
-        await initCsrfToken();
+        if (!csrfToken) {
+          await initCsrfToken();
+        }
+        if (csrfToken) {
+          config.headers['X-CSRF-Token'] = csrfToken;
+        }
       }
-      config.headers['X-CSRF-Token'] = csrfToken;
-      console.log("CSRF HEADER:", csrfToken);
-    }
       const isPublicPage = PUBLIC_ENDPOINTS.some(endpoint => config.url.endsWith(endpoint));
       if (isPublicPage) {
         return config;
@@ -82,7 +89,7 @@ export const setupInterceptors = (contextLogout) => {
     },
     async (error) => {
       const config = error.config;
-      
+
       // Mất kết nối mạng / Timeout handling
       if (!error.response || error.code === 'ECONNABORTED' || error.message === 'Network Error') {
         if (!config._retryNotificationShown) {
@@ -108,7 +115,7 @@ export const setupInterceptors = (contextLogout) => {
 
       // Any status codes that falls outside the range of 2xx causes this function to trigger
       const errorMessage = error.response?.data?.message || error.message || "An unexpected error occurred.";
-      
+
       // Suppress noisy toasts for known client/server validation about invalid invoice id
       if (error.response?.data?.message && String(error.response.data.message).toLowerCase().includes('invalid invoice id')) {
         // do not show notification for this specific, non-actionable message
@@ -131,7 +138,7 @@ export const setupInterceptors = (contextLogout) => {
           duration: 4,
         });
       }
-      
+
       return Promise.reject(error);
     }
   );

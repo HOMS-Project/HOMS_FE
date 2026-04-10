@@ -307,7 +307,7 @@ const ContractManagement = () => {
         setSelectedTemplate(null);
         setEditedTemplate(null);
     };
-    
+
     // Convert uploaded signature file to base64 and store in editedTemplate.adminSignature.signatureImage
     const handleTemplateSignatureFile = (file) => {
         if (!file) return;
@@ -450,7 +450,7 @@ const ContractManagement = () => {
                 .summary-icon-yellow { background: rgba(250,173,20,0.08); color: #faad14; }
                 .summary-icon-pink { background: rgba(235,47,150,0.06); color: #eb2f96; }
                 /* Template content styling for readable contract preview */
-                .template-content { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #f0f0f0; font-size: 14px; line-height: 1.7; color: rgba(0,0,0,0.85); text-align: justify; }
+                .template-content { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #f0f0f0; font-size: 14px; line-height: 1.7; color: rgba(0,0,0,0.85); text-align: justify; word-wrap: break-word; word-break: break-word; overflow-x: hidden; }
                 .template-content h1, .template-content h2, .template-content h3 { text-align: center; margin: 8px 0 12px; }
                 .template-content p { margin: 8px 0; }
                 .template-content strong { font-weight: 700; }
@@ -561,95 +561,103 @@ const ContractManagement = () => {
                 open={templateModalVisible}
                 footer={null}
             >
-                {selectedTemplate ? (
-                    templateModalMode === 'view' ? (
-                        <div>
-                            <Descriptions bordered column={1} size="small">
-                                <Descriptions.Item label="Tên">{selectedTemplate.name || selectedTemplate.title}</Descriptions.Item>
-                                <Descriptions.Item label="Phiên bản">{selectedTemplate.version}</Descriptions.Item>
-                                <Descriptions.Item label="Trạng thái">{selectedTemplate.isActive ? 'Hoạt động' : 'Lưu trữ'}</Descriptions.Item>
-                                <Descriptions.Item label="Ngày tạo">{selectedTemplate.createdAt ? dayjs(selectedTemplate.createdAt).format('DD/MM/YYYY') : 'N/A'}</Descriptions.Item>
-                            </Descriptions>
-                            <Divider />
-                            <div style={{ display: 'flex', gap: 16 }}>
-                                <div style={{ flex: 1, maxHeight: 520, overflow: 'auto' }}>
-                                    {selectedTemplate.content ? (
-                                        <div className="template-content" dangerouslySetInnerHTML={{ __html: selectedTemplate.content }} />
-                                    ) : (
-                                        <Text type="secondary">Không có nội dung mẫu để hiển thị.</Text>
-                                    )}
-                                </div>
-                                <div style={{ width: 240 }}>
-                                    <div style={{ marginBottom: 8, fontWeight: 600 }}>Chữ ký quản trị (mẫu)</div>
-                                    {selectedTemplate.adminSignature?.signatureImage || selectedTemplate.adminSignature?.signatureImageThumb ? (
-                                        <div style={{ border: '1px dashed #eee', padding: 8, borderRadius: 8, textAlign: 'center' }}>
-                                            <img src={selectedTemplate.adminSignature.signatureImage || selectedTemplate.adminSignature.signatureImageThumb} alt="admin-sign" style={{ maxWidth: '100%', height: 'auto' }} />
-                                            <div style={{ marginTop: 8, fontSize: 12, color: '#555' }}>{selectedTemplate.adminSignature?.signedByName || 'HOMS Vận Chuyển'}</div>
-                                        </div>
-                                    ) : (
-                                        <Text type="secondary">Chưa có chữ ký quản trị trong mẫu này.</Text>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ display: 'block', marginBottom: 6 }}>Tên</label>
-                                <Input value={editedTemplate?.name || editedTemplate?.title || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, name: e.target.value }))} />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ display: 'block', marginBottom: 6 }}>Phiên bản</label>
-                                <Input value={editedTemplate?.version || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, version: e.target.value }))} />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ display: 'block', marginBottom: 6 }}>Trạng thái</label>
-                                <Space>
-                                    <Switch checked={!!editedTemplate?.isActive} onChange={v => setEditedTemplate(prev => ({ ...prev, isActive: v }))} />
-                                    <Text>{editedTemplate?.isActive ? 'Hoạt động' : 'Lưu trữ'}</Text>
-                                </Space>
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ display: 'block', marginBottom: 6 }}>Nội dung mẫu (HTML)</label>
-                                <Input.TextArea
-                                    value={editedTemplate?.content || ''}
-                                    onChange={e => setEditedTemplate(prev => ({ ...prev, content: e.target.value }))}
-                                    rows={12}
-                                    placeholder="Nội dung HTML của mẫu hợp đồng"
-                                />
-                            </div>
-                            <Divider />
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ display: 'block', marginBottom: 6 }}>Chữ ký quản trị</label>
-                                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                                    <div style={{ width: 180, border: '1px dashed #eee', padding: 8, borderRadius: 8, textAlign: 'center' }}>
-                                        {editedTemplate?.adminSignature?.signatureImage ? (
-                                            <img src={editedTemplate.adminSignature.signatureImage} alt="preview" style={{ maxWidth: '100%', height: 'auto' }} />
+                <div style={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden', paddingRight: '8px' }}>
+                    {selectedTemplate ? (
+                        templateModalMode === 'view' ? (
+                            <div>
+                                <Descriptions bordered column={1} size="small" labelStyle={{ width: 160, minWidth: 160, maxWidth: 160, fontWeight: 600 }}>
+                                    <Descriptions.Item label="Tên">{selectedTemplate.name || selectedTemplate.title}</Descriptions.Item>
+                                    <Descriptions.Item label="Phiên bản">{selectedTemplate.version}</Descriptions.Item>
+                                    <Descriptions.Item label="Trạng thái">{selectedTemplate.isActive ? 'Hoạt động' : 'Lưu trữ'}</Descriptions.Item>
+                                    <Descriptions.Item label="Ngày tạo">{selectedTemplate.createdAt ? dayjs(selectedTemplate.createdAt).format('DD/MM/YYYY') : 'N/A'}</Descriptions.Item>
+                                </Descriptions>
+                                <Divider />
+                                <div style={{ display: 'flex', gap: 16, width: '100%' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        {selectedTemplate.content ? (
+                                            <div className="template-content" style={{ padding: 0, overflow: 'hidden' }}>
+                                                <iframe
+                                                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;line-height:1.7;color:rgba(0,0,0,0.85);text-align:justify;word-wrap:break-word;word-break:break-word;margin:0;padding:16px;}h1,h2,h3{text-align:center;margin:8px 0 12px;}p{margin:8px 0;}strong{font-weight:700;}img{max-width:100%;height:auto;display:block;margin:8px auto;}.contract-title{text-align:center;font-weight:800;font-size:18px;margin-bottom:8px;}table{border-collapse:collapse;width:100%;}table,th,td{border:1px solid black;padding:8px;}</style></head><body>${selectedTemplate.content}</body></html>`}
+                                                    style={{ width: '100%', height: '520px', border: 'none', display: 'block' }}
+                                                    title="Template Preview"
+                                                />
+                                            </div>
                                         ) : (
-                                            <Text type="secondary">Chưa có ảnh</Text>
+                                            <Text type="secondary">Không có nội dung mẫu để hiển thị.</Text>
                                         )}
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => handleTemplateSignatureFile(e.target.files && e.target.files[0])}
-                                        />
-                                        <Input placeholder="Tên người ký" value={editedTemplate?.adminSignature?.signedByName || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, adminSignature: { ...(prev?.adminSignature || {}), signedByName: e.target.value } }))} />
-                                        <Button onClick={() => setEditedTemplate(prev => ({ ...prev, adminSignature: {} }))}>Xóa chữ ký</Button>
+                                    <div style={{ width: 240, minWidth: 240, flexShrink: 0 }}>
+                                        <div style={{ marginBottom: 8, fontWeight: 600 }}>Chữ ký quản trị (mẫu)</div>
+                                        {selectedTemplate.adminSignature?.signatureImage || selectedTemplate.adminSignature?.signatureImageThumb ? (
+                                            <div style={{ border: '1px dashed #eee', padding: 8, borderRadius: 8, textAlign: 'center' }}>
+                                                <img src={selectedTemplate.adminSignature.signatureImage || selectedTemplate.adminSignature.signatureImageThumb} alt="admin-sign" style={{ maxWidth: '100%', height: 'auto' }} />
+                                                <div style={{ marginTop: 8, fontSize: 12, color: '#555' }}>{selectedTemplate.adminSignature?.signedByName || 'HOMS Vận Chuyển'}</div>
+                                            </div>
+                                        ) : (
+                                            <Text type="secondary">Chưa có chữ ký quản trị trong mẫu này.</Text>
+                                        )}
                                     </div>
                                 </div>
                             </div>
-                            <Divider />
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                <Button onClick={closeTemplateModal}>Hủy</Button>
-                                <Button type="primary" onClick={handleTemplateSave} loading={savingTemplate}>Lưu</Button>
+                        ) : (
+                            <div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Tên</label>
+                                    <Input value={editedTemplate?.name || editedTemplate?.title || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, name: e.target.value }))} />
+                                </div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Phiên bản</label>
+                                    <Input value={editedTemplate?.version || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, version: e.target.value }))} />
+                                </div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Trạng thái</label>
+                                    <Space>
+                                        <Switch checked={!!editedTemplate?.isActive} onChange={v => setEditedTemplate(prev => ({ ...prev, isActive: v }))} />
+                                        <Text>{editedTemplate?.isActive ? 'Hoạt động' : 'Lưu trữ'}</Text>
+                                    </Space>
+                                </div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Nội dung mẫu (HTML)</label>
+                                    <Input.TextArea
+                                        value={editedTemplate?.content || ''}
+                                        onChange={e => setEditedTemplate(prev => ({ ...prev, content: e.target.value }))}
+                                        rows={12}
+                                        placeholder="Nội dung HTML của mẫu hợp đồng"
+                                    />
+                                </div>
+                                <Divider />
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Chữ ký quản trị</label>
+                                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%' }}>
+                                        <div style={{ width: 180, minWidth: 180, flexShrink: 0, border: '1px dashed #eee', padding: 8, borderRadius: 8, textAlign: 'center' }}>
+                                            {editedTemplate?.adminSignature?.signatureImage ? (
+                                                <img src={editedTemplate.adminSignature.signatureImage} alt="preview" style={{ maxWidth: '100%', height: 'auto' }} />
+                                            ) : (
+                                                <Text type="secondary">Chưa có ảnh</Text>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => handleTemplateSignatureFile(e.target.files && e.target.files[0])}
+                                            />
+                                            <Input placeholder="Tên người ký" value={editedTemplate?.adminSignature?.signedByName || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, adminSignature: { ...(prev?.adminSignature || {}), signedByName: e.target.value } }))} />
+                                            <Button onClick={() => setEditedTemplate(prev => ({ ...prev, adminSignature: {} }))}>Xóa chữ ký</Button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <Divider />
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                    <Button onClick={closeTemplateModal}>Hủy</Button>
+                                    <Button type="primary" onClick={handleTemplateSave} loading={savingTemplate}>Lưu</Button>
+                                </div>
                             </div>
-                        </div>
-                    )
-                ) : (
-                    <div style={{ textAlign: 'center', padding: 20 }}><Text type="secondary">Không tìm thấy mẫu.</Text></div>
-                )}
+                        )
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: 20 }}><Text type="secondary">Không tìm thấy mẫu.</Text></div>
+                    )}
+                </div>
             </Modal>
 
             {/* AI Prompt Modal */}
