@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Table, Typography, Tabs, Button, Select, Space, notification, Modal, Descriptions, Tag, Divider, Row, Col, Input, DatePicker, Popover, Checkbox, Tooltip, Switch } from 'antd';
-import { FileTextOutlined, EyeOutlined, CheckCircleOutlined, DownloadOutlined, SearchOutlined, FilterOutlined, ClockCircleOutlined, ProfileOutlined, ReloadOutlined } from '@ant-design/icons';
+import { FileTextOutlined, EyeOutlined, CheckCircleOutlined, DownloadOutlined, SearchOutlined, FilterOutlined, ClockCircleOutlined, ProfileOutlined, ReloadOutlined, BulbOutlined } from '@ant-design/icons';
 import adminContractService from '../../../services/adminContractService';
+import adminAiService from '../../../services/adminAiService';
 import ContractModal from './ContractModal';
 import dayjs from 'dayjs';
 
@@ -34,6 +35,11 @@ const ContractManagement = () => {
     const [editedTemplate, setEditedTemplate] = useState(null);
     const [savingTemplate, setSavingTemplate] = useState(false);
 
+    // AI Contract Template Generating state
+    const [aiGenModalVisible, setAiGenModalVisible] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [generatingAiContent, setGeneratingAiContent] = useState(false);
+
     const fetchData = async (opts = {}) => {
         setLoading(true);
         try {
@@ -56,7 +62,7 @@ const ContractManagement = () => {
                     notifiedCountRef.current = resp.data.length;
                     notification.info({ message: `Đã tải ${resp.data.length} hợp đồng.`, duration: 2 });
                 }
-            }  else {
+            } else {
                 console.warn('Unexpected contracts response shape:', resp);
                 setContracts([]);
                 notification.warn({ message: 'Dữ liệu hợp đồng nhận về không đúng định dạng.' });
@@ -92,7 +98,7 @@ const ContractManagement = () => {
         // initial fetch (no contractNumber param)
         fetchData();
     }, []);
-    
+
     // Helper: apply client-side filters and sorting to an array of contracts
     const applyLocalFilters = (list, { query, sortOrder, statusFilters, dateRange }) => {
         let out = Array.isArray(list) ? list.slice() : [];
@@ -111,7 +117,7 @@ const ContractManagement = () => {
                 return d && d >= start && d <= end;
             });
         }
-        out.sort((a,b) => {
+        out.sort((a, b) => {
             const da = a.createdAt ? new Date(a.createdAt) : 0;
             const db = b.createdAt ? new Date(b.createdAt) : 0;
             return sortOrder === 'newest' ? db - da : da - db;
@@ -123,7 +129,7 @@ const ContractManagement = () => {
     useEffect(() => {
         setContracts(applyLocalFilters(allContracts, { query: searchQuery, sortOrder, statusFilters, dateRange }));
     }, [searchQuery, sortOrder, statusFilters, dateRange, allContracts]);
-    
+
     const viewContractDetails = (contract) => {
         // Open modal and let ContractModal fetch details by id
         setSelectedContractId(contract._id || contract.id || contract._id);
@@ -154,7 +160,7 @@ const ContractManagement = () => {
             title: 'Trạng thái',
             dataIndex: 'status',
             key: 'status',
-                render: status => {
+            render: status => {
                 // normalize to uppercase to match BE enums
                 const sRaw = (typeof status === 'string') ? status : (status && (status.name || status.status || String(status))) || '';
                 const s = sRaw.toString();
@@ -232,8 +238,8 @@ const ContractManagement = () => {
                 <RangePicker value={dateRange} onChange={(vals) => setDateRange(vals)} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <Button size="small" onClick={() => { setStatusFilters([]); setDateRange([null, null]); }}>Reset</Button>
-                <Button type="primary" size="small" onClick={() => { /* popover will close automatically */ }}>Apply</Button>
+                <Button size="small" onClick={() => { setStatusFilters([]); setDateRange([null, null]); }}>Đặt lại</Button>
+                <Button type="primary" size="small" onClick={() => { /* popover will close automatically */ }}>Áp dụng</Button>
             </div>
         </div>
     );
@@ -301,24 +307,90 @@ const ContractManagement = () => {
         setSelectedTemplate(null);
         setEditedTemplate(null);
     };
+
+    // Convert uploaded signature file to base64 and store in editedTemplate.adminSignature.signatureImage
+    const handleTemplateSignatureFile = (file) => {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const dataUrl = e.target.result;
+            setEditedTemplate(prev => ({
+                ...prev,
+                adminSignature: {
+                    ...(prev?.adminSignature || {}),
+                    signatureImage: dataUrl,
+                    signatureImageThumb: dataUrl
+                }
+            }));
+        };
+        reader.readAsDataURL(file);
+    };
+
     const handleTemplateSave = async () => {
         if (!editedTemplate) return;
         setSavingTemplate(true);
         try {
-            const resp = await adminContractService.updateTemplate(editedTemplate._id || editedTemplate.id, editedTemplate);
-            // resp might be { success: true, data } or a plain object
-            const updated = resp && resp.success && resp.data ? resp.data : resp;
-            // update local list
-            setTemplates(prev => prev.map(t => (t._id === (updated._id || updated.id) || t.id === (updated._id || updated.id)) ? updated : t));
-            notification.success({ message: 'Lưu mẫu hợp đồng thành công' });
+            const templateId = editedTemplate._id || editedTemplate.id;
+            let updated;
+
+            if (templateId) {
+                // UPDATE existing template
+                const resp = await adminContractService.updateTemplate(templateId, editedTemplate);
+                updated = resp && resp.success && resp.data ? resp.data : resp;
+
+                setTemplates(prev => prev.map(t =>
+                    (t._id === (updated._id || updated.id) || t.id === (updated._id || updated.id)) ? updated : t
+                ));
+                notification.success({ message: 'Cập nhật mẫu hợp đồng thành công' });
+            } else {
+                // CREATE new template (e.g. from AI generation)
+                const resp = await adminContractService.createTemplate(editedTemplate);
+                updated = resp && resp.success && resp.data ? resp.data : resp;
+
+                setTemplates(prev => [updated, ...prev]);
+                notification.success({ message: 'Lưu mẫu hợp đồng mới thành công' });
+            }
+
             setTemplateModalMode('view');
             setSelectedTemplate(updated);
             setEditedTemplate(null);
         } catch (err) {
             console.error('Failed to save template', err);
-            notification.error({ message: 'Lưu mẫu thất bại.' });
+            notification.error({ message: 'Lưu mẫu thất bại. Vui lòng kiểm tra lại dữ liệu.' });
         } finally {
             setSavingTemplate(false);
+        }
+    };
+
+    const handleAiGenerateTemplate = async () => {
+        if (!aiPrompt.trim()) {
+            notification.warning({ message: 'Vui lòng nhập mô tả cho mẫu hợp đồng.' });
+            return;
+        }
+        setGeneratingAiContent(true);
+        try {
+            const resp = await adminAiService.generateTemplateContent(aiPrompt);
+            if (resp.success) {
+                // Open creation modal with AI content
+                const newTpl = {
+                    name: `Mẫu AI: ${aiPrompt.substring(0, 30)}...`,
+                    version: '1.0',
+                    isActive: true,
+                    content: resp.data
+                };
+                setSelectedTemplate(newTpl);
+                setEditedTemplate(newTpl);
+                setTemplateModalMode('edit');
+                setAiGenModalVisible(false);
+                setTemplateModalVisible(true);
+                setAiPrompt('');
+                notification.success({ message: 'Đã tạo nội dung bằng AI! Vui lòng kiểm tra và chỉnh sửa lại.' });
+            }
+        } catch (err) {
+            console.error('AI generation failed', err);
+            notification.error({ message: 'Không thể tạo mẫu bằng AI.' });
+        } finally {
+            setGeneratingAiContent(false);
         }
     };
 
@@ -378,7 +450,7 @@ const ContractManagement = () => {
                 .summary-icon-yellow { background: rgba(250,173,20,0.08); color: #faad14; }
                 .summary-icon-pink { background: rgba(235,47,150,0.06); color: #eb2f96; }
                 /* Template content styling for readable contract preview */
-                .template-content { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #f0f0f0; font-size: 14px; line-height: 1.7; color: rgba(0,0,0,0.85); text-align: justify; }
+                .template-content { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #f0f0f0; font-size: 14px; line-height: 1.7; color: rgba(0,0,0,0.85); text-align: justify; word-wrap: break-word; word-break: break-word; overflow-x: hidden; }
                 .template-content h1, .template-content h2, .template-content h3 { text-align: center; margin: 8px 0 12px; }
                 .template-content p { margin: 8px 0; }
                 .template-content strong { font-weight: 700; }
@@ -465,6 +537,16 @@ const ContractManagement = () => {
                         <Table columns={contractColumns} dataSource={contracts} rowKey="_id" loading={loading} />
                     </Tabs.TabPane>
                     <Tabs.TabPane tab="Mẫu hợp đồng" key="2">
+                        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <Button
+                                type="primary"
+                                icon={<BulbOutlined />}
+                                onClick={() => setAiGenModalVisible(true)}
+                                style={{ background: '#44624A', borderColor: '#44624A', display: 'flex', alignItems: 'center' }}
+                            >
+                                Tạo mẫu bằng AI
+                            </Button>
+                        </div>
                         <Table columns={templateColumns} dataSource={templates} rowKey="_id" loading={loading} />
                     </Tabs.TabPane>
                 </Tabs>
@@ -479,60 +561,130 @@ const ContractManagement = () => {
                 open={templateModalVisible}
                 footer={null}
             >
-                {selectedTemplate ? (
-                    templateModalMode === 'view' ? (
-                        <div>
-                            <Descriptions bordered column={1} size="small">
-                                <Descriptions.Item label="Tên">{selectedTemplate.name || selectedTemplate.title}</Descriptions.Item>
-                                <Descriptions.Item label="Phiên bản">{selectedTemplate.version}</Descriptions.Item>
-                                <Descriptions.Item label="Trạng thái">{selectedTemplate.isActive ? 'Hoạt động' : 'Lưu trữ'}</Descriptions.Item>
-                                <Descriptions.Item label="Ngày tạo">{selectedTemplate.createdAt ? dayjs(selectedTemplate.createdAt).format('DD/MM/YYYY') : 'N/A'}</Descriptions.Item>
-                            </Descriptions>
-                            <Divider />
-                            <div style={{ maxHeight: 520, overflow: 'auto' }}>
-                                {selectedTemplate.content ? (
-                                    <div className="template-content" dangerouslySetInnerHTML={{ __html: selectedTemplate.content }} />
-                                ) : (
-                                    <Text type="secondary">Không có nội dung mẫu để hiển thị.</Text>
-                                )}
+                <div style={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden', paddingRight: '8px' }}>
+                    {selectedTemplate ? (
+                        templateModalMode === 'view' ? (
+                            <div>
+                                <Descriptions bordered column={1} size="small" labelStyle={{ width: 160, minWidth: 160, maxWidth: 160, fontWeight: 600 }}>
+                                    <Descriptions.Item label="Tên">{selectedTemplate.name || selectedTemplate.title}</Descriptions.Item>
+                                    <Descriptions.Item label="Phiên bản">{selectedTemplate.version}</Descriptions.Item>
+                                    <Descriptions.Item label="Trạng thái">{selectedTemplate.isActive ? 'Hoạt động' : 'Lưu trữ'}</Descriptions.Item>
+                                    <Descriptions.Item label="Ngày tạo">{selectedTemplate.createdAt ? dayjs(selectedTemplate.createdAt).format('DD/MM/YYYY') : 'N/A'}</Descriptions.Item>
+                                </Descriptions>
+                                <Divider />
+                                <div style={{ display: 'flex', gap: 16, width: '100%' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        {selectedTemplate.content ? (
+                                            <div className="template-content" style={{ padding: 0, overflow: 'hidden' }}>
+                                                <iframe
+                                                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;line-height:1.7;color:rgba(0,0,0,0.85);text-align:justify;word-wrap:break-word;word-break:break-word;margin:0;padding:16px;}h1,h2,h3{text-align:center;margin:8px 0 12px;}p{margin:8px 0;}strong{font-weight:700;}img{max-width:100%;height:auto;display:block;margin:8px auto;}.contract-title{text-align:center;font-weight:800;font-size:18px;margin-bottom:8px;}table{border-collapse:collapse;width:100%;}table,th,td{border:1px solid black;padding:8px;}</style></head><body>${selectedTemplate.content}</body></html>`}
+                                                    style={{ width: '100%', height: '520px', border: 'none', display: 'block' }}
+                                                    title="Template Preview"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <Text type="secondary">Không có nội dung mẫu để hiển thị.</Text>
+                                        )}
+                                    </div>
+                                    <div style={{ width: 240, minWidth: 240, flexShrink: 0 }}>
+                                        <div style={{ marginBottom: 8, fontWeight: 600 }}>Chữ ký quản trị (mẫu)</div>
+                                        {selectedTemplate.adminSignature?.signatureImage || selectedTemplate.adminSignature?.signatureImageThumb ? (
+                                            <div style={{ border: '1px dashed #eee', padding: 8, borderRadius: 8, textAlign: 'center' }}>
+                                                <img src={selectedTemplate.adminSignature.signatureImage || selectedTemplate.adminSignature.signatureImageThumb} alt="admin-sign" style={{ maxWidth: '100%', height: 'auto' }} />
+                                                <div style={{ marginTop: 8, fontSize: 12, color: '#555' }}>{selectedTemplate.adminSignature?.signedByName || 'HOMS Vận Chuyển'}</div>
+                                            </div>
+                                        ) : (
+                                            <Text type="secondary">Chưa có chữ ký quản trị trong mẫu này.</Text>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Tên</label>
+                                    <Input value={editedTemplate?.name || editedTemplate?.title || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, name: e.target.value }))} />
+                                </div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Phiên bản</label>
+                                    <Input value={editedTemplate?.version || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, version: e.target.value }))} />
+                                </div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Trạng thái</label>
+                                    <Space>
+                                        <Switch checked={!!editedTemplate?.isActive} onChange={v => setEditedTemplate(prev => ({ ...prev, isActive: v }))} />
+                                        <Text>{editedTemplate?.isActive ? 'Hoạt động' : 'Lưu trữ'}</Text>
+                                    </Space>
+                                </div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Nội dung mẫu (HTML)</label>
+                                    <Input.TextArea
+                                        value={editedTemplate?.content || ''}
+                                        onChange={e => setEditedTemplate(prev => ({ ...prev, content: e.target.value }))}
+                                        rows={12}
+                                        placeholder="Nội dung HTML của mẫu hợp đồng"
+                                    />
+                                </div>
+                                <Divider />
+                                <div style={{ marginBottom: 12 }}>
+                                    <label style={{ display: 'block', marginBottom: 6 }}>Chữ ký quản trị</label>
+                                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%' }}>
+                                        <div style={{ width: 180, minWidth: 180, flexShrink: 0, border: '1px dashed #eee', padding: 8, borderRadius: 8, textAlign: 'center' }}>
+                                            {editedTemplate?.adminSignature?.signatureImage ? (
+                                                <img src={editedTemplate.adminSignature.signatureImage} alt="preview" style={{ maxWidth: '100%', height: 'auto' }} />
+                                            ) : (
+                                                <Text type="secondary">Chưa có ảnh</Text>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => handleTemplateSignatureFile(e.target.files && e.target.files[0])}
+                                            />
+                                            <Input placeholder="Tên người ký" value={editedTemplate?.adminSignature?.signedByName || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, adminSignature: { ...(prev?.adminSignature || {}), signedByName: e.target.value } }))} />
+                                            <Button onClick={() => setEditedTemplate(prev => ({ ...prev, adminSignature: {} }))}>Xóa chữ ký</Button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <Divider />
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                    <Button onClick={closeTemplateModal}>Hủy</Button>
+                                    <Button type="primary" onClick={handleTemplateSave} loading={savingTemplate}>Lưu</Button>
+                                </div>
+                            </div>
+                        )
                     ) : (
-                        <div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ display: 'block', marginBottom: 6 }}>Tên</label>
-                                <Input value={editedTemplate?.name || editedTemplate?.title || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, name: e.target.value }))} />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ display: 'block', marginBottom: 6 }}>Phiên bản</label>
-                                <Input value={editedTemplate?.version || ''} onChange={e => setEditedTemplate(prev => ({ ...prev, version: e.target.value }))} />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ display: 'block', marginBottom: 6 }}>Trạng thái</label>
-                                <Space>
-                                    <Switch checked={!!editedTemplate?.isActive} onChange={v => setEditedTemplate(prev => ({ ...prev, isActive: v }))} />
-                                    <Text>{editedTemplate?.isActive ? 'Hoạt động' : 'Lưu trữ'}</Text>
-                                </Space>
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={{ display: 'block', marginBottom: 6 }}>Nội dung mẫu (HTML)</label>
-                                <Input.TextArea
-                                    value={editedTemplate?.content || ''}
-                                    onChange={e => setEditedTemplate(prev => ({ ...prev, content: e.target.value }))}
-                                    rows={12}
-                                    placeholder="Nội dung HTML của mẫu hợp đồng"
-                                />
-                            </div>
-                            <Divider />
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                <Button onClick={closeTemplateModal}>Hủy</Button>
-                                <Button type="primary" onClick={handleTemplateSave} loading={savingTemplate}>Lưu</Button>
-                            </div>
-                        </div>
-                    )
-                ) : (
-                    <div style={{ textAlign: 'center', padding: 20 }}><Text type="secondary">Không tìm thấy mẫu.</Text></div>
-                )}
+                        <div style={{ textAlign: 'center', padding: 20 }}><Text type="secondary">Không tìm thấy mẫu.</Text></div>
+                    )}
+                </div>
+            </Modal>
+
+            {/* AI Prompt Modal */}
+            <Modal
+                title={
+                    <Space>
+                        <BulbOutlined style={{ color: '#44624A' }} />
+                        <span>Tạo mẫu hợp đồng bằng AI</span>
+                    </Space>
+                }
+                open={aiGenModalVisible}
+                onCancel={() => setAiGenModalVisible(false)}
+                onOk={handleAiGenerateTemplate}
+                confirmLoading={generatingAiContent}
+                okText="Bắt đầu tạo"
+                cancelText="Hủy"
+                centered
+            >
+                <div style={{ marginBottom: 16 }}>
+                    <Text type="secondary">Mô tả loại hợp đồng hoặc các điều khoản bạn muốn AI tạo (ví dụ: "Hợp đồng chuyển văn phòng cho doanh nghiệp, có điều khoản bảo hiểm đồ đạc giá trị cao").</Text>
+                </div>
+                <Input.TextArea
+                    placeholder="Mô tả mẫu hợp đồng tại đây..."
+                    rows={4}
+                    value={aiPrompt}
+                    onChange={e => setAiPrompt(e.target.value)}
+                />
             </Modal>
 
             {/* Contract detail modal separated into its own component */}
