@@ -113,12 +113,12 @@ const ContractDetailModal = ({ contract, open, onClose, onDownload }) => {
             <div style={{ marginTop: 10, fontWeight: 600, color: '#1e293b' }}>
               {contract.homsSignature?.signedByName || 'HOMS Vận Chuyển'}
             </div>
-            {/* {homsSignedAt && (
+            {adminSignedAt && (
               <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
                 <CheckCircleOutlined style={{ color: '#10b981', marginRight: 4 }} />
-                {homsSignedAt}
+                {adminSignedAt}
               </div>
-            )} */}
+            )}
           </div>
         </Col>
 
