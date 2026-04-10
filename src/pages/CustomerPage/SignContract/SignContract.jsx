@@ -259,12 +259,12 @@ const SignContract = () => {
       try {
         const invRes = await api.get(`/invoices/ticket/${ticketId}`);
         if (invRes.data?.success) setInvoice(invRes.data.data);
-      } catch (_) {}
+      } catch (_) { }
       // Lấy email để hiển thị trong OTP modal
       try {
         const meRes = await api.get('/customer/personal-info');
         setCustomerEmail(meRes.data?.data?.email || '');
-      } catch (_) {}
+      } catch (_) { }
       setLoading(false);
     };
     if (ticketId) fetchData();
