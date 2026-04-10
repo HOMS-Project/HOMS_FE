@@ -896,7 +896,7 @@
 }
 
 .mo-card__expand--open {
-    max-height: 300px;
+    max-height: 2500px;
     padding: 20px;
     border-top: 1px solid #e2e8f0;
 }

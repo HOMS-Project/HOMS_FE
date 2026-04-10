@@ -307,7 +307,8 @@ const ContractManagement = () => {
         setSelectedTemplate(null);
         setEditedTemplate(null);
     };
-
+    
+    // Convert uploaded signature file to base64 and store in editedTemplate.adminSignature.signatureImage
     const handleTemplateSignatureFile = (file) => {
         if (!file) return;
         const reader = new FileReader();
