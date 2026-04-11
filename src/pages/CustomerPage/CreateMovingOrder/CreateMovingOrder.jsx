@@ -47,7 +47,7 @@ const serviceDetails = {
     //     title: 'Chuyển Văn Phòng - Công Ty',
     //     description: 'Hỗ trợ di dời văn phòng, công ty nhanh chóng và chuyên nghiệp.'
     // },
-    2: {
+    3: {
         title: 'Chuyển Đồ Đạc',
         description: 'Hỗ trợ di dời đồ đạc trong nhà, văn phòng nhanh chóng và chuyên nghiệp.'
     },
