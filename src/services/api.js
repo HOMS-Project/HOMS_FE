@@ -48,6 +48,12 @@ export const initCsrfToken = async () => {
   await csrfTokenPromise;
 };
 
+export const resetCsrfToken = () => {
+  csrfToken = null;
+  csrfTokenPromise = null;
+  console.log('🔄 CSRF token reset (will re-fetch on next request)');
+};
+
 // Hàm gắn interceptor
 export const setupInterceptors = (contextLogout) => {
   api.interceptors.request.use(

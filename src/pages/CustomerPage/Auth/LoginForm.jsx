@@ -10,6 +10,7 @@ import {
 } from "../../../services/authService";
 import useUser from "../../../contexts/UserContext";
 import { GoogleLogin } from "@react-oauth/google";
+import { resetCsrfToken } from "../../../services/api";
 
 const PRIMARY_COLOR = "#44624A";
 
@@ -22,6 +23,7 @@ const LoginForm = () => {
     saveAccessToken(accessToken, expiresInMs || 30 * 60 * 1000);
     setUser(userData);
     setIsAuthenticated(true);
+    resetCsrfToken(); 
     message.success("Đăng nhập thành công!");
     let redirectPath = "/";
 
