@@ -6,7 +6,7 @@ import { getValidAccessToken } from './authService';
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL,
   withCredentials: true,
-  timeout: 45000, // 45 seconds timeout to handle heavy signing/encryption on Render
+  timeout: 45000,
   headers: {
     "ngrok-skip-browser-warning": "69420",
   },
