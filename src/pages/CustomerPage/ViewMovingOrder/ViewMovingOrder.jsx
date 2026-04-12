@@ -375,7 +375,7 @@ const OrderCard = ({
           {needsSignContract && (
             <button
               className="mo-btn mo-btn--accept"
-              onClick={() => (window.location.href = `/customer/sign-contract/${ticket._id}`)}
+              onClick={() => navigate(`/customer/sign-contract/${ticket._id}`)}
             >
               <FileTextOutlined /> Ký hợp đồng
             </button>
