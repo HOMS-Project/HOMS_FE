@@ -64,6 +64,11 @@ const fmtDate = (d) =>
     })
     : null;
 
+const getFinalPrice = (pricing) => {
+  if (!pricing) return 0;
+  return pricing.totalAfterPromotion ?? (Math.max(0, (pricing.totalPrice || 0) - (pricing.discountAmount || 0)));
+};
+
 /* ─── status maps ─────────────────────────────────────────── */
 const TICKET_STATUS = {
   CREATED: { label: "Chờ xác nhận lịch", cls: "mo-tag--blue" },
@@ -331,7 +336,7 @@ const OrderCard = ({
           <div className="mo-card__price-box">
             <span className="mo-price-label">Tổng chi phí:</span>
             {hasPricing
-              ? <span className="mo-price-value">{ticket.pricing.totalPrice.toLocaleString()} ₫</span>
+              ? <span className="mo-price-value">{getFinalPrice(ticket.pricing).toLocaleString()} ₫</span>
               : <span className="mo-price-empty">Đang cập nhật...</span>
             }
           </div>
@@ -729,7 +734,7 @@ const OrderCard = ({
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', marginTop: 8, background: 'linear-gradient(135deg, #f6ffed, #d9f7be)', borderRadius: 8, border: '1.5px solid #73d13d' }}>
                         <span style={{ fontSize: 16, fontWeight: 700, color: '#237804', display: 'flex', alignItems: 'center', gap: 8 }}><DollarOutlined /> TỔNG CỘNG</span>
-                        <span style={{ fontSize: 24, fontWeight: 800, color: '#237804' }}>{((pricingDetails.totalAfterPromotion != null) ? pricingDetails.totalAfterPromotion : (Math.max(0, (pricingDetails.totalPrice || 0) - appliedDiscount))).toLocaleString()} ₫</span>
+                        <span style={{ fontSize: 24, fontWeight: 800, color: '#237804' }}>{getFinalPrice(pricingDetails || ticket.pricing).toLocaleString()} ₫</span>
                       </div>
                     </>
                   );
@@ -785,7 +790,7 @@ const ViewMovingOrder = () => {
           <p>
             Số tiền:{" "}
             <b style={{ color: "#d9363e" }}>
-              {(ticket.pricing.totalPrice / 2).toLocaleString()} ₫
+              {(getFinalPrice(ticket.pricing) / 2).toLocaleString()} ₫
             </b>
           </p>
         </>
@@ -982,7 +987,7 @@ const ViewMovingOrder = () => {
       okType: "primary",
       onOk: async () => {
         try {
-          const depositAmount = Math.floor(ticket.pricing.totalPrice * 0.5);
+          const depositAmount = Math.floor(getFinalPrice(ticket.pricing) * 0.5);
           const res = await orderService.createMovingDeposit(ticket._id, depositAmount);
           if (res?.data?.checkoutUrl) {
             window.location.href = res.data.checkoutUrl;

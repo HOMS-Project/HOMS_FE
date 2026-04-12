@@ -254,7 +254,7 @@ const SurveyPricingModal = ({ visible, onClose, ticket, survey, pricing, tourRef
                         </div>
 
                         {(() => {
-                            const bd = pricing?.breakdown || {};
+                            const bd = localPricing?.breakdown || {};
                             // determine applied discount from returned pricing snapshot
                             const appliedDiscount = (localPricing?.discountAmount || localPricing?.promotion?.discountAmount || 0);
                             const lines =[
@@ -285,12 +285,12 @@ const SurveyPricingModal = ({ visible, onClose, ticket, survey, pricing, tourRef
 
                                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 6px', marginTop: 2 }}>
                                         <span style={{ fontWeight: 600, color: '#444' }}>Tạm tính</span>
-                                        <span style={{ fontWeight: 600, color: '#444' }}>{(pricing.subtotal || 0).toLocaleString()} ₫</span>
+                                        <span style={{ fontWeight: 600, color: '#444' }}>{(localPricing.subtotal || 0).toLocaleString()} ₫</span>
                                     </div>
 
                                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0 10px', color: '#888' }}>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><PercentageOutlined /> Thuế VAT</span>
-                                        <span>{(pricing.tax || 0).toLocaleString()} ₫</span>
+                                        <span>{(localPricing.tax || 0).toLocaleString()} ₫</span>
                                     </div>
 
                                     {appliedDiscount > 0 && (
