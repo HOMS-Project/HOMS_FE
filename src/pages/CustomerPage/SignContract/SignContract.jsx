@@ -56,8 +56,17 @@ const SignatureCanvas = ({ onSignatureChange }) => {
 
     lastPos.current = pos;
     setHasSignature(true);
+  }, []);
+
+  const stopDraw = useCallback(() => { 
+    if (!isDrawing.current) return;
+    isDrawing.current = false;
     
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
     // Use a temporary canvas to ensure white background for JPEG compression
+    // We only do this once when the user FINISHES a stroke to save CPU
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
@@ -66,11 +75,9 @@ const SignatureCanvas = ({ onSignatureChange }) => {
     tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
     tempCtx.drawImage(canvas, 0, 0);
     
-    // Export as compressed JPEG (0.7 quality) to significantly reduce payload size
+    // Export as compressed JPEG (0.7 quality)
     onSignatureChange(tempCanvas.toDataURL('image/jpeg', 0.7));
   }, [onSignatureChange]);
-
-  const stopDraw = useCallback(() => { isDrawing.current = false; }, []);
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
