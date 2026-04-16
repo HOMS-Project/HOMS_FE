@@ -43,6 +43,7 @@ export const clearAccessToken = () => {
   console.log('🧹 [Auth] Clearing access token from memory');
   _accessToken = null;
   _expireTime = 0;
+  refreshSubscribers = [];
   localStorage.removeItem("hasSession");
   sessionStorage.removeItem("expireTime");
 };

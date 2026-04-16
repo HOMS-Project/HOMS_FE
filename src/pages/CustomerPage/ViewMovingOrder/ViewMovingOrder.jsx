@@ -264,7 +264,7 @@ const OrderCard = ({
           {ticket.scheduledTime && (
             <span className="mo-card__date" style={{ color: '#0284c7', fontWeight: 600 }}>
               <CalendarOutlined style={{ marginRight: 4 }} />
-              Khảo sát: {fmtDate(ticket.scheduledTime)}
+              Ngày chuyển: {fmtDate(ticket.scheduledTime)}
             </span>
           )}
         </div>

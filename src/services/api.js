@@ -24,6 +24,7 @@ const PUBLIC_ENDPOINTS = [
   '/ai/chat',
   '/auth/google-login',
   '/auth/facebook-login',
+  '/auth/magic',
   '/orders/validate',
   '/public/estimate-price',
   '/public/best-moving-time',
@@ -96,16 +97,17 @@ export const setupInterceptors = (contextLogout) => {
       const config = error.config;
 
       // Mất kết nối mạng / Timeout handling
-      if (!error.response || error.code === 'ECONNABORTED' || error.message === 'Network Error') {
-        if (!config._retryNotificationShown) {
-          notification.error({
-            message: 'Mất kết nối mạng hoặc server không phản hồi',
-            description: 'Đang thử kết nối lại để không gián đoạn trải nghiệm...',
-            placement: 'topRight',
-            duration: 5,
-          });
-          config._retryNotificationShown = true;
-        }
+    if (!error.response || error.code === 'ECONNABORTED' || error.message === 'Network Error') {
+
+ if (config && !config._retryNotificationShown) { 
+ notification.error({
+ message: 'Mất kết nối mạng hoặc server không phản hồi',
+ description: 'Đang thử kết nối lại để không gián đoạn trải nghiệm...',
+ placement: 'topRight',
+ duration: 5,
+ });
+ config._retryNotificationShown = true; 
+ }
 
         // Auto-retry for GET requests up to 2 times
         if (config && config.method === 'get') {
