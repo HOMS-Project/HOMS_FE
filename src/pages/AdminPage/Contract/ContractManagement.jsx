@@ -246,12 +246,13 @@ const ContractManagement = () => {
 
     const handleDownload = async (record) => {
         try {
-            // Prefer docx download
+            // Prefer PDF download (backend returns PDF from the docx endpoint for compatibility)
             const resp = await adminContractService.downloadContractDocx(record._id || record.id);
-            const blob = new Blob([resp.data], { type: resp.headers['content-type'] || 'application/octet-stream' });
+            // use content-type from response (should be application/pdf) and fallback to pdf
+            const blob = new Blob([resp.data], { type: resp.headers['content-type'] || 'application/pdf' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            let filename = (record.contractNumber || 'contract') + '.docx';
+            let filename = (record.contractNumber || 'contract') + '.pdf';
             const disp = resp.headers['content-disposition'] || resp.headers['Content-Disposition'];
             if (disp) {
                 const m = /filename="?([^";]+)"?/.exec(disp);
@@ -263,7 +264,7 @@ const ContractManagement = () => {
             a.click();
             a.remove();
             window.URL.revokeObjectURL(url);
-            notification.success({ message: 'Bắt đầu tải xuống (docx)' });
+            notification.success({ message: 'Bắt đầu tải xuống (pdf)' });
         } catch (err) {
             console.error('Download failed', err);
             notification.error({ message: 'Tải xuống thất bại' });
