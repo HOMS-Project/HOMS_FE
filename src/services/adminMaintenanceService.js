@@ -30,4 +30,16 @@ export async function getCostSummary() {
   }
 }
 
-export default { getAllMaintenances, createMaintenance, getCostSummary };
+export async function getDrivers(opts = { roles: ['driver','staff'] }) {
+  try {
+    const roles = Array.isArray(opts.roles) ? opts.roles.join(',') : String(opts.roles || 'driver,staff');
+    const url = `/admin/maintenances/drivers?roles=${encodeURIComponent(roles)}`;
+    const res = await api.get(url);
+    return res.data;
+  } catch (err) {
+    console.error('Failed to fetch drivers', err);
+    throw err;
+  }
+}
+
+export default { getAllMaintenances, createMaintenance, getCostSummary, getDrivers };

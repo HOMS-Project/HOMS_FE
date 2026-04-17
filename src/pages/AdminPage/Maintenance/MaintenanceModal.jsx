@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, Row, Col, DatePicker, InputNumber, Button, Space, message, Avatar, Card, Divider } from 'antd';
 import { CarOutlined, DollarOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import adminMaintenanceService from '../../../services/adminMaintenanceService';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -13,9 +14,13 @@ const formatVND = (value) => {
   return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' ₫';
 };
 
+
 export default function MaintenanceModal({ visible, onCancel, onCreate, vehicles = [], staff = [] }) {
   const [form] = Form.useForm();
   const [recurrenceType, setRecurrenceType] = useState(null);
+  // start empty to avoid showing sample fallback while we fetch real users
+  const [staffList, setStaffList] = useState([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
   // removed attachments, priority and active fields per request
 
   // vehicles list comes from props; no local vehicle summary state needed
@@ -51,6 +56,31 @@ export default function MaintenanceModal({ visible, onCancel, onCreate, vehicles
   };
 
   // upload removed
+
+  useEffect(() => {
+    // Always fetch fresh drivers/staff when modal becomes visible (or on mount)
+    let mounted = true;
+    async function fetchDrivers() {
+      setLoadingStaff(true);
+      try {
+        // request both drivers and staff roles
+        const data = await adminMaintenanceService.getDrivers({ roles: ['driver', 'staff'] });
+        if (mounted && Array.isArray(data)) {
+          setStaffList(data);
+        }
+      } catch (e) {
+        // keep fallback staff prop if provided
+      } finally {
+        if (mounted) setLoadingStaff(false);
+      }
+    }
+
+    if (visible) fetchDrivers();
+    // also fetch once on mount to populate dropdown even before modal opens
+    if (!visible) fetchDrivers();
+
+    return () => { mounted = false; };
+  }, [visible]);
 
   return (
     <Modal
@@ -149,10 +179,10 @@ export default function MaintenanceModal({ visible, onCancel, onCreate, vehicles
                 <Input placeholder="Nhập chi tiết chi phí" />
               </Form.Item>
 
-              <Form.Item name="assignedTo" label="Giao cho (tuỳ chọn)">
-                <Select placeholder="Chọn nhân viên" allowClear showSearch optionFilterProp="label" optionLabelProp="label">
-                  {staff.map(s => (
-                    <Option key={s.id || s._id} value={s.id || s._id} label={s.name}>{s.name}</Option>
+              <Form.Item name="assignedTo" label="Giao cho">
+                <Select placeholder="Chọn nhân viên" allowClear showSearch optionFilterProp="label" optionLabelProp="label" loading={loadingStaff}>
+                  {(staffList || []).map(s => (
+                    <Option key={s._id || s.id} value={s._id || s.id} label={s.fullName || s.name}>{s.fullName || s.name}</Option>
                   ))}
                 </Select>
               </Form.Item>

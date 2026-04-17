@@ -1,9 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Row, Col, Card, Avatar, Tag, Button, Input, Select, Divider, Badge, Space, Pagination, message } from 'antd';
+import { Row, Col, Card, Avatar, Tag, Button, Input, Select, Divider, Badge, Space, Pagination, message, Spin } from 'antd';
 import { SearchOutlined, FilePdfOutlined, ClockCircleOutlined, CarOutlined, ExclamationCircleOutlined, CheckCircleOutlined, SyncOutlined, PlayCircleOutlined, CheckOutlined, EyeOutlined, RollbackOutlined } from '@ant-design/icons';
-import MaintenanceModal from './MaintenanceModal';
 import adminMaintenanceService from '../../../services/adminMaintenanceService';
 import adminVehicleService from '../../../services/adminVehicleService';
+// Lazy-load the modal to reduce initial bundle size for the page
+const MaintenanceModal = React.lazy(() => import('./MaintenanceModal'));
 
 const { Meta } = Card;
 const { Option } = Select;
@@ -353,13 +354,15 @@ export default function MaintenanceManagement() {
 			</Row>
 
 			{/* Maintenance creation modal */}
-			<MaintenanceModal
-				visible={modalVisible}
-				onCancel={() => setModalVisible(false)}
-				onCreate={handleCreatePlan}
-				vehicles={vehicles}
-				staff={[{ id: 'staff-1', name: 'Nguyễn Văn A' }, { id: 'staff-2', name: 'Trần Thị B' }]}
-			/>
+						<React.Suspense fallback={<div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}>
+							<MaintenanceModal
+								visible={modalVisible}
+								onCancel={() => setModalVisible(false)}
+								onCreate={handleCreatePlan}
+								vehicles={vehicles}
+								staff={[{ id: 'staff-1', name: 'Nguyễn Văn A' }, { id: 'staff-2', name: 'Trần Thị B' }]}
+							/>
+						</React.Suspense>
 
 			<Row gutter={16} style={{ marginBottom: 18 }}>
 				{/* Summary cards - 4 columns */}
