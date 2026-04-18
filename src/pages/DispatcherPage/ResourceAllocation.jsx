@@ -18,6 +18,9 @@ const ResourceAllocation = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    
+    const [isResolutionModalVisible, setIsResolutionModalVisible] = useState(false);
+    const [insufficientResourcesData, setInsufficientResourcesData] = useState(null);
 
     // Form and Resource Data
     const [form] = Form.useForm();
@@ -26,6 +29,7 @@ const ResourceAllocation = () => {
 
     const [drivers, setDrivers] = useState([]);
     const [staff, setStaff] = useState([]);
+    const [vehicleStats, setVehicleStats] = useState({});
     const [routesList, setRoutesList] = useState([]);
     const [allAdminRoutes, setAllAdminRoutes] = useState([]); // All routes with restrictions
     const [mapCoords, setMapCoords] = useState({ pickup: null, delivery: null });
@@ -70,6 +74,39 @@ const ResourceAllocation = () => {
         fetchInvoices();
         fetchResources();
     }, []);
+
+    // New Effect: Watch dispatchTime changes and query Availability Engine
+    useEffect(() => {
+        const checkAvailability = async () => {
+            if (dispatchTime && selectedInvoice && isModalVisible) {
+                try {
+                    const payload = {
+                        dispatchTime: dispatchTime.toISOString(),
+                        estimatedDuration: 480
+                    };
+                    const response = await api.post('/admin/dispatch-assignments/check-availability', payload);
+                    if (response.data && response.data.success) {
+                        setDrivers(response.data.data.drivers);
+                        setStaff(response.data.data.staff);
+                        
+                        const vStats = { '500KG': 0, '1TON': 0, '1.5TON': 0, '2TON': 0 };
+                        response.data.data.vehicles?.forEach(v => {
+                             if (v.availabilityStatus !== 'UNAVAILABLE') {
+                                vStats[v.vehicleType] = (vStats[v.vehicleType] || 0) + 1;
+                             }
+                        });
+                        setVehicleStats(vStats);
+                    }
+                } catch (error) {
+                    console.error('Failed to check availability:', error);
+                }
+            } else if (!dispatchTime && isModalVisible) {
+                fetchResources(); // Reset if time is cleared
+            }
+        };
+
+        checkAvailability();
+    }, [dispatchTime, selectedInvoice, isModalVisible]);
 
     const geocodeAddress = async (address) => {
         if (!address) return null;
@@ -125,7 +162,7 @@ const ResourceAllocation = () => {
         setSelectedInvoice(null);
     };
 
-    const handleSubmit = async (values) => {
+    const handleSubmit = async (values, isForceProceed = false) => {
         if (!selectedInvoice) return;
 
         setSubmitting(true);
@@ -140,19 +177,67 @@ const ResourceAllocation = () => {
                 dispatchTime: values.dispatchTime ? values.dispatchTime.toISOString() : null,
                 totalWeight: selectedInvoice.requestTicketId?.surveyDataId?.totalWeight || 1000,
                 totalVolume: selectedInvoice.requestTicketId?.surveyDataId?.totalVolume || 10,
-                estimatedDuration: 480 // Mặc định 8 tiếng
+                estimatedDuration: 480, // Mặc định 8 tiếng
+                forceProceed: isForceProceed
             };
 
-            await api.post(`/invoices/${selectedInvoice._id}/dispatch`, payload);
+            await api.post(`/admin/dispatch-assignments/invoice/${selectedInvoice._id}/allocate`, payload);
             message.success('Đã điều phối xe và nhân sự thành công!');
 
+            setIsResolutionModalVisible(false);
             setIsModalVisible(false);
             fetchInvoices(); // Refresh list
         } catch (error) {
-            message.error('Lỗi khi điều phối: ' + (error.response?.data?.message || ''));
+            const errRes = error.response?.data;
+            if (errRes?.message === 'INSUFFICIENT_RESOURCES') {
+                setInsufficientResourcesData({
+                    ...errRes.data,
+                    valuesSnapshot: values
+                });
+                setIsResolutionModalVisible(true);
+            } else {
+                message.error('Lỗi khi điều phối: ' + (errRes?.message || ''));
+            }
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleForceProceed = () => {
+        if (!insufficientResourcesData) return;
+        
+        // We override the values with the newly *suggested* team by the backend to bypass conflicts 
+        // AND pass forceProceed = true to bypass shortages limitation.
+        const suggested = insufficientResourcesData.suggestedTeam;
+        const newValues = {
+            ...insufficientResourcesData.valuesSnapshot,
+            leaderId: suggested.leaderId,
+            driverIds: suggested.driverIds,
+            staffIds: suggested.staffIds
+        };
+        handleSubmit(newValues, true);
+    };
+
+    const handleAutoRebuildTeam = () => {
+        if (!insufficientResourcesData) return;
+        const suggested = insufficientResourcesData.suggestedTeam;
+        form.setFieldsValue({
+            leaderId: suggested.leaderId,
+            driverIds: suggested.driverIds,
+            staffIds: suggested.staffIds
+        });
+        setIsResolutionModalVisible(false);
+        message.info('Đã tự động điền lại nhân sự dựa trên gợi ý từ hệ thống.');
+    };
+
+    const handlePickAlternativeTime = () => {
+        if (!insufficientResourcesData || !insufficientResourcesData.nextAvailableSlots.length) return;
+        const nextTime = insufficientResourcesData.nextAvailableSlots[0];
+        form.setFieldsValue({
+            dispatchTime: dayjs(nextTime)
+        });
+        setIsResolutionModalVisible(false);
+        message.info('Đã chọn một thời gian trống tiếp theo. Vui lòng xác nhận lại phân công.');
     };
 
     const handleAutoFill = async () => {
@@ -165,9 +250,14 @@ const ResourceAllocation = () => {
                 totalVolume: ticket?.surveyDataId?.totalVolume || 10,
                 pickupLocation: mapCoords.pickup ? { coordinates: [mapCoords.pickup.lng, mapCoords.pickup.lat] } : null
             };
-            const response = await api.post('/invoices/optimal-squad', payload);
+            
+            console.log('[FE] Requesting Smart Squad (Optimal Squad) with payload:', JSON.stringify(payload, null, 2));
+            
+            const response = await api.post('/admin/dispatch-assignments/optimal-squad', payload);
             if (response.data && response.data.success) {
                 const squad = response.data.data;
+                console.log('[FE] Received Smart Squad response:', JSON.stringify(squad, null, 2));
+
                 const newValues = {};
                 if (squad.vehicle) newValues.vehicleType = squad.vehicle.vehicleType;
                 
@@ -200,6 +290,51 @@ const ResourceAllocation = () => {
             setSubmitting(false);
         }
     };
+
+    const renderVehicleOption = (label, type) => {
+        const count = vehicleStats[type];
+        if (count === undefined) return label; // Khi chưa có stats
+        
+        const isAvailable = count > 0;
+        
+        return (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <span style={{ opacity: isAvailable ? 1 : 0.5 }}>{label}</span>
+                {isAvailable ? (
+                    <Tag color="#44624a" bordered={false} style={{ margin: 0 }}>{count} sẵn sàng</Tag>
+                ) : (
+                    <Tag color="error" bordered={false} style={{ margin: 0 }}>Hết xe</Tag>
+                )}
+            </div>
+        );
+    };
+
+    const renderResourceOption = (resource) => {
+        let label = `${resource.fullName} - ${resource.phone}`;
+        
+        let tag = null;
+        if (resource.availabilityStatus === 'UNAVAILABLE') {
+            tag = <Tag color="error" bordered={false} style={{ margin: 0 }}>Đang bận</Tag>;
+        } else if (resource.availabilityStatus === 'TIGHT') {
+            tag = <Tag color="warning" bordered={false} style={{ margin: 0 }}>Sát giờ</Tag>;
+        } else {
+            // Apply available to explicitly AVAILABLE or when not loaded yet
+            tag = <Tag color="#44624a" bordered={false} style={{ margin: 0, color: '#fff' }}>Sẵn sàng</Tag>;
+        }
+        
+        return (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <span style={{ opacity: resource.availabilityStatus === 'UNAVAILABLE' ? 0.5 : 1 }}>
+                    {label}
+                </span>
+                {tag}
+            </div>
+        );
+    };
+
+    const availableStaff = staff.filter(s => s.availabilityStatus === 'AVAILABLE' || !s.availabilityStatus);
+    const tightStaff = staff.filter(s => s.availabilityStatus === 'TIGHT');
+    const unavailableStaff = staff.filter(s => s.availabilityStatus === 'UNAVAILABLE');
 
     const columns = [
         {
@@ -242,7 +377,7 @@ const ResourceAllocation = () => {
             render: (_, record) => (
                 <Button
                     type="primary"
-                    style={{ background: '#52c41a' }}
+                    style={{ background: '#44624a' }}
                     icon={<CarOutlined />}
                     onClick={() => showDispatchModal(record)}
                 >
@@ -266,9 +401,9 @@ const ResourceAllocation = () => {
             <Modal
                 title={
                     <Space>
-                        <CarOutlined style={{ color: '#1890ff' }} />
+                        <CarOutlined style={{ color: '#44624a' }} />
                         <span>Điều phối tài nguyên Vận chuyển</span>
-                        <Tag color="geekblue">{selectedInvoice?.code}</Tag>
+                        <Tag color="#44624a">{selectedInvoice?.code}</Tag>
                     </Space>
                 }
                 open={isModalVisible}
@@ -299,7 +434,7 @@ const ResourceAllocation = () => {
                                         <Text size="small">{selectedInvoice?.requestTicketId?.delivery?.address}</Text>
                                     </Descriptions.Item>
                                     <Descriptions.Item label="Ngày vận chuyển">
-                                        <Text strong style={{ color: '#1890ff' }}>
+                                        <Text strong style={{ color: '#44624a' }}>
                                             {selectedInvoice?.requestTicketId?.scheduledTime ?
                                                 dayjs(selectedInvoice.requestTicketId.scheduledTime).format('DD/MM/YYYY HH:mm') :
                                                 'Chưa xác định'}
@@ -323,7 +458,7 @@ const ResourceAllocation = () => {
                                         style={{ marginBottom: '12px' }}
                                     />
                                 )}
-                                <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ vehicleCount: 1 }}>
+                                <Form form={form} layout="vertical" onFinish={(values) => handleSubmit(values, false)} initialValues={{ vehicleCount: 1 }}>
                                     <Divider orientation="left" style={{ margin: '8px 0', fontSize: '13px' }}>Đội ngũ nhân sự</Divider>
                                     <Form.Item
                                         name="leaderId"
@@ -334,25 +469,33 @@ const ResourceAllocation = () => {
                                             placeholder="Chọn tên tài xế (Trưởng nhóm)"
                                             style={{ width: '100%' }}
                                             allowClear
+                                            optionLabelProp="label"
+                                            menuItemSelectedIcon={null}
                                         >
                                             {drivers.map(d => (
-                                                <Option key={d._id} value={d._id}>{d.fullName} - {d.phone}</Option>
+                                                <Option key={d._id} value={d._id} disabled={d.availabilityStatus === 'UNAVAILABLE'} label={d.fullName}>
+                                                    {renderResourceOption(d)}
+                                                </Option>
                                             ))}
                                         </Select>
                                     </Form.Item>
 
                                     <Form.Item name="driverIds" label="Tài xế phụ">
-                                        <Select mode="multiple" placeholder="Chọn tên tài xế bổ sung" allowClear>
+                                        <Select mode="multiple" placeholder="Chọn tên tài xế bổ sung" allowClear optionLabelProp="label" menuItemSelectedIcon={null}>
                                             {drivers.map(d => (
-                                                <Option key={d._id} value={d._id}>{d.fullName} - {d.phone}</Option>
+                                                <Option key={d._id} value={d._id} disabled={d.availabilityStatus === 'UNAVAILABLE'} label={d.fullName}>
+                                                    {renderResourceOption(d)}
+                                                </Option>
                                             ))}
                                         </Select>
                                     </Form.Item>
 
                                     <Form.Item name="staffIds" label="Nhân viên phụ bốc xếp">
-                                        <Select mode="multiple" placeholder="Chọn tên nhân viên bốc xếp" allowClear>
+                                        <Select mode="multiple" placeholder="Chọn tên nhân viên bốc xếp" allowClear optionLabelProp="label" menuItemSelectedIcon={null}>
                                             {staff.map(s => (
-                                                <Option key={s._id} value={s._id}>{s.fullName} - {s.phone}</Option>
+                                                <Option key={s._id} value={s._id} disabled={s.availabilityStatus === 'UNAVAILABLE'} label={s.fullName}>
+                                                    {renderResourceOption(s)}
+                                                </Option>
                                             ))}
                                         </Select>
                                     </Form.Item>
@@ -368,6 +511,21 @@ const ResourceAllocation = () => {
                                             format="DD/MM/YYYY HH:mm"
                                             style={{ width: '100%' }}
                                             placeholder="Chọn ngày và giờ vận chuyển"
+                                            disabledDate={(current) => current && current < dayjs().startOf('day')}
+                                            disabledTime={(current) => {
+                                                if (current && current.isSame(dayjs(), 'day')) {
+                                                    return {
+                                                        disabledHours: () => Array.from({ length: dayjs().hour() }, (_, i) => i),
+                                                        disabledMinutes: (selectedHour) => {
+                                                            if (selectedHour === dayjs().hour()) {
+                                                                return Array.from({ length: dayjs().minute() }, (_, i) => i);
+                                                            }
+                                                            return [];
+                                                        }
+                                                    };
+                                                }
+                                                return {};
+                                            }}
                                         />
                                     </Form.Item>
 
@@ -375,10 +533,10 @@ const ResourceAllocation = () => {
                                         <Col span={14}>
                                             <Form.Item name="vehicleType" label="Loại xe">
                                                 <Select placeholder="Chọn loại xe" allowClear>
-                                                    <Option value="500KG">Xe 500 KG</Option>
-                                                    <Option value="1TON">Xe 1 Tấn</Option>
-                                                    <Option value="1.5TON">Xe 1.5 Tấn</Option>
-                                                    <Option value="2TON">Xe 2 Tấn</Option>
+                                                    <Option value="500KG" disabled={vehicleStats['500KG'] === 0}>{renderVehicleOption('Xe 500 KG', '500KG')}</Option>
+                                                    <Option value="1TON" disabled={vehicleStats['1TON'] === 0}>{renderVehicleOption('Xe 1 Tấn', '1TON')}</Option>
+                                                    <Option value="1.5TON" disabled={vehicleStats['1.5TON'] === 0}>{renderVehicleOption('Xe 1.5 Tấn', '1.5TON')}</Option>
+                                                    <Option value="2TON" disabled={vehicleStats['2TON'] === 0}>{renderVehicleOption('Xe 2 Tấn', '2TON')}</Option>
                                                 </Select>
                                             </Form.Item>
                                         </Col>
@@ -398,7 +556,7 @@ const ResourceAllocation = () => {
                                     <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
                                         <Space>
                                             <Button onClick={handleCancel}>Hủy</Button>
-                                            <Button type="primary" htmlType="submit" loading={submitting} size="large">
+                                            <Button type="primary" htmlType="submit" loading={submitting} size="large" style={{ background: '#44624a' }}>
                                                 Xác nhận điều phối
                                             </Button>
                                         </Space>
@@ -426,6 +584,82 @@ const ResourceAllocation = () => {
                         </div>
                     </Col>
                 </Row>
+            </Modal>
+
+            {/* Smart Resolution Modal */}
+            <Modal
+                title="⚠️ Phát hiện thiếu hụt nhân sự"
+                open={isResolutionModalVisible}
+                onCancel={() => setIsResolutionModalVisible(false)}
+                footer={null}
+                width={650}
+            >
+                {insufficientResourcesData && (
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                        <Alert 
+                            type="warning" 
+                            showIcon 
+                            message="Không đủ nhân sự rảnh rỗi vào khung giờ đã chọn!"
+                            description={`Bạn đang cố phân công ${insufficientResourcesData.shortages.required.drivers} tài xế và ${insufficientResourcesData.shortages.required.helpers} phụ xe, nhưng hiện tại chỉ có ${insufficientResourcesData.shortages.available.drivers} tài xế và ${insufficientResourcesData.shortages.available.helpers} phụ xe trống lịch.`}
+                        />
+                        
+                        <div style={{ marginTop: 16 }}>
+                            <Text strong>Các phương án xử lý:</Text>
+                            
+                            <Card size="small" style={{ marginTop: 8, borderColor: '#1890ff' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <Text strong>1. Tái cấu trúc theo thực tế (Hệ thống gợi ý)</Text>
+                                        <div style={{ color: '#595959', fontSize: 13, marginTop: 4 }}>
+                                            Sử dụng đội hình có sẵn tại thời điểm này: <br/>
+                                            • Tài xế: {insufficientResourcesData.suggestedTeam.driverIds.length} <br/>
+                                            • Phụ xe: {insufficientResourcesData.suggestedTeam.staffIds.length} <br/>
+                                            Hệ thống sẽ cập nhật lại Form để bạn xem lại và nhấn xác nhận.
+                                        </div>
+                                    </div>
+                                    <Button type="primary" onClick={handleAutoRebuildTeam}>
+                                        Áp dụng Đội hình này
+                                    </Button>
+                                </div>
+                            </Card>
+
+                            <Card size="small" style={{ marginTop: 8 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <Text strong>2. Dời thời gian vận chuyển</Text>
+                                        <div style={{ color: '#595959', fontSize: 13, marginTop: 4 }}>
+                                            Hệ thống quét được các khung giờ sau sẽ đủ đội hình như bạn mong muốn: <br/>
+                                            {insufficientResourcesData.nextAvailableSlots.map((s, i) => (
+                                                <Tag color="green" key={i}>{dayjs(s).format('HH:mm DD/MM')}</Tag>
+                                            ))}
+                                            {insufficientResourcesData.nextAvailableSlots.length === 0 && <Text type="danger">Không tìm thấy khung giờ phù hợp trong 3 ngày tới.</Text>}
+                                        </div>
+                                    </div>
+                                    <Button disabled={insufficientResourcesData.nextAvailableSlots.length === 0} onClick={handlePickAlternativeTime}>
+                                        Đổi thời gian
+                                    </Button>
+                                </div>
+                            </Card>
+
+                            {insufficientResourcesData.canForce && (
+                                <Card size="small" style={{ marginTop: 8, background: '#fff1f0', borderColor: '#ffa39e' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                            <Text strong type="danger">3. Buộc thực hiện (Thiếu người)</Text>
+                                            <div style={{ color: '#595959', fontSize: 13, marginTop: 4 }}>
+                                                Lệnh điều phối sẽ tiếp tục với số người thực tế có sẵn. <br/>
+                                                <Text type="danger" style={{ fontSize: 12 }}>* Khách hàng sẽ nhận được thông báo thiếu hụt nhân sự.</Text>
+                                            </div>
+                                        </div>
+                                        <Button danger onClick={handleForceProceed} loading={submitting}>
+                                            Vẫn tiến hành
+                                        </Button>
+                                    </div>
+                                </Card>
+                            )}
+                        </div>
+                    </Space>
+                )}
             </Modal>
         </div>
     );
