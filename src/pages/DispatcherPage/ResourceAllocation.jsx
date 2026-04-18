@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Typography, Tag, message, Modal, Select, Form, Space, Row, Col, Card, Descriptions, Divider, DatePicker, Alert } from 'antd';
 import { Spin as AntdSpin } from 'antd';
-import { CarOutlined } from '@ant-design/icons';
+import { CarOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from '../../services/api';
 import adminRouteService from '../../services/adminRouteService';
 import dayjs from 'dayjs';
 import ResourceMap from '../../components/ResourceMap/ResourceMap';
+import { useSocket } from '../../contexts/SocketContext';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 const ResourceAllocation = () => {
+    const { socket } = useSocket() || {};
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -34,6 +36,9 @@ const ResourceAllocation = () => {
     const [allAdminRoutes, setAllAdminRoutes] = useState([]); // All routes with restrictions
     const [mapCoords, setMapCoords] = useState({ pickup: null, delivery: null });
 
+    // Socket reload trigger for real-time availability updates
+    const [reloadTrigger, setReloadTrigger] = useState(0);
+
     const fetchInvoices = async () => {
         setLoading(true);
         try {
@@ -51,13 +56,17 @@ const ResourceAllocation = () => {
 
     const fetchResources = async () => {
         try {
-            const [driverRes, staffRes] = await Promise.all([
-                api.get('/customer/drivers'),
-                api.get('/customer/staff')
-            ]);
+            // Only update staff and routes if we do NOT have dispatchTime active.
+            // If dispatchTime IS active, it gets handled by the checkAvailability effect!
+            if (!dispatchTime || !isModalVisible) {
+                const [driverRes, staffRes] = await Promise.all([
+                    api.get('/customer/drivers'),
+                    api.get('/customer/staff')
+                ]);
 
-            if (driverRes.data?.success) setDrivers(driverRes.data.data);
-            if (staffRes.data?.success) setStaff(staffRes.data.data);
+                if (driverRes.data?.success) setDrivers(driverRes.data.data);
+                if (staffRes.data?.success) setStaff(staffRes.data.data);
+            }
 
             const routeRes = await adminRouteService.getAllRoutes();
             if (routeRes.success) {
@@ -73,7 +82,23 @@ const ResourceAllocation = () => {
     useEffect(() => {
         fetchInvoices();
         fetchResources();
-    }, []);
+    }, [reloadTrigger]);
+
+    // Socket listener for real-time updates
+    useEffect(() => {
+        if (!socket) return;
+        
+        const handleResourcesUpdated = (data) => {
+            console.log('🔄 [SOCKET] Giới chức điều phối đã cập nhật. Làm mới dữ liệu...', data);
+            message.info({ content: 'Dữ liệu điều phối vừa được cập nhật, đang lấy lại...', key: 'resourceUpdate', duration: 2 });
+            setReloadTrigger(prev => prev + 1);
+        };
+
+        socket.on('resources_updated', handleResourcesUpdated);
+        return () => {
+            socket.off('resources_updated', handleResourcesUpdated);
+        };
+    }, [socket]);
 
     // New Effect: Watch dispatchTime changes and query Availability Engine
     useEffect(() => {
@@ -86,8 +111,12 @@ const ResourceAllocation = () => {
                     };
                     const response = await api.post('/admin/dispatch-assignments/check-availability', payload);
                     if (response.data && response.data.success) {
-                        setDrivers(response.data.data.drivers);
-                        setStaff(response.data.data.staff);
+                        const newDrivers = response.data.data.drivers || [];
+                        const newStaff = response.data.data.staff || [];
+                        
+                        // Immediately update state which reactively rerenders the Select options tags
+                        setDrivers(newDrivers);
+                        setStaff(newStaff);
                         
                         const vStats = { '500KG': 0, '1TON': 0, '1.5TON': 0, '2TON': 0 };
                         response.data.data.vehicles?.forEach(v => {
@@ -96,17 +125,71 @@ const ResourceAllocation = () => {
                              }
                         });
                         setVehicleStats(vStats);
+
+                        // Automatically filter out selected resources if they just became unavailable
+                        const currentVals = form.getFieldsValue(['leaderId', 'driverIds', 'staffIds', 'vehicleType', 'vehicleCount']);
+                        const updates = {};
+                        let changed = false;
+
+                        if (currentVals.leaderId) {
+                            const l = newDrivers.find(d => d._id === currentVals.leaderId) || newStaff.find(s => s._id === currentVals.leaderId);
+                            if (l && l.availabilityStatus === 'UNAVAILABLE') {
+                                updates.leaderId = undefined;
+                                changed = true;
+                            }
+                        }
+
+                        if (currentVals.driverIds && currentVals.driverIds.length > 0) {
+                            const validDrivers = currentVals.driverIds.filter(id => {
+                                const d = newDrivers.find(nd => nd._id === id);
+                                return d && d.availabilityStatus !== 'UNAVAILABLE';
+                            });
+                            if (validDrivers.length !== currentVals.driverIds.length) {
+                                updates.driverIds = validDrivers;
+                                changed = true;
+                            }
+                        }
+
+                        if (currentVals.staffIds && currentVals.staffIds.length > 0) {
+                            const validStaff = currentVals.staffIds.filter(id => {
+                                const s = newStaff.find(ns => ns._id === id);
+                                return s && s.availabilityStatus !== 'UNAVAILABLE';
+                            });
+                            if (validStaff.length !== currentVals.staffIds.length) {
+                                updates.staffIds = validStaff;
+                                changed = true;
+                            }
+                        }
+
+                        if (currentVals.vehicleType && currentVals.vehicleCount) {
+                            const availableForType = vStats[currentVals.vehicleType] || 0;
+                            if (availableForType < currentVals.vehicleCount) {
+                                updates.vehicleCount = availableForType > 0 ? availableForType : undefined;
+                                if (availableForType === 0) updates.vehicleType = undefined;
+                                changed = true;
+                            }
+                        }
+
+                        if (changed) {
+                            form.setFieldsValue(updates);
+                        }
                     }
                 } catch (error) {
                     console.error('Failed to check availability:', error);
                 }
             } else if (!dispatchTime && isModalVisible) {
-                fetchResources(); // Reset if time is cleared
+                // If they cleared the time inside the modal, fallback to basic load
+                const [driverRes, staffRes] = await Promise.all([
+                    api.get('/customer/drivers'),
+                    api.get('/customer/staff')
+                ]);
+                if (driverRes.data?.success) setDrivers(driverRes.data.data);
+                if (staffRes.data?.success) setStaff(staffRes.data.data);
             }
         };
 
         checkAvailability();
-    }, [dispatchTime, selectedInvoice, isModalVisible]);
+    }, [dispatchTime, selectedInvoice, isModalVisible, reloadTrigger]);
 
     const geocodeAddress = async (address) => {
         if (!address) return null;
@@ -195,6 +278,8 @@ const ResourceAllocation = () => {
                     valuesSnapshot: values
                 });
                 setIsResolutionModalVisible(true);
+                // Automatically refresh UI resource list to reflect the newly taken slots
+                setReloadTrigger(prev => prev + 1);
             } else {
                 message.error('Lỗi khi điều phối: ' + (errRes?.message || ''));
             }
@@ -389,7 +474,18 @@ const ResourceAllocation = () => {
 
     return (
         <div style={{ padding: '24px', background: '#fff', borderRadius: '8px' }}>
-            <Title level={4}>Điều phối Xe & Đội ngũ bốc xếp</Title>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <Title level={4} style={{ margin: 0 }}>Điều phối Xe & Đội ngũ bốc xếp</Title>
+                <Button 
+                    icon={<ReloadOutlined />} 
+                    onClick={() => {
+                        setReloadTrigger(prev => prev + 1);
+                        message.success('Đã làm mới dữ liệu tổng quan!');
+                    }}
+                >
+                    Làm mới
+                </Button>
+            </div>
             <Table
                 columns={columns}
                 dataSource={invoices}
@@ -443,11 +539,26 @@ const ResourceAllocation = () => {
                                 </Descriptions>
                             </Card>
 
-                            {/* Resource Form Card */}
                             <Card
                                 size="small"
                                 title={<Space><Text strong>Cấu hình Nhân sự & Phương tiện</Text></Space>}
-                                extra={<Button type="dashed" danger onClick={handleAutoFill} style={{ borderRadius: '8px' }}>✨ Smart Auto-fill</Button>}
+                                extra={
+                                    <Space>
+                                        <Button 
+                                            icon={<ReloadOutlined />} 
+                                            size="small" 
+                                            onClick={() => {
+                                                setReloadTrigger(prev => prev + 1);
+                                                message.success('Đã lấy dữ liệu nhân sự mới nhất!');
+                                            }}
+                                        >
+                                            Làm mới tải trọng
+                                        </Button>
+                                        <Button type="dashed" danger onClick={handleAutoFill} size="small" style={{ borderRadius: '8px' }}>
+                                            ✨ Smart Auto-fill
+                                        </Button>
+                                    </Space>
+                                }
                                 styles={{ header: { minHeight: '36px', background: '#f8f9fa' } }}
                             >
                                 {selectedInvoice?.requestTicketId?.surveyDataId && (
