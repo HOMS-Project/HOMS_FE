@@ -30,7 +30,7 @@ export async function getCostSummary() {
   }
 }
 
-export async function getDrivers(opts = { roles: ['driver','staff'] }) {
+export async function getDrivers(opts = { roles: ['driver', 'staff'] }) {
   try {
     const roles = Array.isArray(opts.roles) ? opts.roles.join(',') : String(opts.roles || 'driver,staff');
     const url = `/admin/maintenances/drivers?roles=${encodeURIComponent(roles)}`;
@@ -42,4 +42,11 @@ export async function getDrivers(opts = { roles: ['driver','staff'] }) {
   }
 }
 
-export default { getAllMaintenances, createMaintenance, getCostSummary, getDrivers };
+const adminMaintenanceService = {
+  getAllMaintenances,
+  createMaintenance,
+  getCostSummary,
+  getDrivers
+};
+
+export default adminMaintenanceService;
