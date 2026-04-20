@@ -12,7 +12,7 @@ import {
 import useUser from "../../../contexts/UserContext";
 import { GoogleLogin } from "@react-oauth/google";
 import FacebookLogin from "@greatsumini/react-facebook-login";
-import { resetCsrfToken } from "../../../services/api";
+import api, { resetCsrfToken } from "../../../services/api";
 
 const PRIMARY_COLOR = "#44624A";
 
@@ -87,28 +87,38 @@ const LoginForm = () => {
   }, [isAppIdValid]); // Chỉ chạy lại nếu App ID thay đổi
 
   const handleLoginSuccess = (userData, accessToken, expiresInMs) => {
+    // 1. Lưu token và nạp ngay vào Header API
     saveAccessToken(accessToken, expiresInMs || 30 * 60 * 1000);
+    api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+    
+    // 2. Cập nhật Context
     setUser(userData);
     setIsAuthenticated(true);
     resetCsrfToken();
+    
     message.success("Đăng nhập thành công!");
+    
     let redirectPath = "/";
-
-    switch (userData.role) {
-      case "dispatcher":
-        redirectPath = "/dispatcher/surveys";
-        break;
-      case "customer":
-        redirectPath = "/customer/order";
-        break;
-      case "admin":
-        redirectPath = "/admin/dashboard";
-        break;
-      default:
-        redirectPath = "/landing";
+    const searchParams = new URLSearchParams(window.location.search);
+    const returnUrl = searchParams.get("returnUrl");
+    
+    if (returnUrl) {
+      redirectPath = returnUrl;
+    } else {
+      // Khôi phục các path chuẩn của dự án bạn
+      switch (userData.role) {
+        case "dispatcher": redirectPath = "/dispatcher/surveys"; break;
+        case "customer":   redirectPath = "/customer/order"; break;
+        case "admin":      redirectPath = "/admin/dashboard"; break;
+        case "staff":      redirectPath = "/staff/dashboard"; break;
+        default:           redirectPath = "/";
+      }
     }
 
-    setTimeout(() => navigate(redirectPath), 800);
+    // 3. Delay cực ngắn để Context kịp update
+    setTimeout(() => {
+      navigate(redirectPath);
+    }, 100);
   };
   // ===== NORMAL LOGIN =====
   const onFinish = async (values) => {

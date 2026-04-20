@@ -32,19 +32,24 @@ let _expireTime = 0;
 
 export const saveAccessToken = (accessToken, expiresInMs) => {
   _accessToken = accessToken;
-  console.log("Check expiresInMs from server:", expiresInMs);
   _expireTime = Date.now() + Number(expiresInMs);
+  
   localStorage.setItem("hasSession", "true");
+  localStorage.setItem("accessToken", accessToken);
+  localStorage.setItem("expireTime", _expireTime);
+  
   sessionStorage.setItem("expireTime", _expireTime);
-  console.log(`🔐 [Auth] Đã lưu token mới. Hết hạn sau: ${expiresInMs / 1000}s`);
+  console.log(`🔐 [Auth] Đã lưu token mới bền vững. Hết hạn sau: ${expiresInMs / 1000}s`);
 };
 
 export const clearAccessToken = () => {
-  console.log('🧹 [Auth] Clearing access token from memory');
+  console.log('🧹 [Auth] Clearing access token');
   _accessToken = null;
   _expireTime = 0;
   refreshSubscribers = [];
   localStorage.removeItem("hasSession");
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("expireTime");
   sessionStorage.removeItem("expireTime");
 };
 
@@ -52,8 +57,18 @@ export const getValidAccessToken = async () => {
   const now = Date.now();
   const threshold = 5 * 1000;
 
-
+  // 1. Kiểm tra RAM trước
   if (_accessToken && (_expireTime - now > threshold)) {
+    return _accessToken;
+  }
+
+  // 2. Kiểm tra LocalStorage nếu RAM trống (do F5 hoặc lỗi đồng bộ)
+  const storedToken = localStorage.getItem("accessToken");
+  const storedExpire = Number(localStorage.getItem("expireTime") || 0);
+  
+  if (storedToken && (storedExpire - now > threshold)) {
+    _accessToken = storedToken;
+    _expireTime = storedExpire;
     return _accessToken;
   }
 

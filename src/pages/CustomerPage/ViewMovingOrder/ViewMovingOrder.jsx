@@ -1051,21 +1051,34 @@ const ViewMovingOrder = () => {
 
   /* ── fetch ── */
   useEffect(() => {
+    let isMounted = true;
+    let retryCount = 0;
+
     const fetchTickets = async () => {
-      if (!isAuthenticated || !user) { setLoading(false); return; }
+      if (!isAuthenticated || !user) { 
+        if (isMounted) setLoading(false); 
+        return; 
+      }
+      
       try {
+        const currentUserId = user._id || user.id;
         const response = await api.get(`/request-tickets`, {
-          params: { customerId: user._id || user.id },
+          params: { customerId: currentUserId },
         });
-        if (response.data?.success) {
-          const currentUserId = user._id || user.id;
-          let userTickets = (response.data.data || []).filter(
+
+        if (response.data?.success && isMounted) {
+          let userTickets = response.data.data || [];
+          
+          // Lọc chính xác đơn của user này
+          userTickets = userTickets.filter(
             (t) =>
-              (t.customerId && t.customerId._id === currentUserId) ||
+              (t.customerId && (t.customerId._id === currentUserId || t.customerId === currentUserId)) ||
               t.customerId === currentUserId
           );
+          
           userTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+          // Xử lý search từ URL
           const searchCode = new URLSearchParams(location.search).get("searchCode");
           if (searchCode) {
             const kw = searchCode.toLowerCase();
@@ -1075,15 +1088,24 @@ const ViewMovingOrder = () => {
                 (t.invoice?.code && t.invoice.code.toLowerCase().includes(kw))
             );
           }
+
           setTickets(userTickets);
+
+          // Nếu danh sách trống, thử lại 1 lần sau 800ms (đề phòng server chưa kịp link guest order)
+          if (userTickets.length === 0 && retryCount === 0) {
+            retryCount++;
+            setTimeout(fetchTickets, 800);
+          }
         }
       } catch (error) {
         console.error("Could not fetch moving orders.", error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
+
     fetchTickets();
+    return () => { isMounted = false; };
   }, [isAuthenticated, user, location.search]);
 
   /* ── filter logic ── */
