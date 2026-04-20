@@ -363,6 +363,29 @@ const AIVisionAnalyzer = ({ open, onCancel, onAnalyzeComplete, currentVehicle, c
               </Col>
             </Row>
 
+            {/* AI Estimation Insights */}
+            {((result.reasons && result.reasons.length > 0) || result.estimatedMinutes || result.trips > 1) && (
+              <div style={{ marginTop: 16, marginBottom: 16, padding: '12px', background: '#e6f4ff', border: '1px solid #91caff', borderRadius: 8 }}>
+                <Typography.Text strong style={{ color: '#0050b3', display: 'block', marginBottom: 8 }}>
+                  <InfoCircleOutlined style={{ marginRight: 6 }} />
+                  Phân tích ước tính (Độ tin cậy: {result.confidenceLevel || 'Không rõ'})
+                </Typography.Text>
+                <ul style={{ margin: 0, paddingLeft: 20, color: '#0958d9' }}>
+                  {result.reasons?.map((r, idx) => (
+                    <li key={idx} style={{ marginBottom: 4 }}>
+                      {r.message} {r.impact === 'HIGH' && <Tag color="red" style={{ marginLeft: 6, lineHeight: '14px', fontSize: 10 }}>Cao</Tag>}
+                    </li>
+                  ))}
+                  {result.estimatedMinutes && (
+                    <li style={{ marginBottom: 4 }}>Dự kiến thời gian chuyển: <strong>{result.estimatedMinutes} phút</strong></li>
+                  )}
+                  {result.trips && result.trips > 1 && (
+                    <li style={{ marginBottom: 4 }}>Số chuyến xe cần thiết: <strong>{result.trips} chuyến</strong></li>
+                  )}
+                </ul>
+              </div>
+            )}
+
             {/* Logistics comparison panel */}
             <div className="logistics-compare-panel">
               <div className="logistics-compare-header">
