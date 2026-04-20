@@ -20,7 +20,7 @@ const ResourceAllocation = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [submitting, setSubmitting] = useState(false);
-    
+
     const [isResolutionModalVisible, setIsResolutionModalVisible] = useState(false);
     const [insufficientResourcesData, setInsufficientResourcesData] = useState(null);
 
@@ -87,7 +87,7 @@ const ResourceAllocation = () => {
     // Socket listener for real-time updates
     useEffect(() => {
         if (!socket) return;
-        
+
         const handleResourcesUpdated = (data) => {
             console.log('🔄 [SOCKET] Giới chức điều phối đã cập nhật. Làm mới dữ liệu...', data);
             message.info({ content: 'Dữ liệu điều phối vừa được cập nhật, đang lấy lại...', key: 'resourceUpdate', duration: 2 });
@@ -113,16 +113,16 @@ const ResourceAllocation = () => {
                     if (response.data && response.data.success) {
                         const newDrivers = response.data.data.drivers || [];
                         const newStaff = response.data.data.staff || [];
-                        
+
                         // Immediately update state which reactively rerenders the Select options tags
                         setDrivers(newDrivers);
                         setStaff(newStaff);
-                        
+
                         const vStats = { '500KG': 0, '1TON': 0, '1.5TON': 0, '2TON': 0 };
                         response.data.data.vehicles?.forEach(v => {
-                             if (v.availabilityStatus !== 'UNAVAILABLE') {
+                            if (v.availabilityStatus !== 'UNAVAILABLE') {
                                 vStats[v.vehicleType] = (vStats[v.vehicleType] || 0) + 1;
-                             }
+                            }
                         });
                         setVehicleStats(vStats);
 
@@ -290,7 +290,7 @@ const ResourceAllocation = () => {
 
     const handleForceProceed = () => {
         if (!insufficientResourcesData) return;
-        
+
         // We override the values with the newly *suggested* team by the backend to bypass conflicts 
         // AND pass forceProceed = true to bypass shortages limitation.
         const suggested = insufficientResourcesData.suggestedTeam;
@@ -315,14 +315,14 @@ const ResourceAllocation = () => {
         message.info('Đã tự động điền lại nhân sự dựa trên gợi ý từ hệ thống.');
     };
 
-    const handlePickAlternativeTime = () => {
+    const handlePickAlternativeTime = (timeParam) => {
         if (!insufficientResourcesData || !insufficientResourcesData.nextAvailableSlots.length) return;
-        const nextTime = insufficientResourcesData.nextAvailableSlots[0];
+        const nextTime = timeParam || insufficientResourcesData.nextAvailableSlots[0];
         form.setFieldsValue({
             dispatchTime: dayjs(nextTime)
         });
         setIsResolutionModalVisible(false);
-        message.info('Đã chọn một thời gian trống tiếp theo. Vui lòng xác nhận lại phân công.');
+        message.info(`Đã chọn giờ mới: ${dayjs(nextTime).format('HH:mm DD/MM')}. Vui lòng kiểm tra lại phân công.`);
     };
 
     const handleAutoFill = async () => {
@@ -332,13 +332,14 @@ const ResourceAllocation = () => {
             const ticket = selectedInvoice.requestTicketId;
             const payload = {
                 requestTicketId: ticket?._id,
-                totalWeight: ticket?.surveyDataId?.totalWeight || 1000,
+                totalWeight: ticket?.surveyDataId?.totalWeight || 1000, // NOTE: you might want to use totalActualWeight here in the future if applicable
                 totalVolume: ticket?.surveyDataId?.totalVolume || 10,
-                pickupLocation: mapCoords.pickup ? { coordinates: [mapCoords.pickup.lng, mapCoords.pickup.lat] } : null
+                pickupLocation: mapCoords.pickup ? { coordinates: [mapCoords.pickup.lng, mapCoords.pickup.lat] } : null,
+                dispatchTime: form.getFieldValue('dispatchTime') ? form.getFieldValue('dispatchTime').toISOString() : undefined
             };
-            
+
             console.log('[FE] Requesting Smart Squad (Optimal Squad) with payload:', JSON.stringify(payload, null, 2));
-            
+
             const response = await api.post('/admin/dispatch-assignments/optimal-squad', payload);
             if (response.data && response.data.success) {
                 const squad = response.data.data;
@@ -346,7 +347,7 @@ const ResourceAllocation = () => {
 
                 const newValues = {};
                 if (squad.vehicle) newValues.vehicleType = squad.vehicle.vehicleType;
-                
+
                 // Đảm bảo đưa User vào list để Select mapping được Tên thay vì hiển thị ID
                 if (squad.leader) {
                     setDrivers(prev => prev.some(d => d._id === squad.leader._id) ? prev : [...prev, squad.leader]);
@@ -366,26 +367,45 @@ const ResourceAllocation = () => {
                     });
                     newValues.staffIds = squad.helpers.map(h => h._id);
                 }
-                
-                form.setFieldsValue(newValues);
-                message.success('Đã áp dụng Biệt đội tối ưu (Smart Squad)!');
 
-                if (squad.logisticsPlan) {
-                    notification.info({
-                        message: 'Logistics Engine Dispatch Plan',
-                        description: (
-                            <div>
-                                <p><strong>Staff Required:</strong> {squad.logisticsPlan.staffTotal} people (Estimated: {squad.logisticsPlan.estimatedMinutes} mins)</p>
-                                <p><strong>Vehicle Allocation:</strong> {squad.logisticsPlan.vehicles.map(v => `${v.trips}x ${v.type}`).join(', ')}</p>
-                                {squad.logisticsPlan.extraTransport?.motorbikes > 0 && (
-                                  <p><strong>Extra Transport Fallback:</strong> {squad.logisticsPlan.extraTransport.motorbikes} motorbikes for missing seats</p>
-                                )}
-                                <p><strong>Equipment on Truck:</strong> {squad.logisticsPlan.equipmentPlan?.onTruck?.join(', ')}</p>
-                                <p><em>Confidence: {squad.logisticsPlan.confidenceLevel}</em></p>
-                            </div>
-                        ),
-                        duration: 8,
+                form.setFieldsValue(newValues);
+
+                if (squad.shortages && (squad.shortages.missing.leader > 0 || squad.shortages.missing.helpers > 0 || squad.shortages.missing.drivers > 0)) {
+                    setInsufficientResourcesData({
+                        requestedTime: form.getFieldValue('dispatchTime') || dayjs(),
+                        duration: squad.logisticsPlan?.estimatedMinutes || 480,
+                        shortages: squad.shortages,
+                        suggestedTeam: {
+                            leaderId: squad.leader?._id || null,
+                            driverIds: squad.driver && squad.driver._id !== squad.leader?._id ? [squad.driver._id] : [],
+                            staffIds: squad.helpers?.map(h => h._id) || []
+                        },
+                        nextAvailableSlots: squad.nextAvailableSlots || [],
+                        canForce: true,
+                        valuesSnapshot: newValues
                     });
+                    setIsResolutionModalVisible(true);
+                } else {
+                    message.success('Đã áp dụng Biệt đội tối ưu (Smart Squad)!');
+
+                    if (squad.logisticsPlan) {
+                        notification.info({
+                            message: 'Bản phân tích từ Hệ thống Logistics',
+                            description: (
+                                <div style={{ fontSize: 15, marginTop: 4 }}>
+                                    <p style={{ marginBottom: 4 }}><strong style={{ color: '#44624a' }}>Nhân sự đề xuất:</strong> {squad.logisticsPlan.staffTotal} người (Dự kiến hoàn thành trong {squad.logisticsPlan.estimatedMinutes} phút)</p>
+                                    <p style={{ marginBottom: 4 }}><strong style={{ color: '#44624a' }}>Phương tiện tải:</strong> {squad.logisticsPlan.vehicles.map(v => `${v.trips} chuyến xe ${v.type}`).join(', ')}</p>
+                                    {squad.logisticsPlan.extraTransport?.motorbikes > 0 && (
+                                        <p style={{ marginBottom: 4 }}><strong style={{ color: '#44624a' }}>Di chuyển phụ:</strong> Cần {squad.logisticsPlan.extraTransport.motorbikes} xe máy cá nhân do thiếu chỗ ngồi trên cabin</p>
+                                    )}
+                                    <p style={{ marginBottom: 4 }}><strong style={{ color: '#44624a' }}>Thiết bị mang theo:</strong> {squad.logisticsPlan.equipmentPlan?.onTruck?.length > 0 ? squad.logisticsPlan.equipmentPlan.onTruck.join(', ') : 'Cơ bản'}</p>
+                                    <p style={{ marginBottom: 0, color: '#8c8c8c' }}><em>*Độ tự tin của thuật toán: {squad.logisticsPlan.confidenceLevel}</em></p>
+                                </div>
+                            ),
+                            duration: 10,
+                            placement: 'topRight'
+                        });
+                    }
                 }
             }
         } catch (error) {
@@ -398,9 +418,9 @@ const ResourceAllocation = () => {
     const renderVehicleOption = (label, type) => {
         const count = vehicleStats[type];
         if (count === undefined) return label; // Khi chưa có stats
-        
+
         const isAvailable = count > 0;
-        
+
         return (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                 <span style={{ opacity: isAvailable ? 1 : 0.5 }}>{label}</span>
@@ -415,7 +435,7 @@ const ResourceAllocation = () => {
 
     const renderResourceOption = (resource) => {
         let label = `${resource.fullName} - ${resource.phone}`;
-        
+
         let tag = null;
         if (resource.availabilityStatus === 'UNAVAILABLE') {
             tag = <Tag color="error" bordered={false} style={{ margin: 0 }}>Đang bận</Tag>;
@@ -425,7 +445,7 @@ const ResourceAllocation = () => {
             // Apply available to explicitly AVAILABLE or when not loaded yet
             tag = <Tag color="#44624a" bordered={false} style={{ margin: 0, color: '#fff' }}>Sẵn sàng</Tag>;
         }
-        
+
         return (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                 <span style={{ opacity: resource.availabilityStatus === 'UNAVAILABLE' ? 0.5 : 1 }}>
@@ -495,8 +515,8 @@ const ResourceAllocation = () => {
         <div style={{ padding: '24px', background: '#fff', borderRadius: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <Title level={4} style={{ margin: 0 }}>Điều phối Xe & Đội ngũ bốc xếp</Title>
-                <Button 
-                    icon={<ReloadOutlined />} 
+                <Button
+                    icon={<ReloadOutlined />}
                     onClick={() => {
                         setReloadTrigger(prev => prev + 1);
                         message.success('Đã làm mới dữ liệu tổng quan!');
@@ -563,9 +583,9 @@ const ResourceAllocation = () => {
                                 title={<Space><Text strong>Cấu hình Nhân sự & Phương tiện</Text></Space>}
                                 extra={
                                     <Space>
-                                        <Button 
-                                            icon={<ReloadOutlined />} 
-                                            size="small" 
+                                        <Button
+                                            icon={<ReloadOutlined />}
+                                            size="small"
                                             onClick={() => {
                                                 setReloadTrigger(prev => prev + 1);
                                                 message.success('Đã lấy dữ liệu nhân sự mới nhất!');
@@ -694,7 +714,7 @@ const ResourceAllocation = () => {
                                         {() => {
                                             const vals = form.getFieldsValue(['vehicleType', 'vehicleCount', 'leaderId', 'driverIds', 'staffIds']);
                                             const totalStaff = (vals.leaderId ? 1 : 0) + (vals.driverIds?.length || 0) + (vals.staffIds?.length || 0);
-                                            
+
                                             // Determine max seats per selected vehicle type (including the driver)
                                             let seatsPerVehicle = 2; // 500KG, 1TON
                                             if (vals.vehicleType === '1.5TON' || vals.vehicleType === '2TON') {
@@ -702,10 +722,10 @@ const ResourceAllocation = () => {
                                             } else if (vals.vehicleType === '5000KG') {
                                                 seatsPerVehicle = 3;
                                             }
-                                            
+
                                             const totalSeats = (vals.vehicleCount || 1) * seatsPerVehicle;
                                             const missingSeats = totalStaff - totalSeats;
-                                            
+
                                             if (missingSeats > 0) {
                                                 return (
                                                     <Alert
@@ -765,28 +785,70 @@ const ResourceAllocation = () => {
             >
                 {insufficientResourcesData && (
                     <Space direction="vertical" style={{ width: '100%' }}>
-                        <Alert 
-                            type="warning" 
-                            showIcon 
+                        <Alert
+                            type="warning"
+                            showIcon
                             message="Không đủ nhân sự rảnh rỗi vào khung giờ đã chọn!"
-                            description={`Bạn đang cố phân công ${insufficientResourcesData.shortages.required.drivers} tài xế và ${insufficientResourcesData.shortages.required.helpers} phụ xe, nhưng hiện tại chỉ có ${insufficientResourcesData.shortages.available.drivers} tài xế và ${insufficientResourcesData.shortages.available.helpers} phụ xe trống lịch.`}
+                            description={
+                                <div style={{ marginTop: 8 }}>
+                                    <Text style={{ display: 'block', marginBottom: 8 }}>So sánh yêu cầu phân công và số lượng rảnh rỗi thực tế:</Text>
+                                    <div style={{ background: '#fff', padding: '8px 12px', borderRadius: 6, border: '1px solid #ffe58f' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                                            <Text type="secondary" style={{ fontSize: 13 }}>Vai trò</Text>
+                                            <div style={{ width: 140, display: 'flex', justifyContent: 'space-between' }}>
+                                                <Text type="secondary" style={{ fontSize: 13 }}>Yêu cầu</Text>
+                                                <Text type="secondary" style={{ fontSize: 13 }}>Hiện có</Text>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f0f0f0', paddingTop: 6, paddingBottom: 4 }}>
+                                            <Text style={{ fontSize: 13 }}>Trưởng nhóm (Tài xế chính)</Text>
+                                            <div style={{ width: 140, display: 'flex', justifyContent: 'space-between' }}>
+                                                <Text strong>{insufficientResourcesData.shortages.required.leader}</Text>
+                                                <Text strong type={insufficientResourcesData.shortages.available.leader < insufficientResourcesData.shortages.required.leader ? 'danger' : 'success'}>{insufficientResourcesData.shortages.available.leader}</Text>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f0f0f0', paddingTop: 6, paddingBottom: 4 }}>
+                                            <Text style={{ fontSize: 13 }}>Tài xế phụ</Text>
+                                            <div style={{ width: 140, display: 'flex', justifyContent: 'space-between' }}>
+                                                <Text strong>{insufficientResourcesData.shortages.required.drivers}</Text>
+                                                <Text strong type={insufficientResourcesData.shortages.available.drivers < insufficientResourcesData.shortages.required.drivers ? 'danger' : 'success'}>{insufficientResourcesData.shortages.available.drivers}</Text>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f0f0f0', paddingTop: 6 }}>
+                                            <Text style={{ fontSize: 13 }}>Nhân viên phụ bốc xếp</Text>
+                                            <div style={{ width: 140, display: 'flex', justifyContent: 'space-between' }}>
+                                                <Text strong>{insufficientResourcesData.shortages.required.helpers}</Text>
+                                                <Text strong type={insufficientResourcesData.shortages.available.helpers < insufficientResourcesData.shortages.required.helpers ? 'danger' : 'success'}>{insufficientResourcesData.shortages.available.helpers}</Text>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
                         />
-                        
+
                         <div style={{ marginTop: 16 }}>
                             <Text strong>Các phương án xử lý:</Text>
-                            
+
                             <Card size="small" style={{ marginTop: 8, borderColor: '#1890ff' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <Text strong>1. Tái cấu trúc theo thực tế (Hệ thống gợi ý)</Text>
-                                        <div style={{ color: '#595959', fontSize: 13, marginTop: 4 }}>
-                                            Sử dụng đội hình có sẵn tại thời điểm này: <br/>
-                                            • Tài xế: {insufficientResourcesData.suggestedTeam.driverIds.length} <br/>
-                                            • Phụ xe: {insufficientResourcesData.suggestedTeam.staffIds.length} <br/>
-                                            Hệ thống sẽ cập nhật lại Form để bạn xem lại và nhấn xác nhận.
-                                        </div>
+                                        {(!insufficientResourcesData.suggestedTeam.leaderId || (insufficientResourcesData.valuesSnapshot && insufficientResourcesData.suggestedTeam.leaderId === insufficientResourcesData.valuesSnapshot.leaderId && (insufficientResourcesData.suggestedTeam.driverIds || []).length === (insufficientResourcesData.valuesSnapshot.driverIds || []).length && (insufficientResourcesData.suggestedTeam.staffIds || []).length === (insufficientResourcesData.valuesSnapshot.staffIds || []).length)) ? (
+                                            <div style={{ color: '#cf1322', fontSize: 13, marginTop: 4 }}>
+                                                Hiện tại không có nhân sự trống lịch nào khác ngoài đội hình bạn đã chọn. Không thể áp dụng đội hình mới.
+                                                <br />Vui lòng dời ngày hoặc tiếp tục phân công với tình trạng thiếu hụt.
+                                            </div>
+                                        ) : (
+                                            <div style={{ color: '#595959', fontSize: 13, marginTop: 4 }}>
+                                                Sử dụng đội hình có sẵn tại thời điểm này: <br />
+                                                • Trưởng nhóm: 1 <br />
+                                                • Tài xế phụ: {insufficientResourcesData.suggestedTeam.driverIds?.length || 0} <br />
+                                                • Nhân viên hậu cần: {insufficientResourcesData.suggestedTeam.staffIds?.length || 0} <br />
+                                                Hệ thống sẽ cập nhật lại Form để bạn xem lại và nhấn xác nhận.
+                                            </div>
+                                        )}
                                     </div>
-                                    <Button type="primary" onClick={handleAutoRebuildTeam}>
+                                    <Button type="primary" onClick={handleAutoRebuildTeam} disabled={!insufficientResourcesData.suggestedTeam.leaderId || (insufficientResourcesData.valuesSnapshot && insufficientResourcesData.suggestedTeam.leaderId === insufficientResourcesData.valuesSnapshot.leaderId && (insufficientResourcesData.suggestedTeam.driverIds || []).length === (insufficientResourcesData.valuesSnapshot.driverIds || []).length && (insufficientResourcesData.suggestedTeam.staffIds || []).length === (insufficientResourcesData.valuesSnapshot.staffIds || []).length)}>
                                         Áp dụng Đội hình này
                                     </Button>
                                 </div>
@@ -797,16 +859,25 @@ const ResourceAllocation = () => {
                                     <div>
                                         <Text strong>2. Dời thời gian vận chuyển</Text>
                                         <div style={{ color: '#595959', fontSize: 13, marginTop: 4 }}>
-                                            Hệ thống quét được các khung giờ sau sẽ đủ đội hình như bạn mong muốn: <br/>
-                                            {insufficientResourcesData.nextAvailableSlots.map((s, i) => (
-                                                <Tag color="green" key={i}>{dayjs(s).format('HH:mm DD/MM')}</Tag>
-                                            ))}
-                                            {insufficientResourcesData.nextAvailableSlots.length === 0 && <Text type="danger">Không tìm thấy khung giờ phù hợp trong 3 ngày tới.</Text>}
+                                            Hệ thống quét được các khung giờ sau sẽ đủ đội hình như bạn mong muốn (Nhấn chọn): <br />
+                                            {insufficientResourcesData.nextAvailableSlots.length > 0 ? (
+                                                <Space style={{ marginTop: 8, flexWrap: 'wrap' }}>
+                                                    {insufficientResourcesData.nextAvailableSlots.map((s, i) => (
+                                                        <Tag
+                                                            color="geekblue"
+                                                            key={i}
+                                                            style={{ cursor: 'pointer', padding: '4px 8px', fontSize: 13, margin: '4px 0' }}
+                                                            onClick={typeof s === 'string' ? () => handlePickAlternativeTime(s) : undefined}
+                                                        >
+                                                            {dayjs(s).format('HH:mm DD/MM')}
+                                                        </Tag>
+                                                    ))}
+                                                </Space>
+                                            ) : (
+                                                <Text type="danger">Không tìm thấy khung giờ phù hợp trong ngày.</Text>
+                                            )}
                                         </div>
                                     </div>
-                                    <Button disabled={insufficientResourcesData.nextAvailableSlots.length === 0} onClick={handlePickAlternativeTime}>
-                                        Đổi thời gian
-                                    </Button>
                                 </div>
                             </Card>
 
@@ -816,7 +887,7 @@ const ResourceAllocation = () => {
                                         <div>
                                             <Text strong type="danger">3. Buộc thực hiện (Thiếu người)</Text>
                                             <div style={{ color: '#595959', fontSize: 13, marginTop: 4 }}>
-                                                Lệnh điều phối sẽ tiếp tục với số người thực tế có sẵn. <br/>
+                                                Lệnh điều phối sẽ tiếp tục với số người thực tế có sẵn. <br />
                                                 <Text type="danger" style={{ fontSize: 12 }}>* Khách hàng sẽ nhận được thông báo thiếu hụt nhân sự.</Text>
                                             </div>
                                         </div>
