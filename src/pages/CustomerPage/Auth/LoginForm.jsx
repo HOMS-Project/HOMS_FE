@@ -19,6 +19,7 @@ const PRIMARY_COLOR = "#44624A";
 const LoginForm = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [fbReady, setFbReady] = useState(false);
   const { setUser, setIsAuthenticated } = useUser();
   const navigate = useNavigate();
   const handleLoginSuccess = (userData, accessToken, expiresInMs) => {
@@ -152,6 +153,10 @@ const LoginForm = () => {
   <div style={{ flex: 1 }}>
     <FacebookLogin
       appId={process.env.REACT_APP_FACEBOOK_APP_ID || "NHAP_APP_ID"}
+      onInit={() => {
+        console.log("FB SDK Initialized");
+        setFbReady(true);
+      }}
       onSuccess={async (response) => {
          console.log("FB Response:", response); 
         try {
@@ -172,6 +177,7 @@ const LoginForm = () => {
        <Button
   size="large"
   block
+  loading={!fbReady}
   onClick={onClick}
   icon={<FacebookFilled style={{ color: '#1877F2', fontSize: 18 }} />}
   style={{
@@ -185,7 +191,7 @@ const LoginForm = () => {
     padding: '0 12px'
   }}
 >
-  Đăng nhập bằng Facebook
+  {fbReady ? "Đăng nhập bằng Facebook" : "Đang tải Facebook..."}
 </Button>
       )}
     />
