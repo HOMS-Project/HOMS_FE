@@ -69,19 +69,22 @@ const LoginForm = () => {
     }
   }, [appId, isAppIdValid]);
 
-  // useEffect riêng cho Timeout
   useEffect(() => {
-    if (fbReady || !isAppIdValid || fbError) return;
+    if (!isAppIdValid || fbReady || fbError) return;
 
+    console.log("Đồng hồ 8 giây bắt đầu đếm ngược...");
     const timer = setTimeout(() => {
-      if (!fbReady && !window.FB) {
+      if (!window.FB) {
         setFbError(true);
-        console.error("Không thể kết nối tới Facebook SDK sau 8 giây.");
+        console.error("TIMEOUT: Không thể tải Facebook SDK.");
+      } else {
+        // Nếu thực tế FB đã có nhưng state chưa cập nhật
+        setFbReady(true);
       }
     }, 8000);
 
     return () => clearTimeout(timer);
-  }, [fbReady, isAppIdValid, fbError]);
+  }, [isAppIdValid]); // Chỉ chạy lại nếu App ID thay đổi
 
   const handleLoginSuccess = (userData, accessToken, expiresInMs) => {
     saveAccessToken(accessToken, expiresInMs || 30 * 60 * 1000);
