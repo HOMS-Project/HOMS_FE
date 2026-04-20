@@ -199,7 +199,7 @@ const SurveyPricingModal = ({ visible, onClose, ticket, survey, pricing, tourRef
 
                         <Row gutter={[16, 0]}>
                             {[
-                                { icon: <CarOutlined />, label: 'Xe tải', value: survey.suggestedVehicle },
+                                { icon: <CarOutlined />, label: 'Xe tải', value: (survey.trips && survey.trips > 1) ? `${survey.suggestedVehicle} (x${survey.trips})` : survey.suggestedVehicle },
                                 { icon: <TeamOutlined />, label: 'Nhân viên', value: `${survey.suggestedStaffCount} người` },
                                 { icon: <ClockCircleOutlined />, label: 'Thời gian', value: `${survey.estimatedHours || pricing.breakdown?.estimatedHours || '—'} giờ` },
                             ].map((item, i) => (

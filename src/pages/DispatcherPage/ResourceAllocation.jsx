@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Typography, Tag, message, Modal, Select, Form, Space, Row, Col, Card, Descriptions, Divider, DatePicker, Alert } from 'antd';
+import { Table, Button, Typography, Tag, message, Modal, Select, Form, Space, Row, Col, Card, Descriptions, Divider, DatePicker, Alert, notification } from 'antd';
 import { Spin as AntdSpin } from 'antd';
 import { CarOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from '../../services/api';
@@ -331,6 +331,7 @@ const ResourceAllocation = () => {
             setSubmitting(true);
             const ticket = selectedInvoice.requestTicketId;
             const payload = {
+                requestTicketId: ticket?._id,
                 totalWeight: ticket?.surveyDataId?.totalWeight || 1000,
                 totalVolume: ticket?.surveyDataId?.totalVolume || 10,
                 pickupLocation: mapCoords.pickup ? { coordinates: [mapCoords.pickup.lng, mapCoords.pickup.lat] } : null
@@ -368,6 +369,24 @@ const ResourceAllocation = () => {
                 
                 form.setFieldsValue(newValues);
                 message.success('Đã áp dụng Biệt đội tối ưu (Smart Squad)!');
+
+                if (squad.logisticsPlan) {
+                    notification.info({
+                        message: 'Logistics Engine Dispatch Plan',
+                        description: (
+                            <div>
+                                <p><strong>Staff Required:</strong> {squad.logisticsPlan.staffTotal} people (Estimated: {squad.logisticsPlan.estimatedMinutes} mins)</p>
+                                <p><strong>Vehicle Allocation:</strong> {squad.logisticsPlan.vehicles.map(v => `${v.trips}x ${v.type}`).join(', ')}</p>
+                                {squad.logisticsPlan.extraTransport?.motorbikes > 0 && (
+                                  <p><strong>Extra Transport Fallback:</strong> {squad.logisticsPlan.extraTransport.motorbikes} motorbikes for missing seats</p>
+                                )}
+                                <p><strong>Equipment on Truck:</strong> {squad.logisticsPlan.equipmentPlan?.onTruck?.join(', ')}</p>
+                                <p><em>Confidence: {squad.logisticsPlan.confidenceLevel}</em></p>
+                            </div>
+                        ),
+                        duration: 8,
+                    });
+                }
             }
         } catch (error) {
             message.error('Lỗi khi tính toán đội ngũ tối ưu.');
@@ -661,6 +680,45 @@ const ResourceAllocation = () => {
                                             </Form.Item>
                                         </Col>
                                     </Row>
+
+                                    <Form.Item
+                                        shouldUpdate={(prevValues, currentValues) =>
+                                            prevValues.vehicleType !== currentValues.vehicleType ||
+                                            prevValues.vehicleCount !== currentValues.vehicleCount ||
+                                            prevValues.leaderId !== currentValues.leaderId ||
+                                            prevValues.driverIds !== currentValues.driverIds ||
+                                            prevValues.staffIds !== currentValues.staffIds
+                                        }
+                                        style={{ marginBottom: '0px' }}
+                                    >
+                                        {() => {
+                                            const vals = form.getFieldsValue(['vehicleType', 'vehicleCount', 'leaderId', 'driverIds', 'staffIds']);
+                                            const totalStaff = (vals.leaderId ? 1 : 0) + (vals.driverIds?.length || 0) + (vals.staffIds?.length || 0);
+                                            
+                                            // Determine max seats per selected vehicle type (including the driver)
+                                            let seatsPerVehicle = 2; // 500KG, 1TON
+                                            if (vals.vehicleType === '1.5TON' || vals.vehicleType === '2TON') {
+                                                seatsPerVehicle = 3;
+                                            } else if (vals.vehicleType === '5000KG') {
+                                                seatsPerVehicle = 3;
+                                            }
+                                            
+                                            const totalSeats = (vals.vehicleCount || 1) * seatsPerVehicle;
+                                            const missingSeats = totalStaff - totalSeats;
+                                            
+                                            if (missingSeats > 0) {
+                                                return (
+                                                    <Alert
+                                                        message={`Phát sinh di chuyển phụ: Xe tải đã đầy (Tối đa ${totalSeats} chỗ). Có ${missingSeats} nhân viên sẽ di chuyển bằng phương tiện cá nhân (Xe máy).`}
+                                                        type="warning"
+                                                        showIcon
+                                                        style={{ marginTop: '12px' }}
+                                                    />
+                                                );
+                                            }
+                                            return null;
+                                        }}
+                                    </Form.Item>
 
                                     <Divider style={{ margin: '16px 0' }} />
 
