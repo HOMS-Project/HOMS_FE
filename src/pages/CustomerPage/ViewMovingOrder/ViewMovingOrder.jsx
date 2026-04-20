@@ -1051,19 +1051,35 @@ const ViewMovingOrder = () => {
 
   /* ── fetch ── */
   useEffect(() => {
+    let isMounted = true;
+    let retryCount = 0;
+
     const fetchTickets = async () => {
-      if (!isAuthenticated || !user) { setLoading(false); return; }
+      // Đảm bảo cả 2 biến đều đã được React cập nhật
+      if (!isAuthenticated || !user) { 
+        if (isMounted) setLoading(false); 
+        return; 
+      }
+      
       try {
+        const currentUserId = user._id || user.id;
+        // Thêm timestamp _t để chống cache trình duyệt
         const response = await api.get(`/request-tickets`, {
-          params: { customerId: user._id || user.id },
+          params: { 
+            customerId: currentUserId,
+            _t: Date.now() 
+          },
         });
-        if (response.data?.success) {
-          const currentUserId = user._id || user.id;
-          let userTickets = (response.data.data || []).filter(
+
+        if (response.data?.success && isMounted) {
+          let userTickets = response.data.data || [];
+          
+          userTickets = userTickets.filter(
             (t) =>
-              (t.customerId && t.customerId._id === currentUserId) ||
+              (t.customerId && (t.customerId._id === currentUserId || t.customerId === currentUserId)) ||
               t.customerId === currentUserId
           );
+          
           userTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
           const searchCode = new URLSearchParams(location.search).get("searchCode");
@@ -1075,16 +1091,36 @@ const ViewMovingOrder = () => {
                 (t.invoice?.code && t.invoice.code.toLowerCase().includes(kw))
             );
           }
+
           setTickets(userTickets);
+
+          // Nếu danh sách trống, thử lại tối đa 2 lần (Lần 1: 1s, Lần 2: 2s)
+          if (userTickets.length === 0 && retryCount < 2) {
+            retryCount++;
+            const delay = retryCount === 1 ? 1000 : 2000;
+            console.log(`[ViewOrder] Danh sách trống, đang thử lại lần ${retryCount} sau ${delay}ms...`);
+            setTimeout(() => {
+              if (isMounted) fetchTickets();
+            }, delay);
+          }
         }
       } catch (error) {
         console.error("Could not fetch moving orders.", error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
+
     fetchTickets();
+    return () => { isMounted = false; };
   }, [isAuthenticated, user, location.search]);
+  
+  // Tự động cuộn lên đầu khi có đơn mới nạp vào
+  useEffect(() => {
+    if (tickets.length > 0) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [tickets.length]);
 
   /* ── filter logic ── */
   const matchFilter = (t, key) => {
