@@ -28,22 +28,32 @@ const LoginForm = () => {
   const isAppIdValid = appId && appId !== "NHAP_APP_ID";
 
   useEffect(() => {
-    if (!isAppIdValid) {
-      console.warn("Facebook App ID is missing or invalid. Please check your .env file.");
-      return;
-    }
+    if (!isAppIdValid) return;
 
-    // 1. Kiểm tra xem FB đã có sẵn chưa
+    // 1. Định nghĩa hàm khởi tạo thủ công cho Facebook SDK
+    window.fbAsyncInit = function() {
+      if (window.FB) {
+        window.FB.init({
+          appId      : appId,
+          cookie     : true,
+          xfbml      : true,
+          version    : 'v18.0'
+        });
+        console.log("Facebook SDK đã khởi tạo thủ công thành công.");
+        setFbReady(true);
+        setFbError(false);
+      }
+    };
+
+    // 2. Kiểm tra nếu FB đã tồn tại từ trước
     if (window.FB) {
-      setFbReady(true);
-      setFbError(false);
+      window.fbAsyncInit();
       return;
     }
 
-    // 2. Tự tay chèn script Facebook (Manual Injection) để đảm bảo script được gọi
+    // 3. Tự tay chèn script vào DOM
     const id = 'facebook-jssdk';
     if (!document.getElementById(id)) {
-      const fjs = document.getElementsByTagName('script')[0];
       const js = document.createElement('script');
       js.id = id;
       js.src = "https://connect.facebook.net/vi_VN/sdk.js";
@@ -51,29 +61,27 @@ const LoginForm = () => {
       js.defer = true;
       js.crossOrigin = "anonymous";
       js.onload = () => {
-        console.log("Facebook Script đã được nạp vào DOM.");
+        if (!window.FB) {
+          console.error("Script đã nạp nhưng window.FB vẫn undefined.");
+        }
       };
-      js.onerror = () => {
-        console.error("Script Facebook bị chặn hoặc không thể tải.");
-        setFbError(true);
-      };
-      if (fjs && fjs.parentNode) {
-        fjs.parentNode.insertBefore(js, fjs);
-      } else {
-        document.head.appendChild(js);
-      }
+      document.head.appendChild(js);
     }
+  }, [appId, isAppIdValid]);
 
-    // 3. Đợi library init hoặc timeout
+  // useEffect riêng cho Timeout
+  useEffect(() => {
+    if (fbReady || !isAppIdValid || fbError) return;
+
     const timer = setTimeout(() => {
       if (!fbReady && !window.FB) {
         setFbError(true);
-        console.error("Facebook SDK load timeout. Vui lòng kiểm tra AdBlock hoặc VPN.");
+        console.error("Không thể kết nối tới Facebook SDK sau 8 giây.");
       }
     }, 8000);
 
     return () => clearTimeout(timer);
-  }, [fbReady, isAppIdValid]);
+  }, [fbReady, isAppIdValid, fbError]);
 
   const handleLoginSuccess = (userData, accessToken, expiresInMs) => {
     saveAccessToken(accessToken, expiresInMs || 30 * 60 * 1000);
