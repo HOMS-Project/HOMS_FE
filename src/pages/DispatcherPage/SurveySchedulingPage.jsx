@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
-  Table, Button, Tag, Modal, Form, Select, message, Space, Card, Typography, Descriptions, DatePicker, Divider
+  Table, Button, Tag, Modal, Form, Select, message, Space, Card, Typography, Descriptions, DatePicker, Divider,
+  Row, Col, InputNumber, Checkbox, Alert, Input
 } from "antd";
 import {
   CheckCircleOutlined, CloseCircleOutlined, RobotOutlined, UserSwitchOutlined, CalendarOutlined, ClockCircleOutlined
@@ -11,9 +12,11 @@ import {
   surveyService,
   userService
 } from "../../services/surveysService";
+import { DollarCircleOutlined, EyeOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { TextArea } = Input;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MOVE_TYPE_CONFIG = {
@@ -26,7 +29,15 @@ const STATUS_MAP = {
   CREATED: { label: 'Chờ xác nhận', color: 'blue' },
   WAITING_SURVEY: { label: 'Đã phân công KS', color: 'green' },
   WAITING_REVIEW: { label: 'Chờ xem xét', color: 'gold' },
+  QUOTED: { label: 'Đã báo giá', color: 'green' },
   ASSIGNMENT_FAILED: { label: 'Lỗi phân công', color: 'red' },
+};
+
+const MAX_PORTERS = {
+  "500KG": 1,
+  "1TON": 2,
+  "1.5TON": 3,
+  "2TON": 4,
 };
 
 const FILTER_TABS = [
@@ -114,14 +125,20 @@ const SurveySchedulingPage = () => {
   const [isRejectModalVisible, setIsRejectModalVisible] = useState(false);
   const [isManualAssignModalVisible, setIsManualAssignModalVisible] = useState(false); // ASSIGNMENT_FAILED fallback
   const [isAcceptProposedModalVisible, setIsAcceptProposedModalVisible] = useState(false);
+  const [isTruckRentalModalVisible, setIsTruckRentalModalVisible] = useState(false);
+  const [isPreviewPricingModalVisible, setIsPreviewPricingModalVisible] = useState(false);
 
   // Selected proposed time inside the "Xem đề xuất khách" modal
   const [selectedProposedTime, setSelectedProposedTime] = useState(null);
 
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [previewPricingData, setPreviewPricingData] = useState(null);
+  const [isCalculatingPreview, setIsCalculatingPreview] = useState(false);
+  
   const [form] = Form.useForm();
   const [formReject] = Form.useForm();
   const [formManual] = Form.useForm();
+  const [formTruckRental] = Form.useForm();
 
   // ── Data Fetching ───────────────────────────────────────────────────────────
   const fetchData = async () => {
@@ -158,6 +175,23 @@ const SurveySchedulingPage = () => {
     }
   }, [tickets, activeFilter]);
 
+  // ── Helper: Route Distance ──────────────────────────────────────────────────
+  const getRouteDistance = async (origin, destination) => {
+    const getLat = (c) => (c && typeof c.lat !== 'undefined' ? c.lat : (Array.isArray(c) ? c[1] : null));
+    const getLng = (c) => (c && typeof c.lng !== 'undefined' ? c.lng : (Array.isArray(c) ? c[0] : null));
+    const olat = getLat(origin); const olng = getLng(origin);
+    const dlat = getLat(destination); const dlng = getLng(destination);
+    if (!olat || !olng || !dlat || !dlng) return 0;
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${olng},${olat};${dlng},${dlat}?overview=false`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const meters = data?.routes?.[0]?.distance;
+      if (meters > 0) return Math.round(meters / 100) / 10;
+    } catch (e) { console.warn('[Route] OSRM failed:', e.message); }
+    return 0;
+  };
+
   // ── Action Handlers ─────────────────────────────────────────────────────────
 
   // "Duyệt đơn" for FULL_HOUSE → open modal to pick surveyor
@@ -167,7 +201,7 @@ const SurveySchedulingPage = () => {
     setIsApproveModalVisible(true);
   };
 
-  // "Duyệt đơn" for SPECIFIC_ITEMS / TRUCK_RENTAL → direct API call
+  // "Duyệt đơn" for SPECIFIC_ITEMS → direct API call
   const handleDirectApprove = async (ticket) => {
     try {
       await requestTicketService.approveTicket(ticket._id);
@@ -175,6 +209,68 @@ const SurveySchedulingPage = () => {
       fetchData();
     } catch (error) {
       message.error(error.response?.data?.message || "Có lỗi xảy ra khi duyệt đơn!");
+    }
+  };
+
+  // "Báo giá" for TRUCK_RENTAL → open custom modal
+  const openTruckRentalQuoteModal = async (ticket) => {
+    setSelectedTicket(ticket);
+    const rental = ticket.rentalDetails || {};
+    
+    // Reset and then set values to ensure checkboxes update correctly
+    formTruckRental.resetFields();
+    formTruckRental.setFieldsValue({
+      suggestedVehicle: rental.truckType || '1TON',
+      suggestedStaffCount: (rental.extraStaffCount || 0) + 1, // +1 for driver
+      rentalDurationHours: rental.rentalDurationHours || 2,
+      needsAssembling: !!rental.needsAssembling,
+      needsPacking: !!rental.needsPacking,
+      notes: ticket.notes || ""
+    });
+    setIsTruckRentalModalVisible(true);
+  };
+
+  const handlePreviewTruckRentalPricing = async () => {
+    try {
+      const values = await formTruckRental.validateFields();
+      setIsCalculatingPreview(true);
+      const payload = {
+        ...values,
+        estimatedHours: values.rentalDurationHours,
+        items: [] // Truck rental usually doesn't need detailed items for pricing
+      };
+      const res = await surveyService.previewPricing(selectedTicket._id, payload);
+      setPreviewPricingData(res.data);
+      setIsPreviewPricingModalVisible(true);
+    } catch (error) {
+      message.error("Vui lòng điền đủ thông tin!");
+    } finally {
+      setIsCalculatingPreview(false);
+    }
+  };
+
+  const handleConfirmTruckRentalQuote = async () => {
+    try {
+      const values = await formTruckRental.validateFields();
+      const payload = {
+        ...values,
+        estimatedHours: values.rentalDurationHours,
+        items: [],
+        status: 'COMPLETED'
+      };
+      
+      // Step 1: Complete Survey
+      await surveyService.completeSurvey(selectedTicket._id, payload);
+      
+      // Step 2: Transition is already handled by completeSurvey in BE (transitions to QUOTED)
+      
+      message.success(`Đã báo giá thành công cho đơn ${selectedTicket.code}`);
+      setIsPreviewPricingModalVisible(false);
+      setIsTruckRentalModalVisible(false);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      message.error(error.response?.data?.message || "Lỗi khi báo giá!");
     }
   };
 
@@ -332,14 +428,25 @@ const SurveySchedulingPage = () => {
           {/* CREATED — Approve button (both types) */}
           {record.status === "CREATED" && (
             <>
-              <Button
-                type="primary"
-                style={{ background: "#44624a", borderColor: "#44624a" }}
-                icon={<CheckCircleOutlined />}
-                onClick={() => handleDirectApprove(record)}
-              >
-                Duyệt đơn
-              </Button>
+              {record.moveType === 'TRUCK_RENTAL' ? (
+                <Button
+                  type="primary"
+                  style={{ background: "#44624a", borderColor: "#44624a" }}
+                  icon={<DollarCircleOutlined />}
+                  onClick={() => openTruckRentalQuoteModal(record)}
+                >
+                  Báo giá
+                </Button>
+              ) : (
+                <Button
+                  type="primary"
+                  style={{ background: "#44624a", borderColor: "#44624a" }}
+                  icon={<CheckCircleOutlined />}
+                  onClick={() => record.moveType === 'FULL_HOUSE' ? openApproveModal(record) : handleDirectApprove(record)}
+                >
+                  Duyệt đơn
+                </Button>
+              )}
               <Button
                 danger
                 icon={<CloseCircleOutlined />}
@@ -348,6 +455,18 @@ const SurveySchedulingPage = () => {
                 Từ chối
               </Button>
             </>
+          )}
+
+          {/* WAITING_REVIEW for TRUCK_RENTAL — also allow Quoting here */}
+          {record.status === "WAITING_REVIEW" && record.moveType === 'TRUCK_RENTAL' && (
+             <Button
+                type="primary"
+                style={{ background: "#44624a", borderColor: "#44624a" }}
+                icon={<DollarCircleOutlined />}
+                onClick={() => openTruckRentalQuoteModal(record)}
+              >
+                Xem xét & Báo giá
+              </Button>
           )}
 
           {/* WAITING_SURVEY — Show Accept Proposed button if exists */}
@@ -547,6 +666,141 @@ const SurveySchedulingPage = () => {
             <div style={{ padding: 18, textAlign: 'center', color: '#666' }}>Không có đề xuất giờ nào từ khách</div>
           )}
         </div>
+      </Modal>
+
+      {/* ── Modal: Báo giá Thuê xe tải (Global Dispatcher) ── */}
+      <Modal
+        title={`XEM XÉT & BÁO GIÁ THUÊ XE — #${selectedTicket?.code}`}
+        open={isTruckRentalModalVisible}
+        onCancel={() => setIsTruckRentalModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setIsTruckRentalModalVisible(false)}>Hủy</Button>,
+          <Button 
+            key="preview" 
+            type="primary" 
+            icon={<DollarCircleOutlined />}
+            loading={isCalculatingPreview}
+            onClick={handlePreviewTruckRentalPricing}
+            style={{ background: '#44624a', borderColor: '#44624a' }}
+          >
+            Tính giá & Xem trước
+          </Button>
+        ]}
+        width={700}
+      >
+        <Form form={formTruckRental} layout="vertical">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="suggestedVehicle" label="Loại xe tải" rules={[{ required: true }]}>
+                <Select onChange={() => {
+                  const val = formTruckRental.getFieldValue('suggestedVehicle');
+                  const currentStaff = formTruckRental.getFieldValue('suggestedStaffCount');
+                  const max = 1 + (MAX_PORTERS[val] || 0);
+                  if (currentStaff > max) formTruckRental.setFieldsValue({ suggestedStaffCount: max });
+                }}>
+                  <Option value="500KG">Xe 500 KG</Option>
+                  <Option value="1TON">Xe 1 Tấn</Option>
+                  <Option value="1.5TON">Xe 1.5 Tấn</Option>
+                  <Option value="2TON">Xe 2 Tấn</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="rentalDurationHours" label="Thời gian thuê (giờ)" rules={[{ required: true }]}>
+                <InputNumber min={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item 
+                name="suggestedStaffCount" 
+                label="Tổng nhân sự (Tài xế + Người giúp)" 
+                rules={[{ required: true }]}
+                extra={(() => {
+                  const v = formTruckRental.getFieldValue('suggestedVehicle');
+                  return `Tối đa ${1 + (MAX_PORTERS[v] || 0)} người cho xe này (Đã bao gồm 1 tài xế)`;
+                })()}
+              >
+                <InputNumber 
+                  min={1} 
+                  max={1 + (MAX_PORTERS[formTruckRental.getFieldValue('suggestedVehicle')] || 4)} 
+                  style={{ width: '100%' }} 
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="needsAssembling" valuePropName="checked">
+                <Checkbox>Cần tháo lắp đồ đạc</Checkbox>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="needsPacking" valuePropName="checked">
+                <Checkbox>Cần đóng gói đồ đạc</Checkbox>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="notes" label="Ghi chú điều phối">
+            <TextArea rows={3} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ── Modal: Chi tiết tính giá (Preview) ── */}
+      <Modal
+        title={<Title level={4} style={{ margin: 0, color: '#44624A' }}>Chi tiết tính giá đơn hàng</Title>}
+        open={isPreviewPricingModalVisible}
+        onCancel={() => setIsPreviewPricingModalVisible(false)}
+        footer={[
+          <Button key="back" onClick={() => setIsPreviewPricingModalVisible(false)}>Quay lại</Button>,
+          <Button
+            key="submit"
+            type="primary"
+            style={{ background: '#44624A', borderColor: '#44624A' }}
+            onClick={handleConfirmTruckRentalQuote}
+          >
+            Xác nhận & Gửi báo giá
+          </Button>
+        ]}
+        width={600}
+      >
+        {previewPricingData && (
+          <div style={{ padding: '10px 0' }}>
+            <div style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text>Phí thuê xe ({previewPricingData.breakdown?.suggestedVehicle || '—'}):</Text>
+                <Text strong>{(previewPricingData.breakdown?.vehicleFee || 0).toLocaleString()} ₫</Text>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text>Phí nhân công ({previewPricingData.breakdown?.suggestedStaffCount || 0} người):</Text>
+                <Text strong>{(previewPricingData.breakdown?.laborFee || 0).toLocaleString()} ₫</Text>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text>Phí tháo lắp:</Text>
+                <Text strong>{(previewPricingData.breakdown?.assemblingFee || 0).toLocaleString()} ₫</Text>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text>Phí đóng gói:</Text>
+                <Text strong>{(previewPricingData.breakdown?.packingFee || 0).toLocaleString()} ₫</Text>
+              </div>
+              <Divider style={{ margin: '12px 0' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Title level={4} style={{ margin: 0 }}>TỔNG CỘNG:</Title>
+                <Title level={4} style={{ margin: 0, color: '#44624A' }}>
+                  {(previewPricingData.totalPrice || 0).toLocaleString()} ₫
+                </Title>
+              </div>
+            </div>
+            <Alert
+              message="Thông báo"
+              description="Hệ thống sẽ lưu bảng giá này và gửi thông báo cho khách hàng xác nhận."
+              type="info"
+              showIcon
+            />
+          </div>
+        )}
       </Modal>
     </Card>
   );

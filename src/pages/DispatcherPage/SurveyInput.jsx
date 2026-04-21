@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   Table, Button, Typography, Modal, Form, Input, Checkbox,
   Row, Col, Space, message, Card, InputNumber,
-  Select, Tag, Divider, Tooltip, Badge
+  Select, Tag, Divider, Tooltip, Badge, Alert
 } from 'antd';
 import './SurveyInput.css';
 import {
   EditOutlined, PlusOutlined, DeleteOutlined, SaveOutlined,
   WarningOutlined, LockOutlined, ExclamationCircleFilled, RobotOutlined,
-  EyeOutlined
+  EyeOutlined, DollarCircleOutlined
 } from '@ant-design/icons';
 import {
   FaBed, FaTv, FaCouch, FaMotorcycle, FaSnowflake,
@@ -210,9 +210,13 @@ const SurveyInput = () => {
   const [secPickerKey, setSecPickerKey] = useState(null);
   const [secPickerTier, setSecPickerTier] = useState(null);
 
-  // AI images and item-location viewer state
   const [aiImages, setAiImages] = useState([]); // [{ index, name, url }]
   const [highlightConfig, setHighlightConfig] = useState(null); // { imageUrl, box, label }
+
+  // Pricing preview state
+  const [isPreviewPricingModalOpen, setIsPreviewPricingModalOpen] = useState(false);
+  const [previewPricingData, setPreviewPricingData] = useState(null);
+  const [isCalculatingPreview, setIsCalculatingPreview] = useState(false);
 
   // 1. Tải danh sách Ticket
   const fetchTickets = async () => {
@@ -436,7 +440,7 @@ const SurveyInput = () => {
           });
         }, 50);
 
-      // ── CASE 3: No data at all — fresh empty form ────────────────────────────
+        // ── CASE 3: No data at all — fresh empty form ────────────────────────────
       } else {
         let estimatedKm = 0;
         if (ticket.pickup?.coordinates && ticket.delivery?.coordinates) {
@@ -628,6 +632,81 @@ const SurveyInput = () => {
     }
   };
 
+  const handlePreviewPricing = async () => {
+    try {
+      const values = await form.validateFields();
+
+      // Map catalog item display names → backend itemType enum
+      const ITEM_TYPE_MAP = {
+        'Tivi': 'TV', 'Tủ lạnh': 'FRIDGE', 'Giường': 'BED', 'Sofa': 'SOFA',
+        'Tủ quần áo': 'WARDROBE', 'Điều hòa': 'AC', 'Máy giặt': 'WASHING_MACHINE',
+      };
+      const getItemType = (name = '') => {
+        for (const [key, type] of Object.entries(ITEM_TYPE_MAP)) {
+          if (name.startsWith(key)) return type;
+        }
+        return 'OTHER';
+      };
+
+      const payload = {
+        suggestedVehicle: values.suggestedVehicle,
+        suggestedStaffCount: values.suggestedStaffCount,
+        distanceKm: values.distanceKm,
+        estimatedHours: values.estimatedHours || computeEstimatedHours({
+          distanceKm: values.distanceKm, floors: values.floors, suggestedStaffCount: values.suggestedStaffCount
+        }),
+        carryMeter: values.carryMeter || 0,
+        floors: values.floors || 0,
+        hasElevator: values.hasElevator || false,
+        needsAssembling: values.needsAssembling || false,
+        needsPacking: values.needsPacking || false,
+        insuranceRequired: values.insuranceRequired || false,
+        declaredValue: values.insuranceRequired ? (values.declaredValue || 0) : 0,
+        items: [
+          ...(values.items?.map(item => ({
+            name: item.name,
+            itemType: getItemType(item.name),
+            actualVolume: item.actualVolume || 0,
+            actualWeight: item.actualWeight || 0,
+            condition: normalizeCondition(item.condition),
+            notes: item.notes || ''
+          })) || []),
+          ...secondaryItems.map(({ key, tierIdx }) => {
+            const catalog = SECONDARY_CATALOG.find(c => c.key === key);
+            const tier = QTY_TIERS[tierIdx];
+            return {
+              name: `[SEC:${key}] ${catalog?.label || key} (${tier.label})`,
+              itemType: 'OTHER',
+              actualVolume: Math.round(tier.value * tier.volumeEach * 100) / 100,
+              actualWeight: Math.round(tier.value * tier.weightEach * 10) / 10,
+              condition: 'GOOD'
+            };
+          }),
+          ...([...criticalItems].map(key => ({
+            name: `⚠️ [ĐỒ QUAN TRỌNG] ${CRITICAL_ITEMS.find(c => c.key === key)?.label || key}`,
+            itemType: 'OTHER',
+            actualVolume: 0.1, actualWeight: 20, condition: 'FRAGILE'
+          })))
+        ]
+      };
+
+      setIsCalculatingPreview(true);
+      const res = await surveyService.previewPricing(selectedTicket._id, payload);
+      setPreviewPricingData(res.data);
+      setIsPreviewPricingModalOpen(true);
+    } catch (error) {
+      console.error(error);
+      message.error(error.response?.data?.message || 'Vui lòng điền đủ thông tin để tính giá!');
+    } finally {
+      setIsCalculatingPreview(false);
+    }
+  };
+
+  const handleConfirmQuote = () => {
+    form.submit();
+    setIsPreviewPricingModalOpen(false);
+  };
+
   const handleEstimate = async () => {
     try {
       // Validate các trường cần thiết trước khi ước tính
@@ -670,9 +749,9 @@ const SurveyInput = () => {
       dataIndex: 'moveType',
       render: (moveType) => {
         const map = {
-          FULL_HOUSE:     { label: 'Chuyển nhà',  color: '#44624a' },
-          SPECIFIC_ITEMS: { label: 'Đồ vật lẻ',   color: '#8ba888' },
-          TRUCK_RENTAL:   { label: 'Thuê xe',      color: '#c0cfb2', textColor: '#44624a' },
+          FULL_HOUSE: { label: 'Chuyển nhà', color: '#44624a' },
+          SPECIFIC_ITEMS: { label: 'Đồ vật lẻ', color: '#8ba888' },
+          TRUCK_RENTAL: { label: 'Thuê xe', color: '#c0cfb2', textColor: '#44624a' },
         };
         const cfg = map[moveType] || { label: moveType, color: '#ccc' };
         return (
@@ -710,12 +789,12 @@ const SurveyInput = () => {
       dataIndex: 'status',
       render: (status) => {
         const statusMap = {
-          WAITING_REVIEW: { color: 'gold',     label: 'Chờ xem xét' },
-          WAITING_SURVEY: { color: 'blue',     label: 'Chờ khảo sát' },
-          SURVEYED:       { color: 'cyan',     label: 'Đã khảo sát' },
-          QUOTED:         { color: 'green',    label: 'Đã báo giá' },
-          ACCEPTED:       { color: 'geekblue', label: 'Đã chốt đơn' },
-          CONVERTED:      { color: 'purple',   label: 'Đã tạo HĐ' },
+          WAITING_REVIEW: { color: 'gold', label: 'Chờ xem xét' },
+          WAITING_SURVEY: { color: 'blue', label: 'Chờ khảo sát' },
+          SURVEYED: { color: 'cyan', label: 'Đã khảo sát' },
+          QUOTED: { color: 'green', label: 'Đã báo giá' },
+          ACCEPTED: { color: 'geekblue', label: 'Đã chốt đơn' },
+          CONVERTED: { color: 'purple', label: 'Đã tạo HĐ' },
         };
         const cfg = statusMap[status] || { color: 'default', label: status };
         return <Tag color={cfg.color}>{cfg.label}</Tag>;
@@ -735,7 +814,7 @@ const SurveyInput = () => {
           >
             {isReadOnly ? 'Xem Kết Quả'
               : isReview ? 'Xem xét & Báo giá'
-              : 'Nhập Khảo Sát'}
+                : 'Nhập Khảo Sát'}
           </Button>
         );
       }
@@ -810,73 +889,73 @@ const SurveyInput = () => {
 
             {/* --- CỘT TRÁI: THÔNG TIN CHI TIẾT --- */}
             <Col span={isTruckRental ? 24 : 7} style={{ maxHeight: '78vh', overflowY: 'auto', paddingRight: '12px' }}>
-              
+
               {!isTruckRental && (
                 <>
                   {/* 1. Địa hình & Vận chuyển */}
                   <Card size="small" title="1. Địa hình & Vận chuyển" className="dispatcher-card mb-3" bordered={false}>
-                <Row gutter={12}>
-                  <Col span={12}>
-                    <Form.Item name="floors" label="Số tầng lầu">
-                      <InputNumber min={0} style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="hasElevator" valuePropName="checked" label="&nbsp;">
-                      <Checkbox>Có thang máy</Checkbox>
-                    </Form.Item>
-                  </Col>
-                </Row>
-                <Row gutter={12}>
-                  <Col span={12}>
-                    <Form.Item name="carryMeter" label="Bê bộ (m)">
-                      <InputNumber min={0} style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item
-                      name="distanceKm"
-                      label="Quãng đường (Km)"
-                      rules={[{ required: true, message: 'Bắt buộc nhập' }]}
-                    >
-                      <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </Card>
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.Item name="floors" label="Số tầng lầu">
+                          <InputNumber min={0} style={{ width: '100%' }} />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item name="hasElevator" valuePropName="checked" label="&nbsp;">
+                          <Checkbox>Có thang máy</Checkbox>
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.Item name="carryMeter" label="Bê bộ (m)">
+                          <InputNumber min={0} style={{ width: '100%' }} />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item
+                          name="distanceKm"
+                          label="Quãng đường (Km)"
+                          rules={[{ required: true, message: 'Bắt buộc nhập' }]}
+                        >
+                          <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  </Card>
 
-              <Card size="small" title="2. Dịch vụ & Bảo hiểm" className="dispatcher-card" style={{ marginTop: 16 }} bordered={false}>
-                <Row gutter={8}>
-                  <Col span={12}>
-                    <Form.Item name="needsAssembling" valuePropName="checked" style={{ marginBottom: 8 }}>
-                      <Checkbox style={{ whiteSpace: 'nowrap' }}>Cần tháo/lắp</Checkbox>
+                  <Card size="small" title="2. Dịch vụ & Bảo hiểm" className="dispatcher-card" style={{ marginTop: 16 }} bordered={false}>
+                    <Row gutter={8}>
+                      <Col span={12}>
+                        <Form.Item name="needsAssembling" valuePropName="checked" style={{ marginBottom: 8 }}>
+                          <Checkbox style={{ whiteSpace: 'nowrap' }}>Cần tháo/lắp</Checkbox>
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item name="needsPacking" valuePropName="checked" style={{ marginBottom: 8 }}>
+                          <Checkbox style={{ whiteSpace: 'nowrap' }}>Cần đóng gói</Checkbox>
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Divider style={{ margin: '10px 0' }} />
+                    <Form.Item name="insuranceRequired" valuePropName="checked" style={{ marginBottom: 10 }}>
+                      <Checkbox onChange={(e) => setIsInsuranceChecked(e.target.checked)}>Mua bảo hiểm vận chuyển</Checkbox>
                     </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="needsPacking" valuePropName="checked" style={{ marginBottom: 8 }}>
-                      <Checkbox style={{ whiteSpace: 'nowrap' }}>Cần đóng gói</Checkbox>
-                    </Form.Item>
-                  </Col>
-                </Row>
-                <Divider style={{ margin: '10px 0' }} />
-                <Form.Item name="insuranceRequired" valuePropName="checked" style={{ marginBottom: 10 }}>
-                  <Checkbox onChange={(e) => setIsInsuranceChecked(e.target.checked)}>Mua bảo hiểm vận chuyển</Checkbox>
-                </Form.Item>
 
-                {isInsuranceChecked && (
-                  <Form.Item
-                    name="declaredValue"
-                    label="Giá trị khai báo (VNĐ)"
-                    rules={[{ required: true, message: 'Nhập giá trị hàng hóa' }]}
-                  >
-                    <InputNumber
-                      style={{ width: '100%' }}
-                      formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                      parser={value => value.replace(/\$\s?|(,*)/g, '')}
-                    />
-                  </Form.Item>
-                )}
-              </Card>
+                    {isInsuranceChecked && (
+                      <Form.Item
+                        name="declaredValue"
+                        label="Giá trị khai báo (VNĐ)"
+                        rules={[{ required: true, message: 'Nhập giá trị hàng hóa' }]}
+                      >
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          parser={value => value.replace(/\$\s?|(,*)/g, '')}
+                        />
+                      </Form.Item>
+                    )}
+                  </Card>
                 </>
               )}
 
@@ -925,349 +1004,349 @@ const SurveyInput = () => {
 
             {/* --- CỘT PHẢI: DANH MỤC ĐỒ ĐẠC (2 PHẦN) --- */}
             {!isTruckRental && (
-            <Col span={17} style={{ borderLeft: '1px solid #f0f0f0', paddingLeft: '20px', maxHeight: '78vh', overflowY: 'auto' }}>
+              <Col span={17} style={{ borderLeft: '1px solid #f0f0f0', paddingLeft: '20px', maxHeight: '78vh', overflowY: 'auto' }}>
 
-              {/* ── 4A. ĐỒ ĐẠC CHÍNH ──────────────────────────────────── */}
-              <div className="survey-section-container">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Title level={5} style={{ margin: 0 }}>4A. Đồ đạc chính</Title>
-                  <Space>
-                    {!isReadOnly && (
-                      <Button
-                        type="primary"
-                        className="survey-primary-btn"
-                        icon={<RobotOutlined />}
-                        onClick={() => setIsAIVisionModalOpen(true)}
-                      >
-                        AI phân tính hình ảnh & video
-                      </Button>
-                    )}
-                    <Tag color="blue">Chọn từ danh mục hoặc tự nhập</Tag>
-                  </Space>
-                </div>
-
-                {/* Quick-add picker: category → preset → add */}
-                {!isReadOnly && (
-                  <div className="survey-secondary-picker" style={{ background: '#f8fdf8', borderColor: '#d9f7be' }}>
-                    <Select
-                      placeholder="Ðồ vật..."
-                      style={{ flex: '1 1 150px', minWidth: 150 }}
-                      value={primaryPickerCat}
-                      onChange={v => { setPrimaryPickerCat(v); setPrimaryPickerPreset(null); }}
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {PRIMARY_CATALOG.map(cat => (
-                        <Option key={cat.name} value={cat.name}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <CatIcon icon={cat.IconComp} color={cat.color} size={14} />
-                            {cat.name}
-                          </span>
-                        </Option>
-                      ))}
-                    </Select>
-                    <Select
-                      placeholder="Kích thước / loại"
-                      style={{ flex: '1 1 140px', minWidth: 140 }}
-                      value={primaryPickerPreset}
-                      onChange={v => setPrimaryPickerPreset(v)}
-                      disabled={!primaryPickerCat}
-                    >
-                      {PRIMARY_CATALOG.find(c => c.name === primaryPickerCat)?.presets.map((p, i) => (
-                        <Option key={i} value={i}>{p.label} ({p.volume}m³ / {p.weight}kg)</Option>
-                      ))}
-                    </Select>
-                    <Form.List name="items">
-                      {(_, { add }) => (
+                {/* ── 4A. ĐỒ ĐẠC CHÍNH ──────────────────────────────────── */}
+                <div className="survey-section-container">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Title level={5} style={{ margin: 0 }}>4A. Đồ đạc chính</Title>
+                    <Space>
+                      {!isReadOnly && (
                         <Button
                           type="primary"
-                          icon={<PlusOutlined />}
-                          disabled={!primaryPickerCat || primaryPickerPreset === null}
-                          onClick={() => {
-                            const cat = PRIMARY_CATALOG.find(c => c.name === primaryPickerCat);
-                            const preset = cat.presets[primaryPickerPreset];
-                            add({ name: `${cat.name} (${preset.label})`, actualVolume: preset.volume, actualWeight: preset.weight, condition: 'GOOD' });
-                            setPrimaryPickerCat(null);
-                            setPrimaryPickerPreset(null);
-                          }}
                           className="survey-primary-btn"
+                          icon={<RobotOutlined />}
+                          onClick={() => setIsAIVisionModalOpen(true)}
                         >
-                          Thêm
+                          AI phân tính hình ảnh & video
                         </Button>
                       )}
-                    </Form.List>
+                      <Tag color="blue">Chọn từ danh mục hoặc tự nhập</Tag>
+                    </Space>
                   </div>
-                )}
 
-                {/* Primary items list */}
-                <div className="survey-items-container">
-                <div className="survey-items-header">
-                  <Row gutter={6}>
-                    <Col span={8}>Tên đồ đạc</Col>
-                    <Col span={4} style={{ textAlign: 'center' }}>Loại / kích cỡ</Col>
-                    <Col span={3} style={{ textAlign: 'center' }}>Thể tích (m³)</Col>
-                    <Col span={3} style={{ textAlign: 'center' }}>Khối lượng (kg)</Col>
-                    <Col span={3} style={{ textAlign: 'center' }}>Tình trạng</Col>
-                    <Col span={3} style={{ textAlign: 'center' }}>Thao tác</Col>
-                  </Row>
-                </div>
-                  <div className="survey-items-scrollable">
-                    <Form.List name="items">
-                      {(fields, { add, remove }) => (
-                        <>
-                          {fields.map(({ key, name, ...restField }) => (
-                            <Form.Item
-                              key={key}
-                              noStyle
-                              shouldUpdate
-                            >
-                              {() => {
-                                const itemVal = form.getFieldValue(['items', name]) || {};
-                                const isAIMapped = itemVal._source === 'AI_MAPPED';
-                                const confidence = itemVal._confidence;
-                                const catalogName = itemVal._catalogName;
-                                const presetIndex = itemVal._presetIndex;
-                                const catalogEntry = isAIMapped
-                                  ? PRIMARY_CATALOG.find(c => c.name === catalogName)
-                                  : null;
+                  {/* Quick-add picker: category → preset → add */}
+                  {!isReadOnly && (
+                    <div className="survey-secondary-picker" style={{ background: '#f8fdf8', borderColor: '#d9f7be' }}>
+                      <Select
+                        placeholder="Ðồ vật..."
+                        style={{ flex: '1 1 150px', minWidth: 150 }}
+                        value={primaryPickerCat}
+                        onChange={v => { setPrimaryPickerCat(v); setPrimaryPickerPreset(null); }}
+                        showSearch
+                        optionFilterProp="children"
+                      >
+                        {PRIMARY_CATALOG.map(cat => (
+                          <Option key={cat.name} value={cat.name}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <CatIcon icon={cat.IconComp} color={cat.color} size={14} />
+                              {cat.name}
+                            </span>
+                          </Option>
+                        ))}
+                      </Select>
+                      <Select
+                        placeholder="Kích thước / loại"
+                        style={{ flex: '1 1 140px', minWidth: 140 }}
+                        value={primaryPickerPreset}
+                        onChange={v => setPrimaryPickerPreset(v)}
+                        disabled={!primaryPickerCat}
+                      >
+                        {PRIMARY_CATALOG.find(c => c.name === primaryPickerCat)?.presets.map((p, i) => (
+                          <Option key={i} value={i}>{p.label} ({p.volume}m³ / {p.weight}kg)</Option>
+                        ))}
+                      </Select>
+                      <Form.List name="items">
+                        {(_, { add }) => (
+                          <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            disabled={!primaryPickerCat || primaryPickerPreset === null}
+                            onClick={() => {
+                              const cat = PRIMARY_CATALOG.find(c => c.name === primaryPickerCat);
+                              const preset = cat.presets[primaryPickerPreset];
+                              add({ name: `${cat.name} (${preset.label})`, actualVolume: preset.volume, actualWeight: preset.weight, condition: 'GOOD' });
+                              setPrimaryPickerCat(null);
+                              setPrimaryPickerPreset(null);
+                            }}
+                            className="survey-primary-btn"
+                          >
+                            Thêm
+                          </Button>
+                        )}
+                      </Form.List>
+                    </div>
+                  )}
 
-                                return (
-                                  <Row
-                                    gutter={6}
-                                    align="middle"
-                                    className={`survey-list-item${isAIMapped ? ' survey-list-item--ai' : ''}`}
-                                  >
-                                    <Col span={8}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: 'Nhập tên đồ' }]} style={{ marginBottom: 0, flex: 1 }}>
-                                          <Input
+                  {/* Primary items list */}
+                  <div className="survey-items-container">
+                    <div className="survey-items-header">
+                      <Row gutter={6}>
+                        <Col span={8}>Tên đồ đạc</Col>
+                        <Col span={4} style={{ textAlign: 'center' }}>Loại / kích cỡ</Col>
+                        <Col span={3} style={{ textAlign: 'center' }}>Thể tích (m³)</Col>
+                        <Col span={3} style={{ textAlign: 'center' }}>Khối lượng (kg)</Col>
+                        <Col span={3} style={{ textAlign: 'center' }}>Tình trạng</Col>
+                        <Col span={3} style={{ textAlign: 'center' }}>Thao tác</Col>
+                      </Row>
+                    </div>
+                    <div className="survey-items-scrollable">
+                      <Form.List name="items">
+                        {(fields, { add, remove }) => (
+                          <>
+                            {fields.map(({ key, name, ...restField }) => (
+                              <Form.Item
+                                key={key}
+                                noStyle
+                                shouldUpdate
+                              >
+                                {() => {
+                                  const itemVal = form.getFieldValue(['items', name]) || {};
+                                  const isAIMapped = itemVal._source === 'AI_MAPPED';
+                                  const confidence = itemVal._confidence;
+                                  const catalogName = itemVal._catalogName;
+                                  const presetIndex = itemVal._presetIndex;
+                                  const catalogEntry = isAIMapped
+                                    ? PRIMARY_CATALOG.find(c => c.name === catalogName)
+                                    : null;
+
+                                  return (
+                                    <Row
+                                      gutter={6}
+                                      align="middle"
+                                      className={`survey-list-item${isAIMapped ? ' survey-list-item--ai' : ''}`}
+                                    >
+                                      <Col span={8}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                          <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: 'Nhập tên đồ' }]} style={{ marginBottom: 0, flex: 1 }}>
+                                            <Input
+                                              size="small"
+                                              placeholder="Tên đồ vật"
+                                              suffix={isAIMapped && typeof confidence === 'number' && (
+                                                <Tooltip title={`AI tự động nhận diện (${Math.round(confidence * 100)}% phù hợp)`}>
+                                                  <span className={`ai-confidence-input-suffix ${confidence < 0.75 ? 'ai-confidence-input-suffix--low' : ''}`}>
+                                                    <RobotOutlined style={{ fontSize: 11 }} />
+                                                    <span>{Math.round(confidence * 100)}%</span>
+                                                  </span>
+                                                </Tooltip>
+                                              )}
+                                            />
+                                          </Form.Item>
+                                        </div>
+                                      </Col>
+                                      <Col span={4}>
+                                        {isAIMapped && catalogEntry ? (
+                                          <Select
                                             size="small"
-                                            placeholder="Tên đồ vật"
-                                            suffix={isAIMapped && typeof confidence === 'number' && (
-                                              <Tooltip title={`AI tự động nhận diện (${Math.round(confidence * 100)}% phù hợp)`}>
-                                                <span className={`ai-confidence-input-suffix ${confidence < 0.75 ? 'ai-confidence-input-suffix--low' : ''}`}>
-                                                  <RobotOutlined style={{ fontSize: 11 }} />
-                                                  <span>{Math.round(confidence * 100)}%</span>
-                                                </span>
-                                              </Tooltip>
-                                            )}
-                                          />
+                                            style={{ width: '100%' }}
+                                            value={presetIndex}
+                                            onChange={(idx) => {
+                                              const preset = catalogEntry.presets[idx];
+                                              const items = form.getFieldValue('items');
+                                              items[name] = {
+                                                ...items[name],
+                                                name: `${catalogName} (${preset.label})`,
+                                                actualVolume: preset.volume,
+                                                actualWeight: preset.weight,
+                                                _presetIndex: idx,
+                                              };
+                                              form.setFieldsValue({ items: [...items] });
+                                            }}
+                                            disabled={isReadOnly}
+                                          >
+                                            {catalogEntry.presets.map((p, i) => (
+                                              <Option key={i} value={i}>{p.label}</Option>
+                                            ))}
+                                          </Select>
+                                        ) : (
+                                          <span style={{ fontSize: 11, color: '#aaa', paddingLeft: 4 }}>—</span>
+                                        )}
+                                      </Col>
+                                      <Col span={3}>
+                                        <Form.Item {...restField} name={[name, 'actualVolume']} style={{ marginBottom: 0 }}>
+                                          <InputNumber size="small" min={0} step={0.1} style={{ width: '100%' }} placeholder="m³" />
                                         </Form.Item>
-                                      </div>
-                                    </Col>
-                                    <Col span={4}>
-                                      {isAIMapped && catalogEntry ? (
-                                        <Select
-                                          size="small"
-                                          style={{ width: '100%' }}
-                                          value={presetIndex}
-                                          onChange={(idx) => {
-                                            const preset = catalogEntry.presets[idx];
-                                            const items = form.getFieldValue('items');
-                                            items[name] = {
-                                              ...items[name],
-                                              name: `${catalogName} (${preset.label})`,
-                                              actualVolume: preset.volume,
-                                              actualWeight: preset.weight,
-                                              _presetIndex: idx,
-                                            };
-                                            form.setFieldsValue({ items: [...items] });
-                                          }}
-                                          disabled={isReadOnly}
-                                        >
-                                          {catalogEntry.presets.map((p, i) => (
-                                            <Option key={i} value={i}>{p.label}</Option>
-                                          ))}
-                                        </Select>
-                                      ) : (
-                                        <span style={{ fontSize: 11, color: '#aaa', paddingLeft: 4 }}>—</span>
-                                      )}
-                                    </Col>
-                                    <Col span={3}>
-                                      <Form.Item {...restField} name={[name, 'actualVolume']} style={{ marginBottom: 0 }}>
-                                        <InputNumber size="small" min={0} step={0.1} style={{ width: '100%' }} placeholder="m³" />
-                                      </Form.Item>
-                                    </Col>
-                                    <Col span={3}>
-                                      <Form.Item {...restField} name={[name, 'actualWeight']} style={{ marginBottom: 0 }}>
-                                        <InputNumber size="small" min={0} style={{ width: '100%' }} placeholder="kg" />
-                                      </Form.Item>
-                                    </Col>
-                                    <Col span={3}>
-                                      <Form.Item {...restField} name={[name, 'condition']} style={{ marginBottom: 0 }}>
-                                        <Select size="small" defaultValue="GOOD">
-                                          <Option value="GOOD">Tốt</Option>
-                                          <Option value="FRAGILE">Dễ vỡ</Option>
-                                          <Option value="DAMAGED">Hư hỏng</Option>
-                                        </Select>
-                                      </Form.Item>
-                                    </Col>
-                                    <Col span={3} style={{ textAlign: 'center' }}>
-                                      {!isReadOnly && (
-                                        <DeleteOutlined style={{ color: '#ff4d4f', cursor: 'pointer', fontSize: 14 }} onClick={() => remove(name)} />
-                                      )}
-                                      {itemVal._aiRaw && Array.isArray(itemVal._aiRaw.imageIndices) && itemVal._aiRaw.imageIndices.length > 0 && aiImages.length > 0 && (
-                                        <Tooltip title="Xem vị trí trong ảnh AI">
-                                          <Button
-                                            type="text"
-                                            size="small"
-                                            icon={<EyeOutlined />}
-                                            onClick={() => handleShowItemOnImage(itemVal)}
-                                          />
-                                        </Tooltip>
-                                      )}
-                                    </Col>
-                                  </Row>
-                                );
-                              }}
-                            </Form.Item>
-                          ))}
+                                      </Col>
+                                      <Col span={3}>
+                                        <Form.Item {...restField} name={[name, 'actualWeight']} style={{ marginBottom: 0 }}>
+                                          <InputNumber size="small" min={0} style={{ width: '100%' }} placeholder="kg" />
+                                        </Form.Item>
+                                      </Col>
+                                      <Col span={3}>
+                                        <Form.Item {...restField} name={[name, 'condition']} style={{ marginBottom: 0 }}>
+                                          <Select size="small" defaultValue="GOOD">
+                                            <Option value="GOOD">Tốt</Option>
+                                            <Option value="FRAGILE">Dễ vỡ</Option>
+                                            <Option value="DAMAGED">Hư hỏng</Option>
+                                          </Select>
+                                        </Form.Item>
+                                      </Col>
+                                      <Col span={3} style={{ textAlign: 'center' }}>
+                                        {!isReadOnly && (
+                                          <DeleteOutlined style={{ color: '#ff4d4f', cursor: 'pointer', fontSize: 14 }} onClick={() => remove(name)} />
+                                        )}
+                                        {itemVal._aiRaw && Array.isArray(itemVal._aiRaw.imageIndices) && itemVal._aiRaw.imageIndices.length > 0 && aiImages.length > 0 && (
+                                          <Tooltip title="Xem vị trí trong ảnh AI">
+                                            <Button
+                                              type="text"
+                                              size="small"
+                                              icon={<EyeOutlined />}
+                                              onClick={() => handleShowItemOnImage(itemVal)}
+                                            />
+                                          </Tooltip>
+                                        )}
+                                      </Col>
+                                    </Row>
+                                  );
+                                }}
+                              </Form.Item>
+                            ))}
 
-                          {/* {!isReadOnly && (
+                            {/* {!isReadOnly && (
                           <Button size="small" type="dashed" onClick={() => add()} block icon={<PlusOutlined />} style={{ marginTop: 4 }}>
                             Thêm thủ công
                           </Button>
                         )} */}
-                        </>
-                      )}
-                    </Form.List>
-                  </div>
-                </div>
-
-              </div>
-              <div className="survey-section-container">
-                <Title level={5} style={{ margin: '0 0 12px' }}>4B. Ðồ đạc phụ</Title>
-
-                {/* Picker row */}
-                {!isReadOnly && (
-                  <div className="survey-secondary-picker">
-                    <Select
-                      showSearch
-                      placeholder="Loại đồ phụ..."
-                      style={{ flex: '1 1 180px', minWidth: 180 }}
-                      value={secPickerKey}
-                      onChange={v => setSecPickerKey(v)}
-                      optionFilterProp="children"
-                    >
-                      {SECONDARY_CATALOG.map(item => (
-                        <Option key={item.key} value={item.key}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <CatIcon icon={item.IconComp} color={item.color} size={13} />
-                            {item.label}
-                          </span>
-                        </Option>
-                      ))}
-                    </Select>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {QTY_TIERS.map((tier, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setSecPickerTier(secPickerTier === idx ? null : idx)}
-                          style={{
-                            padding: '3px 10px',
-                            borderRadius: 4,
-                            border: `1.5px solid ${secPickerTier === idx ? '#faad14' : '#d9d9d9'}`,
-                            background: secPickerTier === idx ? '#faad14' : '#fff',
-                            color: secPickerTier === idx ? '#fff' : '#555',
-                            cursor: 'pointer',
-                            fontSize: 12
-                          }}
-                        >
-                          {tier.label}
-                        </button>
-                      ))}
+                          </>
+                        )}
+                      </Form.List>
                     </div>
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      disabled={!secPickerKey || secPickerTier === null}
-                      onClick={() => {
-                        // Remove existing entry for same key if any, then add new one
-                        setSecondaryItems(prev => [
-                          ...prev.filter(x => x.key !== secPickerKey),
-                          { key: secPickerKey, tierIdx: secPickerTier }
-                        ]);
-                        setSecPickerKey(null);
-                        setSecPickerTier(null);
-                      }}
-                      className="survey-primary-btn"
-                    >
-                      Thêm
-                    </Button>
                   </div>
-                )}
 
-                {/* Selected secondary items chips */}
-                <div className="survey-items-container" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, minHeight: 32 }}>
-                  {secondaryItems.length === 0 && (
-                    <Text type="secondary" style={{ fontSize: 12, padding: '4px 0' }}>Chưa chọn đồ đạc phụ nào</Text>
-                  )}
-                  {secondaryItems.map(({ key, tierIdx }) => {
-                    const cat = SECONDARY_CATALOG.find(c => c.key === key);
-                    const tier = QTY_TIERS[tierIdx];
-                    return (
-                      <Tag
-                        key={key}
-                        closable={!isReadOnly}
-                        onClose={() => setSecondaryItems(prev => prev.filter(x => x.key !== key))}
-                        color="orange"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '2px 8px' }}
+                </div>
+                <div className="survey-section-container">
+                  <Title level={5} style={{ margin: '0 0 12px' }}>4B. Ðồ đạc phụ</Title>
+
+                  {/* Picker row */}
+                  {!isReadOnly && (
+                    <div className="survey-secondary-picker">
+                      <Select
+                        showSearch
+                        placeholder="Loại đồ phụ..."
+                        style={{ flex: '1 1 180px', minWidth: 180 }}
+                        value={secPickerKey}
+                        onChange={v => setSecPickerKey(v)}
+                        optionFilterProp="children"
                       >
-                        {cat && <CatIcon icon={cat.IconComp} color="#92400e" size={11} />}
-                        {cat?.label} <strong>({tier?.label})</strong>
-                      </Tag>
-                    );
-                  })}
-                </div>
-              </div>
+                        {SECONDARY_CATALOG.map(item => (
+                          <Option key={item.key} value={item.key}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <CatIcon icon={item.IconComp} color={item.color} size={13} />
+                              {item.label}
+                            </span>
+                          </Option>
+                        ))}
+                      </Select>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {QTY_TIERS.map((tier, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setSecPickerTier(secPickerTier === idx ? null : idx)}
+                            style={{
+                              padding: '3px 10px',
+                              borderRadius: 4,
+                              border: `1.5px solid ${secPickerTier === idx ? '#faad14' : '#d9d9d9'}`,
+                              background: secPickerTier === idx ? '#faad14' : '#fff',
+                              color: secPickerTier === idx ? '#fff' : '#555',
+                              cursor: 'pointer',
+                              fontSize: 12
+                            }}
+                          >
+                            {tier.label}
+                          </button>
+                        ))}
+                      </div>
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        disabled={!secPickerKey || secPickerTier === null}
+                        onClick={() => {
+                          // Remove existing entry for same key if any, then add new one
+                          setSecondaryItems(prev => [
+                            ...prev.filter(x => x.key !== secPickerKey),
+                            { key: secPickerKey, tierIdx: secPickerTier }
+                          ]);
+                          setSecPickerKey(null);
+                          setSecPickerTier(null);
+                        }}
+                        className="survey-primary-btn"
+                      >
+                        Thêm
+                      </Button>
+                    </div>
+                  )}
 
-              {/* ── 4C. ĐỒ VẬT QUAN TRỌNG ──────────────────────────────── */}
-              <div className="survey-section-container" style={{ borderColor: '#ffd591', background: '#fffcf5' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <WarningOutlined style={{ color: '#faad14', fontSize: 16 }} />
-                  <Title level={5} style={{ margin: 0, color: '#d4380d' }}>4C. Đồ vật quan trọng / đặc biệt</Title>
-                </div>
-                <div style={{ background: '#fff7e6', border: '1px solid #ffd591', borderRadius: 8, padding: '10px 12px' }}>
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-                    ⚠️ Đánh dấu các đồ vật cần xử lý đặc biệt. Sẽ được ghi chú vào hồ sơ vận chuyển.
-                  </Text>
-                  <Row gutter={[8, 6]}>
-                    {CRITICAL_ITEMS.map(item => (
-                      <Col span={12} key={item.key}>
-                        <div
-                          onClick={() => {
-                            if (isReadOnly) return;
-                            setCriticalItems(prev => {
-                              const next = new Set(prev);
-                              next.has(item.key) ? next.delete(item.key) : next.add(item.key);
-                              return next;
-                            });
-                          }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '5px 8px',
-                            borderRadius: 6,
-                            border: `1.5px solid ${criticalItems.has(item.key) ? '#ff4d4f' : '#ffd591'}`,
-                            background: criticalItems.has(item.key) ? '#fff1f0' : '#fffbe6',
-                            cursor: isReadOnly ? 'default' : 'pointer',
-                            transition: 'all 0.15s'
-                          }}
+                  {/* Selected secondary items chips */}
+                  <div className="survey-items-container" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, minHeight: 32 }}>
+                    {secondaryItems.length === 0 && (
+                      <Text type="secondary" style={{ fontSize: 12, padding: '4px 0' }}>Chưa chọn đồ đạc phụ nào</Text>
+                    )}
+                    {secondaryItems.map(({ key, tierIdx }) => {
+                      const cat = SECONDARY_CATALOG.find(c => c.key === key);
+                      const tier = QTY_TIERS[tierIdx];
+                      return (
+                        <Tag
+                          key={key}
+                          closable={!isReadOnly}
+                          onClose={() => setSecondaryItems(prev => prev.filter(x => x.key !== key))}
+                          color="orange"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '2px 8px' }}
                         >
-                          <CatIcon icon={item.IconComp} color={criticalItems.has(item.key) ? '#dc2626' : item.color} size={16} />
-                          <span style={{ fontSize: 12, fontWeight: criticalItems.has(item.key) ? 600 : 400, color: criticalItems.has(item.key) ? '#cf1322' : '#555' }}>
-                            {item.label}
-                          </span>
-                          {criticalItems.has(item.key) && <LockOutlined style={{ marginLeft: 'auto', color: '#cf1322', fontSize: 12 }} />}
-                        </div>
-                      </Col>
-                    ))}
-                  </Row>
+                          {cat && <CatIcon icon={cat.IconComp} color="#92400e" size={11} />}
+                          {cat?.label} <strong>({tier?.label})</strong>
+                        </Tag>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            </Col>
+
+                {/* ── 4C. ĐỒ VẬT QUAN TRỌNG ──────────────────────────────── */}
+                <div className="survey-section-container" style={{ borderColor: '#ffd591', background: '#fffcf5' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <WarningOutlined style={{ color: '#faad14', fontSize: 16 }} />
+                    <Title level={5} style={{ margin: 0, color: '#d4380d' }}>4C. Đồ vật quan trọng / đặc biệt</Title>
+                  </div>
+                  <div style={{ background: '#fff7e6', border: '1px solid #ffd591', borderRadius: 8, padding: '10px 12px' }}>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                      ⚠️ Đánh dấu các đồ vật cần xử lý đặc biệt. Sẽ được ghi chú vào hồ sơ vận chuyển.
+                    </Text>
+                    <Row gutter={[8, 6]}>
+                      {CRITICAL_ITEMS.map(item => (
+                        <Col span={12} key={item.key}>
+                          <div
+                            onClick={() => {
+                              if (isReadOnly) return;
+                              setCriticalItems(prev => {
+                                const next = new Set(prev);
+                                next.has(item.key) ? next.delete(item.key) : next.add(item.key);
+                                return next;
+                              });
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '5px 8px',
+                              borderRadius: 6,
+                              border: `1.5px solid ${criticalItems.has(item.key) ? '#ff4d4f' : '#ffd591'}`,
+                              background: criticalItems.has(item.key) ? '#fff1f0' : '#fffbe6',
+                              cursor: isReadOnly ? 'default' : 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            <CatIcon icon={item.IconComp} color={criticalItems.has(item.key) ? '#dc2626' : item.color} size={16} />
+                            <span style={{ fontSize: 12, fontWeight: criticalItems.has(item.key) ? 600 : 400, color: criticalItems.has(item.key) ? '#cf1322' : '#555' }}>
+                              {item.label}
+                            </span>
+                            {criticalItems.has(item.key) && <LockOutlined style={{ marginLeft: 'auto', color: '#cf1322', fontSize: 12 }} />}
+                          </div>
+                        </Col>
+                      ))}
+                    </Row>
+                  </div>
+                </div>
+              </Col>
             )}
           </Row>
 
@@ -1275,14 +1354,27 @@ const SurveyInput = () => {
             <Space>
               <Button onClick={() => setIsModalOpen(false)}>Đóng</Button>
               {!isReadOnly && (
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  style={{ background: '#44624a', borderColor: '#44624a', minWidth: '150px' }}
-                  icon={<SaveOutlined />}
-                >
-                  Hoàn Tất & Tính Giá
-                </Button>
+                <Space>
+                  <Button
+                    size="large"
+                    icon={<DollarCircleOutlined />}
+                    onClick={handlePreviewPricing}
+                    loading={isCalculatingPreview}
+                    style={{ color: '#44624A', borderColor: '#44624A' }}
+                  >
+                    Tính giá & Xem trước
+                  </Button>
+                  <Button
+                    type="primary"
+                    size="large"
+                    htmlType="submit"
+                    loading={loading}
+                    style={{ background: '#44624a', borderColor: '#44624a', minWidth: '150px' }}
+                    icon={<SaveOutlined />}
+                  >
+                    Xác Nhận & Báo Giá
+                  </Button>
+                </Space>
               )}
             </Space>
           </div>
@@ -1360,6 +1452,85 @@ const SurveyInput = () => {
           </div>
         )}
       </Modal>
+
+      {/* ─── PRICING PREVIEW MODAL ──────────────────────────────────────────────── */}
+      <Modal
+        title={<Title level={4} style={{ margin: 0, color: '#44624A' }}>Chi tiết tính giá đơn hàng</Title>}
+        open={isPreviewPricingModalOpen}
+        onCancel={() => setIsPreviewPricingModalOpen(false)}
+        footer={[
+          <Button key="back" onClick={() => setIsPreviewPricingModalOpen(false)}>Quay lại</Button>,
+          <Button
+            key="submit"
+            type="primary"
+            style={{ background: '#44624A', borderColor: '#44624A' }}
+            onClick={handleConfirmQuote}
+          >
+            Gửi báo giá cho khách hàng
+          </Button>
+        ]}
+        width={600}
+      >
+        {previewPricingData && (
+          <div style={{ padding: '10px 0' }}>
+            <div style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text>Phí thuê xe ({previewPricingData.breakdown?.suggestedVehicle || '—'}):</Text>
+                <Text strong>{(previewPricingData.breakdown?.vehicleFee || 0).toLocaleString()} ₫</Text>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text>Phí nhân công ({previewPricingData.breakdown?.suggestedStaffCount || 0} người):</Text>
+                <Text strong>{(previewPricingData.breakdown?.laborFee || 0).toLocaleString()} ₫</Text>
+              </div>
+              {previewPricingData.breakdown?.floorFee > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <Text>Phụ phí tầng lầu:</Text>
+                  <Text strong>{previewPricingData.breakdown.floorFee.toLocaleString()} ₫</Text>
+                </div>
+              )}
+              {previewPricingData.breakdown?.carryFee > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <Text>Phí khênh bộ:</Text>
+                  <Text strong>{previewPricingData.breakdown.carryFee.toLocaleString()} ₫</Text>
+                </div>
+              )}
+              {previewPricingData.breakdown?.assemblingFee > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <Text>Phí tháo lắp:</Text>
+                  <Text strong>{previewPricingData.breakdown.assemblingFee.toLocaleString()} ₫</Text>
+                </div>
+              )}
+              {previewPricingData.breakdown?.packingFee > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <Text>Phí đóng gói:</Text>
+                  <Text strong>{previewPricingData.breakdown.packingFee.toLocaleString()} ₫</Text>
+                </div>
+              )}
+              {previewPricingData.breakdown?.insuranceFee > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <Text>Phí bảo hiểm:</Text>
+                  <Text strong>{previewPricingData.breakdown.insuranceFee.toLocaleString()} ₫</Text>
+                </div>
+              )}
+              <Divider style={{ margin: '12px 0' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Title level={4} style={{ margin: 0 }}>TỔNG CỘNG:</Title>
+                <Title level={4} style={{ margin: 0, color: '#44624A' }}>
+                  {(previewPricingData.totalPrice || 0).toLocaleString()} ₫
+                </Title>
+              </div>
+            </div>
+
+            <Alert
+              message="Lưu ý"
+              description="Sau khi gửi báo giá, trạng thái đơn hàng sẽ chuyển thành QUOTED. Khách hàng sẽ nhận được thông báo để vào xem và chấp nhận báo giá."
+              type="info"
+              showIcon
+            />
+          </div>
+        )}
+      </Modal>
+
     </Card>
   );
 };

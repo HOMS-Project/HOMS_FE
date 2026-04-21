@@ -32,11 +32,17 @@ import "./style.css";
 const { Content } = Layout;
 const { TextArea } = Input;
 const { Option } = Select;
+const MAX_PORTERS = {
+  "500KG": 1,
+  "1TON": 2,
+  "1.5TON": 3,
+  "2TON": 4,
+};
 
 const CreateTruckRental = () => {
   const navigate = useNavigate();
   const location = useLocation();
-const [vehicles, setVehicles] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   // From navigation state ideally
   const serviceId = location.state?.serviceId || 4;
 
@@ -51,7 +57,9 @@ const [vehicles, setVehicles] = useState([]);
   // track selected vehicle by id so options with same vehicleType don't appear selected together
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [rentalDurationHours, setRentalDurationHours] = useState(2);
-  const [withDriver, setWithDriver] = useState(false);
+  const [extraStaffCount, setExtraStaffCount] = useState(0);
+  const [needsPacking, setNeedsPacking] = useState(false);
+  const [needsAssembling, setNeedsAssembling] = useState(false);
 
   // Schedule state
   const [movingDate, setMovingDate] = useState(null);
@@ -84,13 +92,13 @@ const [vehicles, setVehicles] = useState([]);
     const savedDate = sessionStorage.getItem("movingDate");
     if (savedDate) setMovingDate(dayjs(savedDate));
   }, []);
-useEffect(() => {
-  const fetchVehicles = async () => {
-    try {
-      const data = await getVehicles();
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const data = await getVehicles();
 
-      // chỉ lấy xe AVAILABLE
-      const available = data.filter(v => v.status === "Available");
+        // chỉ lấy xe AVAILABLE
+        const available = data.filter(v => v.status === "Available");
 
       setVehicles(available);
       // set default selected vehicle to first available
@@ -101,10 +109,8 @@ useEffect(() => {
     } catch (err) {
       message.error("Không tải được danh sách xe");
     }
-  };
+  }, [truckType]);
 
-  fetchVehicles();
-}, []);
   const handleLocationChange = (locationData) => {
     setPickupLocation(locationData);
     sessionStorage.setItem("pickupLocation", JSON.stringify(locationData));
@@ -141,15 +147,15 @@ useEffect(() => {
     const selectedMovingDate = dayjs(movingDate);
 
 
-const hoursUntilMoving = selectedMovingDate.diff(now, 'hour', true);
-if (hoursUntilMoving < 2) {
-    setErrors(prev => ({
+    const hoursUntilMoving = selectedMovingDate.diff(now, 'hour', true);
+    if (hoursUntilMoving < 2) {
+      setErrors(prev => ({
         ...prev,
         movingDate: 'Thời gian nhận xe phải cách hiện tại ít nhất 2 tiếng'
-    }));
-    setIsSubmitting(false);
-    return;
-}
+      }));
+      setIsSubmitting(false);
+      return;
+    }
 
     // Important: for ConfirmMovingOrder, we want dropoffLocation to be pickupLocation or null. Setting identical.
     const orderData = {
@@ -163,7 +169,9 @@ if (hoursUntilMoving < 2) {
       rentalDetails: {
         truckType,
         rentalDurationHours,
-        withDriver,
+        extraStaffCount,
+        needsPacking,
+        needsAssembling,
       },
     };
 
