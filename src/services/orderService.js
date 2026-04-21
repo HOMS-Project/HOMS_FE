@@ -77,9 +77,13 @@ const buildRequestTicketPayload = (orderData) => {
         payload.aiEstimate = orderData.aiEstimate;
     }
 
-    if (moveType === 'TRUCK_RENTAL' && orderData.rentalDetails) {
-        payload.rentalDetails = orderData.rentalDetails;
-    }
+   if (moveType === 'TRUCK_RENTAL' && orderData.rentalDetails) {
+    payload.rentalDetails = orderData.rentalDetails;
+  
+    payload.suggestedVehicle = orderData.rentalDetails.truckType;
+    payload.rentalDurationHours = orderData.rentalDetails.rentalDurationHours;
+    payload.withDriver = orderData.rentalDetails.withDriver;
+}
 
     return payload;
 };
@@ -250,7 +254,10 @@ export const fetchUserTickets = async (userId, searchCode) => {
         normalizeApiError(error);
     }
 };
-
+export const getVehicles = async () => {
+  const res = await api.get("/admin/vehicles");
+  return res.data;
+};
 const orderService = {
     createOrder,
     getMyOrders,
