@@ -9,6 +9,7 @@ import {
   Input,
   Button,
   Modal,
+  Modal,
   DatePicker,
   message,
   Select,
@@ -29,6 +30,7 @@ import AppHeader from "../../../components/header/header";
 import AppFooter from "../../../components/footer/footer";
 import LocationPicker from "../../../components/LocationPicker/LocationPicker";
 import api from "../../../services/api";
+import { createOrder, getVehicles, getPriceEstimate } from "../../../services/orderService";
 import { createOrder, getVehicles, getPriceEstimate } from "../../../services/orderService";
 
 import "./style.css";

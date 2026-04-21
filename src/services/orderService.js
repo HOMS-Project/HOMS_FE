@@ -72,21 +72,27 @@ const buildRequestTicketPayload = (orderData) => {
         notes: notesParts.join(' | ')
     };
 
+    // If frontend supplied a pricing snapshot (from estimate modal), attach it so backend
+    // can persist a quote snapshot and show total price immediately on customer order page.
+    if (orderData.pricing) {
+        payload.pricing = orderData.pricing;
+    }
+
     // Include AI estimate for SPECIFIC_ITEMS/TRUCK_RENTAL so WAITING_REVIEW form is pre-filled
     if (orderData.aiEstimate) {
         payload.aiEstimate = orderData.aiEstimate;
     }
 
-   if (moveType === 'TRUCK_RENTAL' && orderData.rentalDetails) {
-    payload.rentalDetails = orderData.rentalDetails;
-  
-    payload.suggestedVehicle = orderData.rentalDetails.truckType;
-    payload.rentalDurationHours = orderData.rentalDetails.rentalDurationHours;
-    payload.withDriver = true;
-    payload.extraStaffCount = orderData.rentalDetails.extraStaffCount;
-    payload.needsAssembling = orderData.rentalDetails.needsAssembling;
-    payload.needsPacking = orderData.rentalDetails.needsPacking;
-}
+    if (moveType === 'TRUCK_RENTAL' && orderData.rentalDetails) {
+        payload.rentalDetails = orderData.rentalDetails;
+
+        payload.suggestedVehicle = orderData.rentalDetails.truckType;
+        payload.rentalDurationHours = orderData.rentalDetails.rentalDurationHours;
+        payload.withDriver = true;
+        payload.extraStaffCount = orderData.rentalDetails.extraStaffCount;
+        payload.needsAssembling = orderData.rentalDetails.needsAssembling;
+        payload.needsPacking = orderData.rentalDetails.needsPacking;
+    }
 
     return payload;
 };
@@ -258,23 +264,37 @@ export const fetchUserTickets = async (userId, searchCode) => {
     }
 };
 export const getVehicles = async () => {
-  const res = await api.get("/admin/vehicles");
-  return res.data;
+    const res = await api.get("/admin/vehicles");
+    return res.data;
 };
 
 export const getPriceEstimate = async (payload) => {
-  try {
-    const res = await api.post("/pricing/calculate", payload);
-    return res.data;
-  } catch (error) {
-    console.error('Error getting price estimate:', error);
-    normalizeApiError(error);
-  }
+    try {
+        const res = await api.post("/pricing/calculate", payload);
+        return res.data;
+    } catch (error) {
+        console.error('Error getting price estimate:', error);
+        normalizeApiError(error);
+    }
+};
+
+// Get price estimate for an order without creating it
+export const getPriceEstimate = async (orderData) => {
+    try {
+        // build payload similar to createOrder so pricing controller can map fields
+        const payload = buildRequestTicketPayload(orderData);
+        const response = await api.post('/pricing/calculate', payload);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching price estimate:', error);
+        normalizeApiError(error);
+    }
 };
 const orderService = {
     createOrder,
     getMyOrders,
     getOrderById,
+    getPriceEstimate,
     updateTicketStatus,
     cancelOrder,
     createPaymentLink,
