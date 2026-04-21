@@ -82,7 +82,10 @@ const buildRequestTicketPayload = (orderData) => {
   
     payload.suggestedVehicle = orderData.rentalDetails.truckType;
     payload.rentalDurationHours = orderData.rentalDetails.rentalDurationHours;
-    payload.withDriver = orderData.rentalDetails.withDriver;
+    payload.withDriver = true;
+    payload.extraStaffCount = orderData.rentalDetails.extraStaffCount;
+    payload.needsAssembling = orderData.rentalDetails.needsAssembling;
+    payload.needsPacking = orderData.rentalDetails.needsPacking;
 }
 
     return payload;

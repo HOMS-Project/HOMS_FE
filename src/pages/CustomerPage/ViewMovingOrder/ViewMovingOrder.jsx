@@ -541,7 +541,7 @@ const OrderCard = ({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                         <div style={{ background: '#1677ff', borderRadius: 6, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <CarOutlined style={{ color: '#fff', fontSize: 13 }} />
-                          <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>Thông tin thuê xe tải tự lái</span>
+                          <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>Thông tin thuê xe tải</span>
                         </div>
                       </div>
 
@@ -549,10 +549,12 @@ const OrderCard = ({
                         {[
                           { icon: <CarOutlined />, label: 'Loại xe', value: ticket.rentalDetails?.truckType || ticket.truckType || 'Không xác định' },
                           { icon: <ClockCircleOutlined />, label: 'Thời gian thuê', value: ticket.rentalDetails?.rentalDurationHours ? `${ticket.rentalDetails.rentalDurationHours} giờ` : 'Không xác định' },
-                          { icon: <TeamOutlined />, label: 'Kèm tài xế', value: ticket.rentalDetails?.withDriver ? 'Có' : 'Không' },
+                          { icon: <TeamOutlined />, label: 'Tổng nhân sự', value: `${1 + (ticket.rentalDetails?.extraStaffCount || 0)} người` },
+                          { icon: <InboxOutlined />, label: 'Đóng gói', value: ticket.rentalDetails?.needsPacking ? 'Có' : 'Không' },
+                          { icon: <ToolOutlined />, label: 'Tháo lắp', value: ticket.rentalDetails?.needsAssembling ? 'Có' : 'Không' },
                         ].map((item, i) => (
-                          <Col span={8} key={i}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 4, padding: '8px 4px', background: '#fff', borderRadius: 8, border: '1px solid #bae0ff' }}>
+                          <Col span={4} md={4} sm={8} xs={12} key={i}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 4, padding: '8px 4px', background: '#fff', borderRadius: 8, border: '1px solid #bae0ff', height: '100%' }}>
                               <span style={{ color: '#1677ff', fontSize: 18 }}>{item.icon}</span>
                               <div>
                                 <div style={{ fontSize: 11, color: '#888' }}>{item.label}</div>
@@ -1056,30 +1058,30 @@ const ViewMovingOrder = () => {
 
     const fetchTickets = async () => {
       // Đảm bảo cả 2 biến đều đã được React cập nhật
-      if (!isAuthenticated || !user) { 
-        if (isMounted) setLoading(false); 
-        return; 
+      if (!isAuthenticated || !user) {
+        if (isMounted) setLoading(false);
+        return;
       }
-      
+
       try {
         const currentUserId = user._id || user.id;
         // Thêm timestamp _t để chống cache trình duyệt
         const response = await api.get(`/request-tickets`, {
-          params: { 
+          params: {
             customerId: currentUserId,
-            _t: Date.now() 
+            _t: Date.now()
           },
         });
 
         if (response.data?.success && isMounted) {
           let userTickets = response.data.data || [];
-          
+
           userTickets = userTickets.filter(
             (t) =>
               (t.customerId && (t.customerId._id === currentUserId || t.customerId === currentUserId)) ||
               t.customerId === currentUserId
           );
-          
+
           userTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
           const searchCode = new URLSearchParams(location.search).get("searchCode");
@@ -1114,7 +1116,7 @@ const ViewMovingOrder = () => {
     fetchTickets();
     return () => { isMounted = false; };
   }, [isAuthenticated, user, location.search]);
-  
+
   // Tự động cuộn lên đầu khi có đơn mới nạp vào
   useEffect(() => {
     if (tickets.length > 0) {

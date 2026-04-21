@@ -45,6 +45,11 @@ export const surveyService = {
   estimateResources: async (data) => {
     const response = await api.post('/surveys/estimate', data);
     return response.data;
+  },
+
+  previewPricing: async (ticketId, data) => {
+    const response = await api.post(`/surveys/${ticketId}/preview-pricing`, data);
+    return response.data;
   }
 };
 export const userService = {

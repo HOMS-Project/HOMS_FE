@@ -23,18 +23,24 @@ import AppHeader from "../../../components/header/header";
 import AppFooter from "../../../components/footer/footer";
 import LocationPicker from "../../../components/LocationPicker/LocationPicker";
 import api from "../../../services/api";
-import { createOrder,getVehicles } from "../../../services/orderService";
+import { createOrder, getVehicles } from "../../../services/orderService";
 
 import "./style.css";
 
 const { Content } = Layout;
 const { TextArea } = Input;
 const { Option } = Select;
+const MAX_PORTERS = {
+  "500KG": 1,
+  "1TON": 2,
+  "1.5TON": 3,
+  "2TON": 4,
+};
 
 const CreateTruckRental = () => {
   const navigate = useNavigate();
   const location = useLocation();
-const [vehicles, setVehicles] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   // From navigation state ideally
   const serviceId = location.state?.serviceId || 4;
 
@@ -47,7 +53,9 @@ const [vehicles, setVehicles] = useState([]);
   // Rental details
   const [truckType, setTruckType] = useState("1TON");
   const [rentalDurationHours, setRentalDurationHours] = useState(2);
-  const [withDriver, setWithDriver] = useState(false);
+  const [extraStaffCount, setExtraStaffCount] = useState(0);
+  const [needsPacking, setNeedsPacking] = useState(false);
+  const [needsAssembling, setNeedsAssembling] = useState(false);
 
   // Schedule state
   const [movingDate, setMovingDate] = useState(null);
@@ -61,22 +69,30 @@ const [vehicles, setVehicles] = useState([]);
     const savedDate = sessionStorage.getItem("movingDate");
     if (savedDate) setMovingDate(dayjs(savedDate));
   }, []);
-useEffect(() => {
-  const fetchVehicles = async () => {
-    try {
-      const data = await getVehicles();
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const data = await getVehicles();
 
-      // chỉ lấy xe AVAILABLE
-      const available = data.filter(v => v.status === "Available");
+        // chỉ lấy xe AVAILABLE
+        const available = data.filter(v => v.status === "Available");
 
-      setVehicles(available);
-    } catch (err) {
-      message.error("Không tải được danh sách xe");
+        setVehicles(available);
+      } catch (err) {
+        message.error("Không tải được danh sách xe");
+      }
+    };
+
+    fetchVehicles();
+  }, []);
+
+  useEffect(() => {
+    const limit = MAX_PORTERS[truckType] || 0;
+    if (extraStaffCount > limit) {
+      setExtraStaffCount(limit);
     }
-  };
+  }, [truckType]);
 
-  fetchVehicles();
-}, []);
   const handleLocationChange = (locationData) => {
     setPickupLocation(locationData);
     sessionStorage.setItem("pickupLocation", JSON.stringify(locationData));
@@ -113,15 +129,15 @@ useEffect(() => {
     const selectedMovingDate = dayjs(movingDate);
 
 
-const hoursUntilMoving = selectedMovingDate.diff(now, 'hour', true);
-if (hoursUntilMoving < 2) {
-    setErrors(prev => ({
+    const hoursUntilMoving = selectedMovingDate.diff(now, 'hour', true);
+    if (hoursUntilMoving < 2) {
+      setErrors(prev => ({
         ...prev,
         movingDate: 'Thời gian nhận xe phải cách hiện tại ít nhất 2 tiếng'
-    }));
-    setIsSubmitting(false);
-    return;
-}
+      }));
+      setIsSubmitting(false);
+      return;
+    }
 
     // Important: for ConfirmMovingOrder, we want dropoffLocation to be pickupLocation or null. Setting identical.
     const orderData = {
@@ -135,7 +151,9 @@ if (hoursUntilMoving < 2) {
       rentalDetails: {
         truckType,
         rentalDurationHours,
-        withDriver,
+        extraStaffCount,
+        needsPacking,
+        needsAssembling,
       },
     };
 
@@ -209,67 +227,97 @@ if (hoursUntilMoving < 2) {
                       style={{ marginBottom: 15 }}
                     />
 
-               <h3>Loại xe</h3>
-<Row gutter={10} style={{ marginBottom: 15 }}>
-  {vehicles.map((v) => (
-    <Col span={12} key={v._id}>
-      <Button
-        type={truckType === v.vehicleType ? "primary" : "default"}
-        block
-        onClick={() => setTruckType(v.vehicleType)}
-        style={{ height: 50 }}
-      >
-        {v.vehicleType} ({v.loadCapacity || "?"} kg)
-      </Button>
-    </Col>
-  ))}
-</Row>
-<h3>Thời gian thuê</h3>
-<Row gutter={10} style={{ marginBottom: 15 }}>
-  {[2, 4, 8, 24].map((hour) => (
-    <Col span={12} key={hour}>
-      <Button
-        type={rentalDurationHours === hour ? "primary" : "default"}
-        block
-        onClick={() => setRentalDurationHours(hour)}
-        style={{ height: 45 }}
-      >
-        {hour === 24 ? "1 ngày" : `${hour} tiếng`}
-      </Button>
-    </Col>
-  ))}
-</Row>
+                    <h3>Loại xe</h3>
+                    <Row gutter={10} style={{ marginBottom: 15 }}>
+                      {vehicles.map((v) => (
+                        <Col span={12} key={v._id}>
+                          <Button
+                            type={truckType === v.vehicleType ? "primary" : "default"}
+                            block
+                            onClick={() => setTruckType(v.vehicleType)}
+                            style={{ height: 50 }}
+                          >
+                            {v.vehicleType} ({v.loadCapacity || "?"} kg)
+                          </Button>
+                        </Col>
+                      ))}
+                    </Row>
+                    <h3>Thời gian thuê</h3>
+                    <Row gutter={10} style={{ marginBottom: 15 }}>
+                      {[2, 4, 8, 24].map((hour) => (
+                        <Col span={12} key={hour}>
+                          <Button
+                            type={rentalDurationHours === hour ? "primary" : "default"}
+                            block
+                            onClick={() => setRentalDurationHours(hour)}
+                            style={{ height: 45 }}
+                          >
+                            {hour === 24 ? "1 ngày" : `${hour} tiếng`}
+                          </Button>
+                        </Col>
+                      ))}
+                    </Row>
 
-<h3>Ngày giờ nhận xe</h3>
-<ConfigProvider locale={viVN}>
-  <DatePicker
-    placeholder="Chọn ngày giờ"
-    showTime={{ format: "HH:mm", minuteStep: 15 }}
-    format="DD/MM/YYYY HH:mm"
-    value={movingDate}
-    onChange={(v) => {
-      setMovingDate(v);
-      if (v)
-        sessionStorage.setItem("movingDate", v.toISOString());
-      else sessionStorage.removeItem("movingDate");
+                    <h3>Ngày giờ nhận xe</h3>
+                    <ConfigProvider locale={viVN}>
+                      <DatePicker
+                        placeholder="Chọn ngày giờ"
+                        showTime={{ format: "HH:mm", minuteStep: 15 }}
+                        format="DD/MM/YYYY HH:mm"
+                        value={movingDate}
+                        onChange={(v) => {
+                          setMovingDate(v);
+                          if (v)
+                            sessionStorage.setItem("movingDate", v.toISOString());
+                          else sessionStorage.removeItem("movingDate");
 
-      setErrors((prev) => ({
-        ...prev,
-        movingDate: null,
-      }));
-    }}
-    disabledDate={(current) =>
-      current && current < dayjs().startOf("day")
-    }
-    style={{ width: "100%", padding: "10px 14px" }}
-  />
-</ConfigProvider>
+                          setErrors((prev) => ({
+                            ...prev,
+                            movingDate: null,
+                          }));
+                        }}
+                        disabledDate={(current) =>
+                          current && current < dayjs().startOf("day")
+                        }
+                        style={{ width: "100%", padding: "10px 14px" }}
+                      />
+                    </ConfigProvider>
 
-{errors.movingDate && (
-  <div style={{ color: "#ff4d4f", marginTop: 5, fontSize: 13 }}>
-    {errors.movingDate}
-  </div>
-)}
+                    {errors.movingDate && (
+                      <div style={{ color: "#ff4d4f", marginTop: 5, fontSize: 13 }}>
+                        {errors.movingDate}
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 20 }}>
+                      <h3>Dịch vụ bổ sung</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 14 }}>Số lượng nhân viên bốc xếp bổ sung:</span>
+                          <Select 
+                            value={extraStaffCount} 
+                            onChange={v => setExtraStaffCount(v)}
+                            style={{ width: 120 }}
+                          >
+                            {Array.from({ length: (MAX_PORTERS[truckType] || 0) + 1 }, (_, i) => i).map(n => (
+                              <Option key={n} value={n}>{n === 0 ? "Không có" : `${n} người`}</Option>
+                            ))}
+                          </Select>
+                        </div>
+                        <Checkbox
+                          checked={needsPacking}
+                          onChange={e => setNeedsPacking(e.target.checked)}
+                        >
+                          Dịch vụ đóng gói đồ đạc (thùng carton, màng PE...)
+                        </Checkbox>
+                        <Checkbox
+                          checked={needsAssembling}
+                          onChange={e => setNeedsAssembling(e.target.checked)}
+                        >
+                          Dịch vụ tháo lắp (giường, tủ, máy lạnh...)
+                        </Checkbox>
+                      </div>
+                    </div>
 
                   </div>
                 </Card>
