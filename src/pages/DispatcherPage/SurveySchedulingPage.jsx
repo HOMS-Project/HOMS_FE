@@ -121,7 +121,6 @@ const SurveySchedulingPage = () => {
   const [activeFilter, setActiveFilter] = useState('ALL');
 
   // Modals
-  const [isApproveModalVisible, setIsApproveModalVisible] = useState(false);  // FULL_HOUSE approve
   const [isRejectModalVisible, setIsRejectModalVisible] = useState(false);
   const [isManualAssignModalVisible, setIsManualAssignModalVisible] = useState(false); // ASSIGNMENT_FAILED fallback
   const [isAcceptProposedModalVisible, setIsAcceptProposedModalVisible] = useState(false);
@@ -194,12 +193,7 @@ const SurveySchedulingPage = () => {
 
   // ── Action Handlers ─────────────────────────────────────────────────────────
 
-  // "Duyệt đơn" for FULL_HOUSE → open modal to pick surveyor
-  const openApproveModal = (ticket) => {
-    setSelectedTicket(ticket);
-    form.resetFields();
-    setIsApproveModalVisible(true);
-  };
+
 
   // "Duyệt đơn" for SPECIFIC_ITEMS → direct API call
   const handleDirectApprove = async (ticket) => {
@@ -236,6 +230,7 @@ const SurveySchedulingPage = () => {
       setIsCalculatingPreview(true);
       const payload = {
         ...values,
+        suggestedVehicles: [{ vehicleType: values.suggestedVehicle, count: 1 }],
         estimatedHours: values.rentalDurationHours,
         items: [] // Truck rental usually doesn't need detailed items for pricing
       };
@@ -254,6 +249,7 @@ const SurveySchedulingPage = () => {
       const values = await formTruckRental.validateFields();
       const payload = {
         ...values,
+        suggestedVehicles: [{ vehicleType: values.suggestedVehicle, count: 1 }],
         estimatedHours: values.rentalDurationHours,
         items: [],
         status: 'COMPLETED'
@@ -274,19 +270,7 @@ const SurveySchedulingPage = () => {
     }
   };
 
-  // FULL_HOUSE approve modal submit → calls /approve with surveyorId
-  const handleApproveSubmit = async (values) => {
-    try {
-      await requestTicketService.approveTicket(selectedTicket._id, {
-        surveyorId: values.surveyorId,
-      });
-      message.success(`Đã duyệt và phân công khảo sát cho đơn ${selectedTicket.code}`);
-      setIsApproveModalVisible(false);
-      fetchData();
-    } catch (error) {
-      message.error(error.response?.data?.message || "Có lỗi xảy ra khi xác nhận!");
-    }
-  };
+
 
   // "Từ chối" → propose new time
   const handleCancelTicket = (ticket) => {
@@ -442,7 +426,7 @@ const SurveySchedulingPage = () => {
                   type="primary"
                   style={{ background: "#44624a", borderColor: "#44624a" }}
                   icon={<CheckCircleOutlined />}
-                  onClick={() => record.moveType === 'FULL_HOUSE' ? openApproveModal(record) : handleDirectApprove(record)}
+                  onClick={() => handleDirectApprove(record)}
                 >
                   Duyệt đơn
                 </Button>
@@ -770,7 +754,7 @@ const SurveySchedulingPage = () => {
           <div style={{ padding: '10px 0' }}>
             <div style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                <Text>Phí thuê xe ({previewPricingData.breakdown?.suggestedVehicle || '—'}):</Text>
+                <Text>Phí thuê xe ({previewPricingData.breakdown?.suggestedVehicles?.map(v => `${v.count}x${v.vehicleType}`).join(' + ') || previewPricingData.breakdown?.suggestedVehicle || '—'}):</Text>
                 <Text strong>{(previewPricingData.breakdown?.vehicleFee || 0).toLocaleString()} ₫</Text>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>

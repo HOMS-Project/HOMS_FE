@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Layout, Modal, message, Spin, Tour, Button, ConfigProvider, Row, Col, Tag, Divider, Typography, Tooltip, Empty } from "antd";
+import { Layout, Modal, message, Spin, Tour, Button, ConfigProvider, Row, Col, Tag, Divider, Typography, Tooltip } from "antd";
 import viVN from 'antd/locale/vi_VN';
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -13,8 +13,6 @@ import {
   CloseCircleOutlined,
   EyeOutlined,
   PhoneOutlined,
-  DownOutlined,
-  UpOutlined,
   FileTextOutlined,
   NotificationOutlined,
   CarOutlined,
@@ -112,6 +110,17 @@ const MOVE_TYPE = {
   OFFICE_MOVING: { label: "Chuyển Văn Phòng", cls: "mo-tag--orange" },
 };
 
+const translateTruckType = (type) => {
+  if (!type) return "Không xác định";
+  const map = {
+    "500KG": "Xe tải 500kg",
+    "1.5T": "Xe tải 1.5 Tấn",
+    "2T": "Xe tải 2 Tấn",
+    "2.5T": "Xe tải 2.5 Tấn",
+  };
+  return map[type] || type;
+};
+
 /* ─── filter tabs config ──────────────────────────────────── */
 const FILTERS = [
   { key: "ALL", label: "Tất cả" },
@@ -169,6 +178,7 @@ const OrderCard = ({
   onPayRemaining,
   onCancelTicketRequest,
   onRescheduleSurveyRequest,
+  onConfirmReschedule,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [surveyDetails, setSurveyDetails] = useState(null);
@@ -240,6 +250,8 @@ const OrderCard = ({
     && isContractSigned
     && ticket.invoice?.paymentStatus === 'UNPAID';
 
+  const isReschedulePending = ticket.invoice?.rescheduleStatus === 'PENDING_APPROVAL';
+
   return (
     <div className={`mo-card ${isQuoted ? 'mo-card--highlight' : ''}`}>
       {/* ── QUOTED notice ── */}
@@ -247,6 +259,14 @@ const OrderCard = ({
         <div className="mo-quoted-notice">
           <NotificationOutlined className="mo-quoted-notice-icon mo-shake-animation" />
           <span>Bạn có báo giá mới — vui lòng xem và xác nhận để tiếp tục tiến trình.</span>
+        </div>
+      )}
+
+      {/* ── RESCHEDULE notice ── */}
+      {isReschedulePending && (
+        <div className="mo-quoted-notice" style={{ backgroundColor: '#fffbe6', borderColor: '#ffe58f', color: '#d46b08' }}>
+          <CalendarOutlined className="mo-quoted-notice-icon mo-shake-animation" style={{ color: '#fa8c16' }} />
+          <span>Điều phối viên đề xuất dời lịch vận chuyển sang <b>{fmtDate(ticket.invoice?.proposedDispatchTime)}</b>. Vui lòng xác nhận!</span>
         </div>
       )}
 
@@ -356,6 +376,18 @@ const OrderCard = ({
                 <CloseCircleOutlined /> Từ chối
               </button>
             </>
+          )}
+
+          {/* Đề xuất dời lịch vận chuyển */}
+          {isReschedulePending && (
+             <>
+               <button className="mo-btn mo-btn--accept" onClick={() => onConfirmReschedule(ticket, 'ACCEPT')}>
+                 <CheckCircleOutlined /> Đồng ý đổi lịch
+               </button>
+               <button className="mo-btn mo-btn--reject" onClick={() => onConfirmReschedule(ticket, 'REJECT')}>
+                 <CloseCircleOutlined /> Từ chối
+               </button>
+             </>
           )}
 
           {/* Hủy yêu cầu */}
@@ -623,7 +655,7 @@ const OrderCard = ({
 
                       <Row gutter={[10, 10]}>
                         {[
-                          { icon: <CarOutlined />, label: 'Xe tải', value: surveyDetails.suggestedVehicle },
+                          { icon: <CarOutlined />, label: 'Xe tải', value: surveyDetails.suggestedVehicles?.length > 0 ? surveyDetails.suggestedVehicles.map(v => `${v.count} x ${translateTruckType(v.vehicleType)}`).join(' + ') : (translateTruckType(surveyDetails.suggestedVehicle) || surveyDetails.suggestedVehicle) },
                           { icon: <TeamOutlined />, label: 'Nhân sự', value: `${surveyDetails.suggestedStaffCount} người` },
                           { icon: <ClockCircleOutlined />, label: 'Thời gian', value: `${surveyDetails.estimatedHours || pricingDetails.breakdown?.estimatedHours || '—'} giờ` },
                         ].map((item, i) => (
@@ -762,7 +794,7 @@ const ViewMovingOrder = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [selectedTicketPricing, setSelectedTicketPricing] = useState(null);
   const [isSurveyTimeModalVisible, setIsSurveyTimeModalVisible] = useState(false);
-  const [selectedTicketForTime, setSelectedTicketForTime] = useState(null);
+  const [selectedTicketForTime] = useState(null);
   const [isIncidentModalVisible, setIsIncidentModalVisible] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [isReportModalVisible, setIsReportModalVisible] = useState(false);
@@ -1006,6 +1038,37 @@ const ViewMovingOrder = () => {
     });
   };
 
+  const handleConfirmReschedule = (ticket, action) => {
+    confirm({
+      title: action === 'ACCEPT' ? "Chấp nhận dời lịch vận chuyển?" : "Từ chối dời lịch vận chuyển?",
+      content: action === 'ACCEPT'
+        ? `Bạn đồng ý dời lịch vận chuyển sang ${fmtDate(ticket.invoice.proposedDispatchTime)}?`
+        : "Điều phối viên sẽ tiếp tục tìm nhân sự hoặc liên hệ lại với bạn. Bạn có chắc chắn từ chối đổi lịch?",
+      okText: action === 'ACCEPT' ? "Đồng ý" : "Từ chối",
+      okButtonProps: { danger: action === 'REJECT' },
+      onOk: async () => {
+        try {
+          await api.patch(`/invoices/${ticket.invoice._id}/confirm-reschedule`, { action });
+          message.success(action === 'ACCEPT' ? "Đã chấp nhận lịch vận chuyển mới." : "Đã từ chối lịch và phản hồi lại cho điều phối viên.");
+          setTickets((prev) =>
+            prev.map((t) => {
+              if (t._id === ticket._id) {
+                const invoice = { ...t.invoice, rescheduleStatus: action === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED' };
+                if (action === 'ACCEPT' && invoice.proposedDispatchTime) {
+                  invoice.scheduledTime = invoice.proposedDispatchTime;
+                }
+                return { ...t, invoice };
+              }
+              return t;
+            })
+          );
+        } catch (err) {
+          message.error("Lỗi: " + (err.response?.data?.message || err.message));
+        }
+      },
+    });
+  };
+
   const handleCancelQuote = (record) => {
     confirm({
       title: "Từ chối báo giá này?",
@@ -1210,6 +1273,7 @@ const ViewMovingOrder = () => {
                   onRateService={ticket.isMock ? () => message.info('Đây là dữ liệu mẫu.') : handleRateService}
                   onCancelTicketRequest={ticket.isMock ? () => message.info('Đây là dữ liệu mẫu.') : handleCancelTicketRequest}
                   onRescheduleSurveyRequest={ticket.isMock ? () => message.info('Đây là dữ liệu mẫu.') : handleRescheduleSurveyRequest}
+                  onConfirmReschedule={ticket.isMock ? () => message.info('Đây là dữ liệu mẫu.') : handleConfirmReschedule}
                 />
               ))}
             </div>
