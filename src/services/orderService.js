@@ -261,6 +261,16 @@ export const getVehicles = async () => {
   const res = await api.get("/admin/vehicles");
   return res.data;
 };
+
+export const getPriceEstimate = async (payload) => {
+  try {
+    const res = await api.post("/pricing/calculate", payload);
+    return res.data;
+  } catch (error) {
+    console.error('Error getting price estimate:', error);
+    normalizeApiError(error);
+  }
+};
 const orderService = {
     createOrder,
     getMyOrders,
