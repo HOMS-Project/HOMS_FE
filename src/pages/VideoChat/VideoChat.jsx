@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { Layout, Badge } from 'antd';
-import { 
-  VideoCameraOutlined, 
-  CloseOutlined, 
-  SendOutlined, 
-  PhoneOutlined, 
-  AudioMutedOutlined, 
-  AudioOutlined, 
+import {
+  VideoCameraOutlined,
+  CloseOutlined,
+  SendOutlined,
+  PhoneOutlined,
+  AudioMutedOutlined,
+  AudioOutlined,
   VideoCameraAddOutlined,
   MessageOutlined,
   TeamOutlined,
@@ -58,15 +58,15 @@ const iceServers = {
 
 
 const STATUS_MAP = {
-  CREATED:         { label: 'Mới tạo',            color: '#6b7280' },
-  WAITING_SURVEY:  { label: 'Chờ khảo sát',        color: '#f59e0b' },
-  SURVEYED:        { label: 'Đã khảo sát',          color: '#3b82f6' },
-  QUOTED:          { label: 'Đã báo giá',           color: '#8b5cf6' },
-  ACCEPTED:        { label: 'Đã chấp nhận',         color: '#10b981' },
-  IN_PROGRESS:     { label: 'Đang thực hiện',       color: '#f97316' },
-  COMPLETED:       { label: 'Hoàn thành',           color: '#22c55e' },
-  CANCELLED:       { label: 'Đã hủy',              color: '#ef4444' },
-  WAITING_REVIEW:  { label: 'Chờ xem xét',          color: '#a855f7' },
+  CREATED: { label: 'Mới tạo', color: '#6b7280' },
+  WAITING_SURVEY: { label: 'Chờ khảo sát', color: '#f59e0b' },
+  SURVEYED: { label: 'Đã khảo sát', color: '#3b82f6' },
+  QUOTED: { label: 'Đã báo giá', color: '#8b5cf6' },
+  ACCEPTED: { label: 'Đã chấp nhận', color: '#10b981' },
+  IN_PROGRESS: { label: 'Đang thực hiện', color: '#f97316' },
+  COMPLETED: { label: 'Hoàn thành', color: '#22c55e' },
+  CANCELLED: { label: 'Đã hủy', color: '#ef4444' },
+  WAITING_REVIEW: { label: 'Chờ xem xét', color: '#a855f7' },
 };
 
 const getStatus = (status) => STATUS_MAP[status] || { label: status, color: '#6b7280' };
@@ -79,7 +79,7 @@ function VideoChat() {
   const location = useLocation();
   const isCustomer = location.pathname.startsWith('/customer');
   const initialRoomId = searchParams.get('room') || (isCustomer ? 'test-room' : null);
-  
+
   const [dispatcherTickets, setDispatcherTickets] = useState([]);
   const [socket, setSocket] = useState(null);
   const [joined, setJoined] = useState(false);
@@ -87,13 +87,13 @@ function VideoChat() {
   const userName = user?.fullName || user?.email || 'Người dùng';
 
   const activeTicket = dispatcherTickets.find(t => t.code === roomId);
-  const receiverName = isCustomer 
-    ? 'Nhân viên hỗ trợ' 
+  const receiverName = isCustomer
+    ? 'Nhân viên hỗ trợ'
     : (activeTicket?.customerId?.fullName || activeTicket?.customer?.fullName || 'Khách hàng');
-  
+
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
-  
+
   const [isInCall, setIsInCall] = useState(false);
   const [incomingCallFrom, setIncomingCallFrom] = useState(null);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
@@ -137,7 +137,7 @@ function VideoChat() {
         console.error('[VideoChat] Lỗi khởi tạo socket', err);
       }
     };
-    
+
     initializeSocket();
     return () => { if (newSocket) newSocket.disconnect(); };
   }, [roomId]);
@@ -168,7 +168,7 @@ function VideoChat() {
   // Listen for socket events
   useEffect(() => {
     if (!socket) return;
-    
+
     const handleChatHistory = (history) => {
       const formattedHistory = history.map(msg => ({
         message: msg.content,
@@ -179,7 +179,7 @@ function VideoChat() {
       }));
       setMessages(formattedHistory);
     };
-    
+
     const handleReceiveMessage = (data) => setMessages((prev) => [...prev, data]);
     const handleUserJoined = ({ userId }) => console.log('Người dùng tham gia phòng:', userId);
     const handleOffer = async ({ caller, offer, callerName }) => {
@@ -474,7 +474,7 @@ function VideoChat() {
         )}
 
         <div className={`vc-workspace ${isCustomer ? 'vc-workspace--customer' : 'vc-workspace--dispatcher'}`}>
-          
+
           {/* Chat Panel */}
           <div className={`vc-panel vc-chat-panel ${isInCall ? 'vc-chat-panel--split' : ''}`}>
             <div className="vc-chat-header">
@@ -498,7 +498,7 @@ function VideoChat() {
                 </button>
               )}
             </div>
-            
+
             <div className="vc-messages" ref={chatContainerRef}>
               {messages.length === 0 && (
                 <div className="vc-messages-empty">
@@ -587,7 +587,7 @@ function VideoChat() {
                 </div>
                 <span className="vc-room-badge vc-room-badge--dark">{roomId}</span>
               </div>
-              
+
               <div className="vc-video-grid">
                 <div className="vc-video-wrapper">
                   <video ref={localVideoRef} autoPlay playsInline muted className="vc-video" />

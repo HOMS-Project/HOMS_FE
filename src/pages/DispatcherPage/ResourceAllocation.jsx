@@ -29,6 +29,7 @@ const ResourceAllocation = () => {
 
     const [drivers, setDrivers] = useState([]);
     const [staff, setStaff] = useState([]);
+    const [vehicles, setVehicles] = useState([]); // Chi tiết xe để hiển thị map
     const [vehicleStats, setVehicleStats] = useState({});
     const [routesList, setRoutesList] = useState([]);
     const [allAdminRoutes, setAllAdminRoutes] = useState([]); // All routes with restrictions
@@ -88,6 +89,7 @@ const ResourceAllocation = () => {
                     if (response.data && response.data.success) {
                         setDrivers(response.data.data.drivers);
                         setStaff(response.data.data.staff);
+                        setVehicles(response.data.data.vehicles);
                         
                         const vStats = { '500KG': 0, '1TON': 0, '1.5TON': 0, '2TON': 0 };
                         response.data.data.vehicles?.forEach(v => {
@@ -440,6 +442,14 @@ const ResourceAllocation = () => {
                                                 'Chưa xác định'}
                                         </Text>
                                     </Descriptions.Item>
+                                    {selectedInvoice?.requestTicketId?.isHighValue && (
+                                        <Descriptions.Item label="Dịch vụ">
+                                            <Tag color="gold">💎 HÀNG GIÁ TRỊ CAO</Tag>
+                                            {selectedInvoice?.requestTicketId?.insurance?.isInsured && (
+                                                <Tag color="cyan">🛡️ ĐÃ CÓ BẢO HIỂM</Tag>
+                                            )}
+                                        </Descriptions.Item>
+                                    )}
                                 </Descriptions>
                             </Card>
 
@@ -574,6 +584,7 @@ const ResourceAllocation = () => {
                                     allRoutes={allAdminRoutes}
                                     vehicleType={vehicleType}
                                     dispatchTime={dispatchTime}
+                                    nearbyResources={{ drivers, vehicles }}
                                 />
                             ) : (
                                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>

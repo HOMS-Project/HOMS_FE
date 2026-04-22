@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Spin as AntdSpin, Alert, Badge, Space, Typography, List, Tooltip, Button, Tag } from 'antd';
+import { Spin as AntdSpin, Alert, Badge, Space, Typography, List, Tooltip, Button, Tag, Divider } from 'antd';
 import { InfoCircleOutlined, CarOutlined, WarningOutlined, CompassOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -29,6 +29,20 @@ const deliveryIcon = new L.Icon({
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
+});
+
+const driverIcon = new L.Icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/1126/1126934.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
+});
+
+const vehicleIcon = new L.Icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/75/75815.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
 });
 
 function ChangeView({ bounds }) {
@@ -187,7 +201,7 @@ function isPointRestricted(point, allRoutes, vehicleType, dispatchTime) {
     return null;
 }
 
-const ResourceMap = ({ pickup, delivery, allRoutes = [], vehicleType, dispatchTime }) => {
+const ResourceMap = ({ pickup, delivery, allRoutes = [], vehicleType, dispatchTime, nearbyResources = { drivers: [], vehicles: [] } }) => {
     const [routes, setRoutes] = useState([]);
     const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -259,7 +273,18 @@ const ResourceMap = ({ pickup, delivery, allRoutes = [], vehicleType, dispatchTi
         );
     }
 
-    const bounds = L.latLngBounds([pickup.lat, pickup.lng], [delivery.lat, delivery.lng]);
+    // Initial bounds from pickup and delivery
+    const boundPoints = [[pickup.lat, pickup.lng], [delivery.lat, delivery.lng]];
+
+    // Add driver locations to bounds to ensure they are visible
+    (nearbyResources.drivers || []).forEach(d => {
+        if (d.currentLocation?.coordinates) {
+            const pos = normalizeCoord(d.currentLocation.coordinates);
+            boundPoints.push([pos.lat, pos.lng]);
+        }
+    });
+
+    const bounds = L.latLngBounds(boundPoints);
 
     const routesWithInfo = routes.map((r, idx) => {
         const coords = r.geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
@@ -297,12 +322,45 @@ const ResourceMap = ({ pickup, delivery, allRoutes = [], vehicleType, dispatchTi
                 </Space>
                 <div style={{ fontSize: '12px' }}>
                     <Badge color="#1890ff" text="Bình thường" style={{ marginRight: 16 }} />
-                    <Badge color="#ff4d4f" text="Đoạn đường hạn chế" />
-                    <Badge color="purple" text="Dữ liệu DB" style={{ marginLeft: 16 }} />
+                    <Badge color="#ff4d4f" text="Đoạn đường hạn chế" style={{ marginRight: 16 }} />
+                    <Badge color="blue" text="Đội ngũ/Tài xế (Live GPS)" />
                 </div>
             </div>
 
             <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+                {/* Floating Driver List Overlay */}
+                <div style={{
+                    position: 'absolute',
+                    top: 10,
+                    right: 10,
+                    zIndex: 1000,
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                    maxWidth: '220px',
+                    maxHeight: '400px',
+                    overflowY: 'auto'
+                }}>
+                    <Text strong style={{ fontSize: '13px', marginBottom: '8px', display: 'block' }}>
+                        📡 Nhân sự khả dụng ({nearbyResources.drivers?.length || 0})
+                    </Text>
+                    <List
+                        size="small"
+                        dataSource={nearbyResources.drivers || []}
+                        renderItem={d => (
+                            <List.Item style={{ padding: '4px 0' }}>
+                                <Space direction="vertical" size={0}>
+                                    <Text style={{ fontSize: '12px' }}>{d.fullName}</Text>
+                                    <Tag color={d.availabilityStatus === 'AVAILABLE' ? 'green' : 'orange'} style={{ fontSize: '10px' }}>
+                                        {d.availabilityStatus === 'AVAILABLE' ? 'Rảnh' : 'Bận'}
+                                    </Tag>
+                                </Space>
+                            </List.Item>
+                        )}
+                    />
+                </div>
+
                 <div style={{ flex: 1, position: 'relative' }}>
                     <MapContainer bounds={bounds} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -315,6 +373,47 @@ const ResourceMap = ({ pickup, delivery, allRoutes = [], vehicleType, dispatchTi
                         <Marker position={[delivery.lat, delivery.lng]} icon={deliveryIcon}>
                             <Popup><b>Điểm giao hàng</b><br />{delivery.address}</Popup>
                         </Marker>
+
+                        {/* Rendering Driver-based Fleet Markers */}
+                        {(nearbyResources.drivers || []).map(driver => {
+                            if (!driver.currentLocation?.coordinates) return null;
+                            const pos = normalizeCoord(driver.currentLocation.coordinates);
+
+                            // Tìm xe nếu tài xế đang được gán (Nếu có thông tin này trong driver object)
+                            const assignedVehicle = driver.assignedVehicle;
+
+                            return (
+                                <Marker key={driver._id} position={[pos.lat, pos.lng]} icon={driverIcon}>
+                                    <Popup>
+                                        <div style={{ minWidth: '180px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Tag color="blue">Tài xế {driver.role === 'driver' ? 'Chính' : 'Phụ'}</Tag>
+                                                {driver.dailyOrders !== undefined && <Tag color="orange">{driver.dailyOrders} đơn/ngày</Tag>}
+                                            </div>
+                                            <div style={{ marginTop: '8px' }}>
+                                                <Text strong>{driver.fullName}</Text><br />
+                                                <Text type="secondary" style={{ fontSize: '12px' }}>{driver.phone}</Text>
+                                            </div>
+
+                                            {assignedVehicle && (
+                                                <div style={{ marginTop: '8px', padding: '6px', background: '#f8faf9', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                                                    <Text size="small" type="secondary">Đang đi xe:</Text><br />
+                                                    <Text strong style={{ color: '#44624a' }}><CarOutlined /> {assignedVehicle.plateNumber}</Text>
+                                                </div>
+                                            )}
+
+                                            <Divider style={{ margin: '8px 0' }} />
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                                                <span>Trạng thái:</span>
+                                                <Tag color={driver.availabilityStatus === 'AVAILABLE' ? 'green' : 'red'} style={{ margin: 0 }}>
+                                                    {driver.availabilityStatus === 'AVAILABLE' ? 'Sẵn sàng' : 'Đang bận'}
+                                                </Tag>
+                                            </div>
+                                        </div>
+                                    </Popup>
+                                </Marker>
+                            );
+                        })}
 
                         {/* TIA X: Vẽ đường dữ liệu gốc từ Database màu Tím */}
                         {allRoutes.map((route) =>
