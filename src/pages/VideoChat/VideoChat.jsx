@@ -25,14 +25,27 @@ import { getValidAccessToken } from '../../services/authService';
 import api from '../../services/api';
 import './VideoChat.css';
 
-// Simplified STUN servers. Removed unreliable TURN server for testing.
+// STUN + TURN servers — TURN is required when peers are behind symmetric NAT
 const iceServers = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    }
   ],
 };
 
@@ -599,15 +612,20 @@ function VideoChat() {
                   <div className="vc-video-label">{userName} (Bạn)</div>
                 </div>
                 <div className="vc-video-wrapper">
-                  {isCalling ? (
+                  <video 
+                    ref={remoteVideoRef} 
+                    autoPlay 
+                    playsInline 
+                    className="vc-video vc-video--remote" 
+                    style={{ display: isCalling ? 'none' : 'block' }}
+                  />
+                  {isCalling && (
                     <div className="vc-video-placeholder">
                       <div className="vc-calling-animation">
                         <LoadingOutlined />
                       </div>
                       <p>Đang kết nối với {receiverName}...</p>
                     </div>
-                  ) : (
-                    <video ref={remoteVideoRef} autoPlay playsInline className="vc-video vc-video--remote" />
                   )}
                   <div className="vc-video-label">{receiverName}</div>
                 </div>
