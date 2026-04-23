@@ -183,6 +183,7 @@ function VideoChat() {
     const handleReceiveMessage = (data) => setMessages((prev) => [...prev, data]);
     const handleUserJoined = ({ userId }) => console.log('Người dùng tham gia phòng:', userId);
     const handleOffer = async ({ caller, offer, callerName }) => {
+      pendingCandidatesRef.current = []; // Clear buffer for new incoming call
       setIncomingCallFrom({ callerId: caller, callerName, offer });
     };
     const handleAnswer = async ({ answer }) => {
@@ -201,6 +202,9 @@ function VideoChat() {
           } else {
             pendingCandidatesRef.current.push(candidate);
           }
+        } else {
+          // Peer connection not created yet, buffer the candidate
+          pendingCandidatesRef.current.push(candidate);
         }
       } catch (err) {
         console.warn('Lỗi ICE candidate (có thể bỏ qua):', err);
@@ -257,7 +261,6 @@ function VideoChat() {
   };
 
   const createPeerConnection = (targetUserId) => {
-    pendingCandidatesRef.current = [];
     peerConnectionRef.current = new RTCPeerConnection(iceServers);
 
     if (localStreamRef.current) {
@@ -288,15 +291,24 @@ function VideoChat() {
     };
 
     peerConnectionRef.current.ontrack = (event) => {
-      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
+      if (remoteVideoRef.current) {
+        if (event.streams && event.streams[0]) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        } else {
+          let stream = remoteVideoRef.current.srcObject;
+          if (!stream) {
+            stream = new MediaStream();
+            remoteVideoRef.current.srcObject = stream;
+          }
+          stream.addTrack(event.track);
+        }
         setIsCalling(false); // Stop showing "Calling..." when remote stream is received
       }
     };
   };
 
-
   const initiateCall = async () => {
+    pendingCandidatesRef.current = []; // Clear buffer for new outgoing call
     const stream = await startMediaStream();
     if (!stream) return;
     setIsInCall(true);
