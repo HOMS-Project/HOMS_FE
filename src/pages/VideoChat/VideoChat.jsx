@@ -215,7 +215,10 @@ function VideoChat() {
         console.warn('Lỗi ICE candidate (có thể bỏ qua):', err);
       }
     };
-    const handleUserDisconnected = () => endCall();
+    const handleUserDisconnected = ({ userId }) => {
+      console.log(`[VideoChat] Socket đối phương (${userId}) bị ngắt. WebRTC vẫn sẽ tiếp tục nếu đường truyền P2P ổn định.`);
+      // Không gọi endCall() ở đây để tránh làm rớt cuộc gọi khi người dùng chuyển tab làm WebSocket bị sleep.
+    };
     const handleCallEnded = () => endCall();
 
     socket.on('chat_history', handleChatHistory);
