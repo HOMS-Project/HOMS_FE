@@ -29,8 +29,11 @@ const STATUS_MAP = {
   CREATED: { label: 'Chờ xác nhận', color: 'blue' },
   WAITING_SURVEY: { label: 'Đã phân công KS', color: 'green' },
   WAITING_REVIEW: { label: 'Chờ xem xét', color: 'gold' },
+  SURVEYED: { label: 'Đã khảo sát', color: 'cyan' },
   QUOTED: { label: 'Đã báo giá', color: 'green' },
+  ACCEPTED: { label: 'Đã chấp nhận báo giá', color: 'purple' },
   ASSIGNMENT_FAILED: { label: 'Lỗi phân công', color: 'red' },
+  CANCELLED: { label: 'Đã hủy', color: 'red' },
 };
 
 const MAX_PORTERS = {
@@ -425,10 +428,11 @@ const SurveySchedulingPage = () => {
     {
       title: "Mã Đơn",
       dataIndex: "code",
+      width: 150,
       render: (code, r) => (
-        <Space direction="vertical" size={2}>
+        <div style={{ minWidth: 140 }}>
           <Text strong>{code}</Text>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
             {r.isHighValue && (
               <Tag color="#d4b106" style={{ fontSize: '10px', margin: 0, border: 'none', fontWeight: 700 }}>
                 💎 GIÁ TRỊ CAO
@@ -440,38 +444,43 @@ const SurveySchedulingPage = () => {
               </Tag>
             )}
           </div>
-        </Space>
+        </div>
       )
     },
     {
       title: "Loại dịch vụ",
       dataIndex: "moveType",
+      width: 130,
       render: (moveType) => <MoveTypeBadge moveType={moveType} />,
     },
     {
       title: "Khách hàng",
-      render: (_, r) => <div>{r.customerId?.fullName}</div>
+      width: 160,
+      ellipsis: true,
+      render: (_, r) => <div style={{ minWidth: 140 }}>{r.customerId?.fullName}</div>
     },
-    {
-      title: "Ghi chú đặc biệt",
-      render: (_, r) => (
-        <div style={{ maxWidth: 200 }}>
-          {r.isHighValue && (
-            <div style={{ marginBottom: 4 }}>
-              <Text type="secondary" size="small">Giá trị: </Text>
-              <Text strong>{(r.highValueDetails?.declaredValue || 0).toLocaleString()} ₫</Text>
-              <br />
-              <Text italic style={{ fontSize: '12px' }}>{r.highValueDetails?.description}</Text>
-            </div>
-          )}
-          {r.insurance?.isInsured && (
-            <Tag color="cyan">Gói: {r.insurance.packageId}</Tag>
-          )}
-        </div>
-      )
-    },
+    // {
+    //   title: "Ghi chú đặc biệt",
+    //   width: 220,
+    //   render: (_, r) => (
+    //     <div style={{ minWidth: 200 }}>
+    //       {r.isHighValue && (
+    //         <div style={{ marginBottom: 4 }}>
+    //           <Text type="secondary" size="small">Giá trị: </Text>
+    //           <Text strong>{(r.highValueDetails?.declaredValue || 0).toLocaleString()} ₫</Text>
+    //           <br />
+    //           <Text italic style={{ fontSize: '12px' }}>{r.highValueDetails?.description}</Text>
+    //         </div>
+    //       )}
+    //       {r.insurance?.isInsured && (
+    //         <Tag color="cyan">Gói: {r.insurance.packageId}</Tag>
+    //       )}
+    //     </div>
+    //   )
+    // },
     {
       title: "Yêu cầu khảo sát",
+      width: 200,
       render: (_, r) => {
         if (isAiGeneratedTicket(r.notes)) {
           return (
@@ -512,6 +521,7 @@ const SurveySchedulingPage = () => {
     },
     {
       title: "Khu vực",
+      width: 110,
       render: (_, r) => (
         <Tag color="orange" style={{ fontWeight: 'bold' }}>
           {r.pickup?.district || "Chưa xác định"}
@@ -520,16 +530,27 @@ const SurveySchedulingPage = () => {
     },
     {
       title: "Tuyến đường",
+      width: 280,
       render: (_, r) => (
-        <div>Từ: {r.pickup?.address} <br />Đến: {r.delivery?.address}</div>
+        <div style={{ maxWidth: 260 }}>
+          <div style={{ marginBottom: 4 }}>
+            <Text type="secondary" small>Từ: </Text>
+            <Text ellipsis={{ tooltip: r.pickup?.address }}>{r.pickup?.address}</Text>
+          </div>
+          <div>
+            <Text type="secondary" small>Đến: </Text>
+            <Text ellipsis={{ tooltip: r.delivery?.address }}>{r.delivery?.address}</Text>
+          </div>
+        </div>
       ),
     },
     {
       title: "Trạng thái",
       dataIndex: "status",
+      width: 150,
       render: (status) => {
         const config = STATUS_MAP[status] || { label: status, color: "default" };
-        return <Tag color={config.color}>{config.label}</Tag>;
+        return <Tag color={config.color} style={{ minWidth: 100, textAlign: 'center' }}>{config.label}</Tag>;
       },
     },
  {
@@ -618,6 +639,49 @@ const SurveySchedulingPage = () => {
           </Space>
         );
       },
+            </>
+          )}
+
+          {/* WAITING_REVIEW for TRUCK_RENTAL — also allow Quoting here */}
+          {record.status === "WAITING_REVIEW" && record.moveType === 'TRUCK_RENTAL' && (
+            <Button
+              type="primary"
+              block
+              style={{ background: "#44624a", borderColor: "#44624a" }}
+              icon={<DollarCircleOutlined />}
+              onClick={() => openTruckRentalQuoteModal(record)}
+            >
+              Xem xét & Báo giá
+            </Button>
+          )}
+
+          {/* WAITING_SURVEY — Show Accept Proposed button if exists */}
+          {record.status === "WAITING_SURVEY" && record.proposedSurveyTimes?.length > 0 && (
+            <Button
+              type="primary"
+              block
+              style={{ background: "#44624a", borderColor: "#8ba888" }}
+              icon={<CheckCircleOutlined />}
+              onClick={() => openAcceptProposedModal(record)}
+            >
+              Xem đề xuất khách
+            </Button>
+          )}
+
+          {/* ASSIGNMENT_FAILED — Manual fallback */}
+          {record.status === "ASSIGNMENT_FAILED" && (
+            <Button
+              type="primary"
+              danger
+              block
+              icon={<UserSwitchOutlined />}
+              onClick={() => openManualAssignModal(record)}
+            >
+              Phân công thủ công
+            </Button>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -637,6 +701,7 @@ const SurveySchedulingPage = () => {
         dataSource={filteredTickets}
         rowKey="_id"
         loading={loading}
+        scroll={{ x: 1400 }}
         rowClassName={(record) =>
           record.status === 'ASSIGNMENT_FAILED' ? 'row-assignment-failed' : ''
         }

@@ -25,34 +25,32 @@ import { getValidAccessToken } from '../../services/authService';
 import api from '../../services/api';
 import './VideoChat.css';
 
-// STUN + TURN servers — TURN is required in production so media can be
-// relayed when peers are behind symmetric NAT (common on Render/cloud).
+// STUN + TURN servers — TURN is required when peers are behind symmetric NAT
 const iceServers = {
   iceServers: [
-    // STUN — discover public IP
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    // TURN — relay fallback (Open Relay, free)
+    { urls: 'stun:stun.relay.metered.ca:80' },
     {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
+      urls: 'turn:global.relay.metered.ca:80',
+      username: '98c57974889108f36474ce71',
+      credential: 'PMVbUKy2rpWEKy/H',
     },
     {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
+      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+      username: '98c57974889108f36474ce71',
+      credential: 'PMVbUKy2rpWEKy/H',
     },
     {
-      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
+      urls: 'turn:global.relay.metered.ca:443',
+      username: '98c57974889108f36474ce71',
+      credential: 'PMVbUKy2rpWEKy/H',
     },
     {
-      urls: 'turns:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
+      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+      username: '98c57974889108f36474ce71',
+      credential: 'PMVbUKy2rpWEKy/H',
+    }
   ],
 };
 
@@ -183,30 +181,44 @@ function VideoChat() {
     const handleReceiveMessage = (data) => setMessages((prev) => [...prev, data]);
     const handleUserJoined = ({ userId }) => console.log('Người dùng tham gia phòng:', userId);
     const handleOffer = async ({ caller, offer, callerName }) => {
+      console.log(`[WebRTC] Nhận offer từ ${callerName} (${caller})`);
+      pendingCandidatesRef.current = []; // Clear buffer for new incoming call
       setIncomingCallFrom({ callerId: caller, callerName, offer });
     };
     const handleAnswer = async ({ answer }) => {
+      console.log('[WebRTC] Nhận answer, thiết lập remote description...');
       try {
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-        processPendingCandidates();
+        console.log('[WebRTC] Thiết lập remote description thành công.');
+        await processPendingCandidates();
       } catch (err) {
         console.error('Lỗi xử lý phản hồi cuộc gọi:', err);
       }
     };
-    const handleIceCandidate = async ({ candidate }) => {
+    const handleIceCandidate = async (data) => {
+      const { candidate } = data;
+      console.log(`[WebRTC] Nhận ICE candidate từ socket target:`, data.target || 'unknown');
       try {
         if (peerConnectionRef.current) {
           if (peerConnectionRef.current.remoteDescription) {
+            console.log('[WebRTC] Đang thêm ICE candidate trực tiếp...');
             await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
           } else {
+            console.log('[WebRTC] Đang đệm ICE candidate (remoteDescription chưa sẵn sàng)...');
             pendingCandidatesRef.current.push(candidate);
           }
+        } else {
+          console.log('[WebRTC] Đang đệm ICE candidate (chưa có PeerConnection)...');
+          pendingCandidatesRef.current.push(candidate);
         }
       } catch (err) {
         console.warn('Lỗi ICE candidate (có thể bỏ qua):', err);
       }
     };
-    const handleUserDisconnected = () => endCall();
+    const handleUserDisconnected = ({ userId }) => {
+      console.log(`[VideoChat] Socket đối phương (${userId}) bị ngắt. WebRTC vẫn sẽ tiếp tục nếu đường truyền P2P ổn định.`);
+      // Không gọi endCall() ở đây để tránh làm rớt cuộc gọi khi người dùng chuyển tab làm WebSocket bị sleep.
+    };
     const handleCallEnded = () => endCall();
 
     socket.on('chat_history', handleChatHistory);
@@ -230,15 +242,16 @@ function VideoChat() {
     };
   }, [socket]);
 
-  const processPendingCandidates = () => {
+  const processPendingCandidates = async () => {
     if (peerConnectionRef.current?.remoteDescription) {
-      pendingCandidatesRef.current.forEach(async (candidate) => {
+      console.log(`[WebRTC] Đang xử lý ${pendingCandidatesRef.current.length} ICE candidates đệm...`);
+      for (const candidate of pendingCandidatesRef.current) {
         try {
           await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (e) {
-          console.error('Lỗi thêm ICE candidate:', e);
+          console.error('Lỗi thêm ICE candidate từ đệm:', e);
         }
-      });
+      }
       pendingCandidatesRef.current = [];
     }
   };
@@ -257,7 +270,6 @@ function VideoChat() {
   };
 
   const createPeerConnection = (targetUserId) => {
-    pendingCandidatesRef.current = [];
     peerConnectionRef.current = new RTCPeerConnection(iceServers);
 
     if (localStreamRef.current) {
@@ -268,6 +280,7 @@ function VideoChat() {
 
     peerConnectionRef.current.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(`[WebRTC] Đang gửi ICE candidate tới target: ${targetUserId}`);
         socket.emit('ice_candidate', { target: targetUserId, candidate: event.candidate });
       }
     };
@@ -288,23 +301,34 @@ function VideoChat() {
     };
 
     peerConnectionRef.current.ontrack = (event) => {
-      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
+      if (remoteVideoRef.current) {
+        if (event.streams && event.streams[0]) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        } else {
+          let stream = remoteVideoRef.current.srcObject;
+          if (!stream) {
+            stream = new MediaStream();
+            remoteVideoRef.current.srcObject = stream;
+          }
+          stream.addTrack(event.track);
+        }
         setIsCalling(false); // Stop showing "Calling..." when remote stream is received
       }
     };
   };
 
-
   const initiateCall = async () => {
+    pendingCandidatesRef.current = []; // Clear buffer for new outgoing call
     const stream = await startMediaStream();
     if (!stream) return;
     setIsInCall(true);
     setIsCalling(true);
     createPeerConnection(roomId);
     try {
+      console.log('[WebRTC] Tạo offer...');
       const offer = await peerConnectionRef.current.createOffer();
       await peerConnectionRef.current.setLocalDescription(offer);
+      console.log(`[WebRTC] Gửi offer tới target: ${roomId}, callerId: ${socket.id}`);
       socket.emit('offer', { target: roomId, caller: socket.id, callerName: userName, offer });
     } catch (err) {
       console.error('Lỗi tạo offer:', err);
@@ -317,12 +341,14 @@ function VideoChat() {
     const stream = await startMediaStream();
     if (!stream) { setIncomingCallFrom(null); return; }
     setIsInCall(true);
+    console.log(`[WebRTC] Khởi tạo answerCall với callerId: ${incomingCallFrom.callerId}`);
     createPeerConnection(incomingCallFrom.callerId);
     try {
       await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(incomingCallFrom.offer));
       processPendingCandidates();
       const answer = await peerConnectionRef.current.createAnswer();
       await peerConnectionRef.current.setLocalDescription(answer);
+      console.log(`[WebRTC] Gửi answer tới target: ${incomingCallFrom.callerId}`);
       socket.emit('answer', { target: incomingCallFrom.callerId, answer });
       setIncomingCallFrom(null);
     } catch (err) {
@@ -594,15 +620,20 @@ function VideoChat() {
                   <div className="vc-video-label">{userName} (Bạn)</div>
                 </div>
                 <div className="vc-video-wrapper">
-                  {isCalling ? (
+                  <video 
+                    ref={remoteVideoRef} 
+                    autoPlay 
+                    playsInline 
+                    className="vc-video vc-video--remote" 
+                    style={{ display: isCalling ? 'none' : 'block' }}
+                  />
+                  {isCalling && (
                     <div className="vc-video-placeholder">
                       <div className="vc-calling-animation">
                         <LoadingOutlined />
                       </div>
                       <p>Đang kết nối với {receiverName}...</p>
                     </div>
-                  ) : (
-                    <video ref={remoteVideoRef} autoPlay playsInline className="vc-video vc-video--remote" />
                   )}
                   <div className="vc-video-label">{receiverName}</div>
                 </div>
