@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { useState,useEffect } from "react";
 import { Provider } from 'react-redux';
-import { store } from './store/index';
+import { store } from './store'; 
+import { injectStore } from './services/api';
 import LandingPage from "./pages/CommonPage/LandingPage/LandingPage";
 import HomeRedirect from "./pages/CommonPage/LandingPage/HomeRedirect";
 import About from "./pages/CommonPage/About/About";
@@ -23,7 +24,7 @@ import NotFound from "./pages/CommonPage/NotFound/NotFound";
 import { initCsrfToken } from './services/api';
 import ScrollToTop from "./components/common/ScrollToTop";
 import MagicLogin from "./pages/CustomerPage/Auth/MagicLogin";
-
+injectStore(store);
 function App() {
    const [csrfReady, setCsrfReady] = useState(false);
 

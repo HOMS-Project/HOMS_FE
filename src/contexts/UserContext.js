@@ -55,7 +55,29 @@ export const UserProvider = ({ children }) => {
 
     initializeUser();
   }, [logout,dispatch]);
+ useEffect(() => {
+    const syncLogoutAcrossTabs = (event) => {
 
+      if (event.key === "hasSession" && event.newValue === null) {
+        console.log("🔄 Phát hiện đăng xuất từ Tab khác. Đang đồng bộ...");
+
+        setUser(null);
+        setIsAuthenticated(false);
+        
+        dispatch(logoutStore()); 
+        
+        window.location.href = '/login'; 
+      }
+    };
+
+
+    window.addEventListener("storage", syncLogoutAcrossTabs);
+
+
+    return () => {
+      window.removeEventListener("storage", syncLogoutAcrossTabs);
+    };
+  }, [dispatch]);
   return (
     <UserContext.Provider
       value={{

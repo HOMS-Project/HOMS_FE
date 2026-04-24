@@ -2,7 +2,10 @@
 import axios from 'axios';
 import { notification } from 'antd';
 import { getValidAccessToken } from './authService';
-
+let injectedStore;
+export const injectStore = (store) => {
+  injectedStore = store;
+};
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL,
   withCredentials: true,
@@ -59,7 +62,7 @@ export const resetCsrfToken = () => {
 };
 
 // Hàm gắn interceptor
-export const setupInterceptors = (contextLogout) => {
+export const setupInterceptors = () => {
   api.interceptors.request.use(
     async (config) => {
       if (['post', 'put', 'patch', 'delete'].includes(config.method)) {
@@ -77,13 +80,19 @@ export const setupInterceptors = (contextLogout) => {
         const token = await getValidAccessToken();
         if (!token) {
           console.warn("⚠️ No valid token found, logging out...");
-          contextLogout();
+                      if (injectedStore) {
+             const { logoutUserThunk } = require('../store/authSlice');
+             injectedStore.dispatch(logoutUserThunk()); 
+          }
           return Promise.reject(new Error("Token không hợp lệ hoặc đã hết hạn"));
         }
         config.headers.Authorization = `Bearer ${token}`;
         return config;
       } catch (error) {
-        contextLogout();
+                 if (injectedStore) {
+             const { logoutUserThunk } = require('../store/authSlice');
+             injectedStore.dispatch(logoutUserThunk()); 
+        }
         return Promise.reject(error);
       }
     },
