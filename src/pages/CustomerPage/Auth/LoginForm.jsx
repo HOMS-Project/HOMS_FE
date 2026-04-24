@@ -3,6 +3,8 @@ import { EyeInvisibleOutlined, EyeTwoTone, FacebookFilled } from "@ant-design/ic
 import { FcGoogle } from "react-icons/fc";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch } from 'react-redux';
+import { setCredentials } from '../../../store/authSlice';
 import {
   login,
   loginGoogle,
@@ -21,6 +23,7 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
   const [fbReady, setFbReady] = useState(false);
   const [fbError, setFbError] = useState(false);
+    const dispatch = useDispatch();
   const { setUser, setIsAuthenticated } = useUser();
   const navigate = useNavigate();
 
@@ -94,6 +97,8 @@ const LoginForm = () => {
     // 2. Cập nhật Context
     setUser(userData);
     setIsAuthenticated(true);
+    // Cập nhật redux
+     dispatch(setCredentials({ user: userData }));
     resetCsrfToken();
     
     message.success("Đăng nhập thành công!");

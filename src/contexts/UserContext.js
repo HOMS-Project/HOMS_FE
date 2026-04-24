@@ -2,7 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { setupInterceptors, resetCsrfToken } from "../services/api";
 import { getUserInfo } from "../services/userService";
 import { clearAccessToken,logoutApi } from "../services/authService";
-
+import { useDispatch } from 'react-redux';
+import { setCredentials, logoutStore, setLoading as setReduxLoading } from '../store/authSlice';
 const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
@@ -26,6 +27,7 @@ export const UserProvider = ({ children }) => {
 
 }, []);
   // Khởi tạo user từ token khi app mount
+    const dispatch = useDispatch();
   useEffect(() => {
     const initializeUser = async () => {
       try {
@@ -39,17 +41,20 @@ export const UserProvider = ({ children }) => {
           const userData = await getUserInfo();
           setUser(userData);
           setIsAuthenticated(true);
+          dispatch(setCredentials({ user: userData }));
         }
       } catch (error) {
         console.error('Error initializing user:', error);
         logout();
+          dispatch(logoutStore());
       } finally {
         setLoading(false);
+         dispatch(setReduxLoading(false));
       }
     };
 
     initializeUser();
-  }, [logout]);
+  }, [logout,dispatch]);
 
   return (
     <UserContext.Provider
