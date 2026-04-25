@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Card, Select, Space, Tag, message, Popconfirm, Row, Col, InputNumber, Typography, Divider, Tooltip, List, Badge, Drawer } from 'antd';
+import { Table, Button, Modal, Form, Input, Card, Select, Space, Tag, message, Popconfirm, Row, Col, InputNumber, Typography, Divider, Tooltip, List, Badge, Popover } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, InfoCircleOutlined, EnvironmentOutlined, SearchOutlined, ClearOutlined, UndoOutlined, CompassOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons';
 import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -79,8 +79,8 @@ const RouteManagement = () => {
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [searchLoading, setSearchLoading] = useState(false);
-    const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, withRules: 0 });
-    const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
+    const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, withRules: 0, withRestrictions: 0 });
+    const [filterPopoverVisible, setFilterPopoverVisible] = useState(false);
     const [filterValues, setFilterValues] = useState({ district: '', isActive: 'all' });
 
     // Modal States
@@ -128,7 +128,7 @@ const RouteManagement = () => {
             if (filterValues.district) params.district = filterValues.district;
             const data = await adminRouteService.getAllRoutes(params);
             setRoutes(data.data || []);
-            setFilterDrawerVisible(false);
+            setFilterPopoverVisible(false);
         } catch (error) {
             console.error('Filter failed', error);
             message.error('Lọc thất bại');
@@ -467,46 +467,60 @@ const RouteManagement = () => {
                     Tạo Tuyến Mới
                 </Button>
             </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                    <Button type="default" icon={<FilterOutlined />} onClick={() => setFilterDrawerVisible(true)}>
-                        Lọc
-                    </Button>
-                    <Card style={{ width: 300, marginLeft: 16 }}>
-                        <p>Tổng số tuyến: {stats.total}</p>
-                        <p>Đang hoạt động: {stats.active}</p>
-                        <p>Không hoạt động: {stats.inactive}</p>
-                    </Card>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+                    <div style={{ display: 'flex', gap: 16, flex: 1, justifyContent: 'flex-start', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <Card style={{ width: 260, borderRadius: 12, boxShadow: '0 8px 20px rgba(15,23,42,0.06)', border: 'none', background: 'linear-gradient(90deg,#f2fbf5,#e6f7ef)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 10, background: '#f0f7ef', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <CompassOutlined style={{ color: '#2D4F36', fontSize: 20 }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 12, color: '#8c978e' }}>Tổng số tuyến</div>
+                                    <div style={{ fontSize: 20, fontWeight: 800 }}>{stats.total}</div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        <Card style={{ width: 260, borderRadius: 12, boxShadow: '0 8px 20px rgba(15,23,42,0.06)', border: 'none', background: 'linear-gradient(90deg,#eef8ff,#e6f2ff)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 10, background: '#eef7ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <InfoCircleOutlined style={{ color: '#1890ff', fontSize: 20 }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 12, color: '#8c978e' }}>Đang hoạt động</div>
+                                    <div style={{ fontSize: 20, fontWeight: 800 }}>{stats.active}</div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        <Card style={{ width: 260, borderRadius: 12, boxShadow: '0 8px 20px rgba(15,23,42,0.06)', border: 'none', background: 'linear-gradient(90deg,#fff6f6,#fff0f0)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 10, background: '#fff6f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <DeleteOutlined style={{ color: '#ff4d4f', fontSize: 20 }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 12, color: '#8c978e' }}>Không hoạt động</div>
+                                    <div style={{ fontSize: 20, fontWeight: 800 }}>{stats.inactive}</div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        <Card style={{ width: 260, borderRadius: 12, boxShadow: '0 8px 20px rgba(15,23,42,0.06)', border: 'none', background: 'linear-gradient(90deg,#fff9f0,#fff6e6)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 10, background: '#fffaf0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <EnvironmentOutlined style={{ color: '#d46b08', fontSize: 20 }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 12, color: '#8c978e' }}>Đoạn hạn chế</div>
+                                    <div style={{ fontSize: 20, fontWeight: 800 }}>{stats.withRestrictions}</div>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
                 </div>
-                <Drawer
-                    title="Lọc Tuyến"
-                    placement="right"
-                    closable={false}
-                    onClose={() => setFilterDrawerVisible(false)}
-                    visible={filterDrawerVisible}
-                    width={400}
-                >
-                    <Form layout="vertical" onFinish={applyFilters}>
-                        <Form.Item label="Quận/Huyện">
-                            <Select value={filterValues.district} onChange={value => setFilterValues({ ...filterValues, district: value })}>
-                                <Option value="">Tất cả</Option>
-                                {DISTRICTS.map(d => <Option key={d} value={d}>{DISTRICT_LABELS[d]}</Option>)}
-                            </Select>
-                        </Form.Item>
-                        <Form.Item label="Trạng thái">
-                            <Select value={filterValues.isActive} onChange={value => setFilterValues({ ...filterValues, isActive: value })}>
-                                <Option value="all">Tất cả</Option>
-                                <Option value="active">Đang hoạt động</Option>
-                                <Option value="inactive">Không hoạt động</Option>
-                            </Select>
-                        </Form.Item>
-                        <Form.Item>
-                            <Button type="primary" htmlType="submit">Áp dụng</Button>
-                        </Form.Item>
-                    </Form>
-                </Drawer>
 
             <Card style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: 'none' }}>
-                <div style={{ marginBottom: 24 }}>
+                <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
                     <Input 
                         placeholder="Tìm tuyến đường bằng tên hoặc mã..." 
                         prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />} 
@@ -514,6 +528,36 @@ const RouteManagement = () => {
                         style={{ width: 350, borderRadius: 8 }} 
                         allowClear
                     />
+                    <Popover
+                        content={
+                            <div style={{ width: 260 }}>
+                                <Form layout="vertical" onFinish={applyFilters}>
+                                    <Form.Item label="Quận/Huyện">
+                                        <Select value={filterValues.district} onChange={value => setFilterValues({ ...filterValues, district: value })}>
+                                            <Option value="">Tất cả</Option>
+                                            {DISTRICTS.map(d => <Option key={d} value={d}>{DISTRICT_LABELS[d]}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                    <Form.Item label="Trạng thái">
+                                        <Select value={filterValues.isActive} onChange={value => setFilterValues({ ...filterValues, isActive: value })}>
+                                            <Option value="all">Tất cả</Option>
+                                            <Option value="active">Đang hoạt động</Option>
+                                            <Option value="inactive">Không hoạt động</Option>
+                                        </Select>
+                                    </Form.Item>
+                                    <Form.Item>
+                                        <Button type="primary" htmlType="submit" block>Áp dụng</Button>
+                                    </Form.Item>
+                                </Form>
+                            </div>
+                        }
+                        title="Lọc Tuyến"
+                        trigger="click"
+                        visible={filterPopoverVisible}
+                        onVisibleChange={v => setFilterPopoverVisible(v)}
+                    >
+                        <Button type="default" icon={<FilterOutlined />}>Lọc</Button>
+                    </Popover>
                 </div>
 
                 <Table 
