@@ -68,14 +68,19 @@ const ReportManagement = () => {
 
     useEffect(() => {
         loadData({ page, limit, search: '', type: filterType, status: filterStatus });
-        // load dashboard stats once
-        loadDashboard();
+        // load dashboard stats with current filters
+        loadDashboard({ search: '', type: filterType, status: filterStatus });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, limit, filterType, filterStatus]);
 
-    const loadDashboard = async () => {
+    const loadDashboard = async ({ search = searchText, type = filterType, status = filterStatus } = {}) => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin/incidents/dashboard`, { credentials: 'include' });
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            if (type) params.append('type', type);
+            if (status) params.append('status', status);
+
+            const res = await fetch(`${API_BASE}/api/admin/incidents/dashboard?${params.toString()}`, { credentials: 'include' });
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const body = await res.json();
             if (!body.success) throw new Error(body.message || 'Failed to load dashboard');
@@ -88,6 +93,8 @@ const ReportManagement = () => {
     const handleSearch = async () => {
         setPage(1);
         await loadData({ page: 1, limit, search: searchText, type: filterType, status: filterStatus });
+        // refresh dashboard according to search/filter
+        loadDashboard({ search: searchText, type: filterType, status: filterStatus });
     };
 
     const exportReports = () => {
