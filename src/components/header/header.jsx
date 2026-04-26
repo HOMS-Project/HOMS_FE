@@ -132,6 +132,18 @@ const handleLogout = () => {
 
   dispatch(logoutUserThunk()); 
 };
+
+  const handleContactClick = () => {
+    if (location.pathname === '/' || location.pathname === '/landing') {
+      document.getElementById('contact-section')?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      navigate('/');
+      setTimeout(() => {
+        document.getElementById('contact-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+    }
+  };
+
   return (
 
     <Header className="custom-header-wrapper">
@@ -188,7 +200,7 @@ const handleLogout = () => {
                         }
                       }}
                     />
-                    <Button type="primary" className="contact-btn-top" iconPosition="end">
+                    <Button type="primary" className="contact-btn-top" iconPosition="end" onClick={handleContactClick}>
                       Liên Hệ Ngay <RightOutlined style={{ fontSize: "10px" }} />
                     </Button>
                   </>
