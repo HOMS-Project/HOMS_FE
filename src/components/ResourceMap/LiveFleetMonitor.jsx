@@ -3,7 +3,7 @@ import { Card, Select, Badge, Typography } from 'antd';
 import { io } from 'socket.io-client';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
-
+import api from "../../services/api";
 const { Text } = Typography;
 
 // Custom Icons for Map
@@ -18,7 +18,7 @@ const driverIcon = new L.Icon({
 
 const LiveFleetMonitor = () => {
     const [fleetData, setFleetData] = useState({});
-    
+
     useEffect(() => {
         const fetchInitialLocations = async () => {
             try {
@@ -85,9 +85,9 @@ const LiveFleetMonitor = () => {
                     {activeDrivers.map((driver) => {
                         if (!driver.location || !driver.location.coordinates) return null;
                         return (
-                            <Marker 
-                                key={driver.userId} 
-                                position={[driver.location.coordinates[1], driver.location.coordinates[0]]} 
+                            <Marker
+                                key={driver.userId}
+                                position={[driver.location.coordinates[1], driver.location.coordinates[0]]}
                                 icon={driverIcon}
                             >
                                 <Popup>
