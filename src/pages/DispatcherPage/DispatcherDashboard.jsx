@@ -169,6 +169,7 @@ const DispatcherDashboard = () => {
                 if (status === 'IN_PROGRESS') { color = 'purple'; text = 'Đang thực hiện'; }
                 if (status === 'DRAFT') { color = 'default'; text = 'Nháp'; }
                 if (status === 'CANCELLED') { color = 'red'; text = 'Đã hủy'; }
+                if (status === 'COMPLETED') { color = 'green'; text = 'Đã hoàn thành'; }
                 return <Tag color={color} style={{ minWidth: 80, textAlign: 'center' }}>{text}</Tag>;
             }
         },

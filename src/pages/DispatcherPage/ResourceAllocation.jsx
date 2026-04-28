@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Typography, Tag, message, Modal, Select, Form, Space, Row, Col, Card, Descriptions, Divider, DatePicker, Alert } from 'antd';
 import { Spin as AntdSpin } from 'antd';
 import { CarOutlined } from '@ant-design/icons';
+import { io } from 'socket.io-client';
 import api from '../../services/api';
 import adminRouteService from '../../services/adminRouteService';
 import dayjs from 'dayjs';
@@ -74,6 +75,32 @@ const ResourceAllocation = () => {
     useEffect(() => {
         fetchInvoices();
         fetchResources();
+
+        // Setup Socket for live location updates
+        const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const socketUrl = rawUrl.replace(/\/api\/?$/, '');
+        const socket = io(socketUrl, { transports: ['polling', 'websocket'], withCredentials: true });
+
+        socket.on('connect', () => {
+            socket.emit('join_dispatcher_room');
+        });
+
+        socket.on('location_updated', (data) => {
+            setDrivers(prev => prev.map(driver => {
+                if (driver._id === data.userId) {
+                    return {
+                        ...driver,
+                        currentLocation: data.location,
+                        availabilityStatus: data.availabilityStatus || driver.availabilityStatus
+                    };
+                }
+                return driver;
+            }));
+        });
+
+        return () => {
+            socket.disconnect();
+        };
     }, []);
 
     // New Effect: Watch dispatchTime changes and query Availability Engine
