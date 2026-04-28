@@ -1,5 +1,5 @@
 import { Form, Input, Button, Divider, message } from "antd";
-import { EyeInvisibleOutlined, EyeTwoTone, FacebookFilled } from "@ant-design/icons";
+import { EyeInvisibleOutlined, EyeTwoTone, FacebookFilled } from "@ant-design/icons"; 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from 'react-redux';
@@ -98,12 +98,13 @@ const LoginForm = () => {
     
     let redirectPath = "/";
     const searchParams = new URLSearchParams(window.location.search);
-    const returnUrl = searchParams.get("redirect") || searchParams.get("returnUrl");
+    const returnUrl = searchParams.get("redirect"); 
       if (returnUrl) {
       try {
         // Tách link_token ra khỏi chuỗi URL một cách an toàn
         // (Ví dụ returnUrl đang là: /customer/order?link_token=eyJh...)
-        const urlObj = new URL(returnUrl, window.location.origin);
+        const decodedReturnUrl = decodeURIComponent(returnUrl);
+        const urlObj = new URL(decodedReturnUrl, window.location.origin);
         const linkToken = urlObj.searchParams.get("link_token");
 
         if (linkToken) {
@@ -111,16 +112,15 @@ const LoginForm = () => {
           await api.post('/auth/link-messenger', { linkToken });
           message.success("Đã đồng bộ đơn hàng từ Messenger vào tài khoản của bạn!");
           
-          // Xóa chữ link_token khỏi URL để nhìn cho sạch sẽ trước khi chuyển trang
-          urlObj.searchParams.delete("link_token");
-          redirectPath = urlObj.pathname + urlObj.search;
+            redirectPath = urlObj.pathname + urlObj.search;
+            redirectPath = redirectPath.replace(`link_token=${linkToken}`, '').replace('?&', '?').replace(/\?$/, '');
         } else {
-          redirectPath = returnUrl;
+            redirectPath = decodedReturnUrl;
         }
       } catch (error) {
         console.error("Lỗi đồng bộ Messenger:", error);
         message.warning("Đăng nhập thành công nhưng liên kết Messenger bị lỗi (hoặc hết hạn).");
-        redirectPath = returnUrl.split('?')[0]; // Cứ cho vào trang order, bỏ qua lỗi
+         redirectPath = "/customer/order";
       }
     } else {
       // Khôi phục các path chuẩn nếu không có redirectUrl
