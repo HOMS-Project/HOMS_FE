@@ -203,7 +203,7 @@ export const useResourceAllocation = () => {
     };
 
     // ─── Submit ──────────────────────────────────────────────────────────
-    const handleSubmit = async (values, isForceProceed = false) => {
+    const handleSubmit = async (values, isForceProceed = false, isExternalStaff = false) => {
         if (!selectedInvoice) return;
         setSubmitting(true);
         try {
@@ -217,7 +217,8 @@ export const useResourceAllocation = () => {
                 totalWeight: selectedInvoice.requestTicketId?.surveyDataId?.totalWeight || 1000,
                 totalVolume: selectedInvoice.requestTicketId?.surveyDataId?.totalVolume || 10,
                 estimatedDuration: 480,
-                forceProceed: isForceProceed
+                forceProceed: isForceProceed,
+                useExternalStaff: isExternalStaff
             };
             await api.post(`/admin/dispatch-assignments/invoice/${selectedInvoice._id}/allocate`, payload);
             message.success('Đã điều phối xe và nhân sự thành công!');
@@ -241,7 +242,12 @@ export const useResourceAllocation = () => {
     const handleForceProceed = () => {
         if (!insufficientResourcesData) return;
         const suggested = insufficientResourcesData.suggestedTeam;
-        handleSubmit({ ...insufficientResourcesData.valuesSnapshot, leaderId: suggested.leaderId, driverIds: suggested.driverIds, staffIds: suggested.staffIds }, true);
+        handleSubmit({ ...insufficientResourcesData.valuesSnapshot, leaderId: suggested.leaderId, driverIds: suggested.driverIds, staffIds: suggested.staffIds }, true, false);
+    };
+
+    const handleExternalStaffProceed = () => {
+        if (!insufficientResourcesData) return;
+        handleSubmit(insufficientResourcesData.valuesSnapshot, false, true);
     };
 
     const handleAutoRebuildTeam = () => {
@@ -273,6 +279,9 @@ export const useResourceAllocation = () => {
                 pickupLocation: mapCoords.pickup ? { coordinates: [mapCoords.pickup.lng, mapCoords.pickup.lat] } : null,
                 dispatchTime: form.getFieldValue('dispatchTime') ? form.getFieldValue('dispatchTime').toISOString() : undefined
             };
+
+            console.log(" [DEBUG] React Payload:", JSON.stringify(payload, null, 2));
+            console.log(" [DEBUG] Full Ticket Object:", ticket);
 
             const response = await api.post('/admin/dispatch-assignments/optimal-squad', payload);
             if (response.data?.success) {
@@ -316,7 +325,8 @@ export const useResourceAllocation = () => {
                         },
                         nextAvailableSlots: squad.nextAvailableSlots || [],
                         canForce: true,
-                        valuesSnapshot: newValues
+                        valuesSnapshot: newValues,
+                        feasibility: squad.feasibility
                     });
                     setIsResolutionModalVisible(true);
                 } else {
@@ -364,6 +374,7 @@ export const useResourceAllocation = () => {
         handleCancel,
         handleSubmit,
         handleForceProceed,
+        handleExternalStaffProceed,
         handleAutoRebuildTeam,
         handlePickAlternativeTime,
         handleAutoFill,

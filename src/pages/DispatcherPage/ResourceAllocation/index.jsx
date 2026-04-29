@@ -26,6 +26,7 @@ const ResourceAllocation = () => {
         handleCancel,
         handleSubmit,
         handleForceProceed,
+        handleExternalStaffProceed,
         handleAutoRebuildTeam,
         handlePickAlternativeTime,
         handleAutoFill,
@@ -162,6 +163,7 @@ const ResourceAllocation = () => {
                 onRebuildTeam={handleAutoRebuildTeam}
                 onPickAlternativeTime={handlePickAlternativeTime}
                 onForceProceed={handleForceProceed}
+                onExternalStaff={handleExternalStaffProceed}
             />
         </div>
     );

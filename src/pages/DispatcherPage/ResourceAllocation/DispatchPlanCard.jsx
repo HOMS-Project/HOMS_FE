@@ -154,16 +154,14 @@ const DispatchPlanCard = ({ vehicleStats, submitting, handleCancel, form, totalH
             </Form.Item>
             <Space style={{ flexShrink: 0 }}>
                 <Button onClick={handleCancel}>Hủy</Button>
-                <Button 
-                    type="primary" 
-                    htmlType="submit" 
-                    loading={submitting} 
-                    size="large" 
-                    style={{ background: totalHours > 10 ? '#d9d9d9' : '#44624a' }}
-                    disabled={totalHours > 10}
-                    title={totalHours > 10 ? "Thời gian vận chuyển vượt quá 10 tiếng. Vui lòng bổ sung nhân sự." : ""}
+                <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={submitting}
+                    size="large"
+                    style={{ background: '#44624a' }}
                 >
-                    {totalHours > 10 ? "Bị chặn ( > 10h)" : "Xác nhận điều phối"}
+                    Xác nhận điều phối
                 </Button>
             </Space>
         </div>
