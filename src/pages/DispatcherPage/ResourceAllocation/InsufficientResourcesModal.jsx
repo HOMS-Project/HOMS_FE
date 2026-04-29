@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Modal, Alert, Space, Typography, Card, Button, Tag, Progress, Divider, Checkbox, Row, Col, Table, Tooltip } from 'antd';
+import { Modal, Alert, Space, Typography, Card, Button, Tag, Progress, Checkbox, Row, Col, Table, Tooltip } from 'antd';
 import {
     CalendarOutlined,
-    InfoCircleOutlined,
     WarningOutlined,
     CloseCircleOutlined,
     CheckCircleOutlined,
@@ -39,9 +38,6 @@ const InsufficientResourcesModal = ({
     const impactLevel = feasibility.impactLevel || 'LOW';
     const shortages = data.shortages || {};
 
-    // ==============================================
-    // CORE RULE: Is the dispatch missing an authorized driver?
-    // ==============================================
     const isMissingDriver = (shortages.missing?.leader > 0) || (shortages.missing?.drivers > 0);
 
     const getStaffingColor = (level) => {
@@ -71,23 +67,23 @@ const InsufficientResourcesModal = ({
             render: (text) => <Text strong>{text}</Text>
         },
         {
-            title: 'Yêu cầu',
+            title: 'Cần',
             dataIndex: 'required',
             key: 'required',
             align: 'center',
-            render: (val) => <Tag color="blue">{val}</Tag>
+            render: (val) => <Tag color="blue" style={{ margin: 0 }}>{val}</Tag>
         },
         {
-            title: 'Hiện có',
+            title: 'Có',
             dataIndex: 'available',
             key: 'available',
             align: 'center',
             render: (val, record) => (
-                <Tag color={val < record.required ? 'red' : 'green'}>{val}</Tag>
+                <Tag color={val < record.required ? 'red' : 'green'} style={{ margin: 0 }}>{val}</Tag>
             )
         },
         {
-            title: 'Thiếu hụt',
+            title: 'Thiếu',
             dataIndex: 'missing',
             key: 'missing',
             align: 'center',
@@ -108,8 +104,8 @@ const InsufficientResourcesModal = ({
                     type="error"
                     showIcon
                     icon={<CarOutlined />}
-                    message={<Text strong style={{ fontSize: 16 }}>THIẾU TÀI XẾ CHO PHƯƠNG TIỆN</Text>}
-                    description="Mỗi phương tiện yêu cầu bắt buộc phải có ít nhất 1 Tài xế/Đội trưởng. Hiện tại không có đủ nhân sự lái xe cho số lượng xe được yêu cầu."
+                    message={<Text strong style={{ fontSize: 15 }}>THIẾU TÀI XẾ</Text>}
+                    description="Không có đủ nhân sự lái xe cho số lượng xe yêu cầu."
                     style={{ borderRadius: 8, borderLeftWidth: 4 }}
                 />
             );
@@ -120,8 +116,8 @@ const InsufficientResourcesModal = ({
                     type="error"
                     showIcon
                     icon={<CloseCircleOutlined />}
-                    message={<Text strong style={{ fontSize: 16 }}>ĐIỀU PHỐI BỊ CHẶN</Text>}
-                    description="Kế hoạch này vi phạm các tiêu chuẩn an toàn hoặc giới hạn thời gian vận chuyển tối đa. Hệ thống không cho phép thực hiện điều phối này."
+                    message={<Text strong style={{ fontSize: 15 }}>ĐIỀU PHỐI BỊ CHẶN</Text>}
+                    description="Vi phạm các tiêu chuẩn an toàn hoặc vượt giới hạn thời gian."
                     style={{ borderRadius: 8, borderLeftWidth: 4 }}
                 />
             );
@@ -132,8 +128,8 @@ const InsufficientResourcesModal = ({
                     type="warning"
                     showIcon
                     icon={<WarningOutlined />}
-                    message={<Text strong style={{ fontSize: 16 }}>CẦN KHÁCH HÀNG PHÊ DUYỆT</Text>}
-                    description="Tỉ lệ nhân sự quá thấp (< 50%). Bạn chỉ có thể gửi đề xuất để khách hàng xác nhận hoặc dời lịch."
+                    message={<Text strong style={{ fontSize: 15 }}>CẦN DUYỆT</Text>}
+                    description="Nhân sự < 50%. Chỉ có thể gửi đề xuất để khách hàng xác nhận."
                     style={{ borderRadius: 8, borderLeftWidth: 4 }}
                 />
             );
@@ -142,8 +138,8 @@ const InsufficientResourcesModal = ({
             <Alert
                 type="warning"
                 showIcon
-                message={<Text strong style={{ fontSize: 16 }}>ĐÁNH GIÁ RỦI RO LỊCH TRÌNH</Text>}
-                description="Hệ thống phát hiện một số hạn chế về nhân sự hoặc xung đột thời gian có thể ảnh hưởng đến đơn hàng này hoặc các đơn tiếp theo."
+                message={<Text strong style={{ fontSize: 15 }}>RỦI RO LỊCH TRÌNH</Text>}
+                description="Hệ thống phát hiện hạn chế về nhân sự hoặc xung đột thời gian."
                 style={{ borderRadius: 8, borderLeftWidth: 4 }}
             />
         );
@@ -153,22 +149,24 @@ const InsufficientResourcesModal = ({
         <Modal
             title={
                 <Space>
-                    <SafetyCertificateOutlined style={{ color: '#1890ff' }} />
-                    <span>Hệ Thống Phân Tích Tính Khả Thi Điều Phối</span>
+                    <SafetyCertificateOutlined style={{ color: '#1890ff', fontSize: 18 }} />
+                    <span style={{ fontSize: 16 }}>Phân Tích Tính Khả Thi Điều Phối</span>
                 </Space>
             }
             open={open}
             onCancel={onClose}
             footer={null}
-            width={720}
+            width={1200}
             centered
             className="feasibility-modal"
+            destroyOnClose
         >
             <style>
                 {`
                 .feasibility-modal .ant-modal-content {
                     border-radius: 12px;
                     overflow: hidden;
+                    padding-bottom: 24px;
                 }
                 .option-card {
                     transition: all 0.3s ease;
@@ -176,7 +174,7 @@ const InsufficientResourcesModal = ({
                 }
                 .option-card:hover {
                     transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
                 }
                 .time-slot-tag {
                     transition: all 0.2s ease;
@@ -189,245 +187,227 @@ const InsufficientResourcesModal = ({
                 }
                 .dashboard-item {
                     text-align: center;
-                    padding: 12px;
+                    padding: 12px 8px;
                     border-radius: 8px;
                     background: #fff;
                     box-shadow: inset 0 0 0 1px #f0f0f0;
+                    height: 100%;
                 }
                 `}
             </style>
 
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
-                {renderHeader()}
+            <Row gutter={[24, 0]}>
+                {/* ================= LEFT COLUMN: DIAGNOSTICS ================= */}
+                <Col span={11}>
+                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                        {renderHeader()}
 
-                {/* Scorecard Layer */}
-                <Card size="small" style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                    <Row gutter={[16, 16]}>
-                        <Col span={8}>
-                            <div className="dashboard-item">
-                                <Text type="secondary" size="small" style={{ display: 'block', marginBottom: 4 }}>Nhân sự đáp ứng</Text>
-                                <Title level={3} style={{ margin: 0, color: getStaffingColor(staffingLevel) }}>
-                                    {Math.round(staffingRatio * 100)}%
-                                </Title>
-                                <Progress
-                                    percent={Math.round(staffingRatio * 100)}
-                                    strokeColor={getStaffingColor(staffingLevel)}
-                                    showInfo={false}
-                                    size="small"
-                                />
-                            </div>
-                        </Col>
-                        <Col span={8}>
-                            <div className="dashboard-item">
-                                <Text type="secondary" size="small" style={{ display: 'block', marginBottom: 4 }}>Thời gian dự kiến</Text>
-                                <Title level={3} style={{ margin: 0 }}>
-                                    {(feasibility.estimatedDuration / 60).toFixed(1)}h
-                                </Title>
-                                <Tag icon={<ClockCircleOutlined />} color={feasibility.durationExceeded ? 'red' : 'blue'}>
-                                    {feasibility.durationExceeded ? 'VƯỢT GIỚI HẠN' : 'TRONG TẦM KIỂM SOÁT'}
-                                </Tag>
-                            </div>
-                        </Col>
-                        <Col span={8}>
-                            <div className="dashboard-item">
-                                <Text type="secondary" size="small" style={{ display: 'block', marginBottom: 4 }}>Xung đột Domino</Text>
-                                <div style={{ height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {hasConflict ? (
-                                        <Tooltip title={`Ảnh hưởng đơn tiếp theo khoảng ${Math.round(feasibility.maxDelayMinutes)} phút`}>
-                                            <Tag color={getImpactColor(impactLevel)} icon={<WarningOutlined />} style={{ margin: 0 }}>
-                                                CÓ XUNG ĐỘT ({impactLevel})
-                                            </Tag>
-                                        </Tooltip>
-                                    ) : (
-                                        <Tag color="green" icon={<CheckCircleOutlined />} style={{ margin: 0 }}>AN TOÀN</Tag>
-                                    )}
-                                </div>
-                                <Text type="secondary" style={{ fontSize: 11 }}>
-                                    {hasConflict ? `Dự kiến trễ: ${Math.round(feasibility.maxDelayMinutes)}p` : 'Không ảnh hưởng đơn khác'}
-                                </Text>
-                            </div>
-                        </Col>
-                    </Row>
-                </Card>
-
-                {/* Resource Details Table */}
-                <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                        <TeamOutlined style={{ color: '#1890ff' }} />
-                        <Text strong>Chi tiết khoảng cách nhân sự thực tế:</Text>
-                    </div>
-                    <Table
-                        dataSource={resourceData}
-                        columns={resourceColumns}
-                        pagination={false}
-                        size="small"
-                        bordered
-                        style={{ borderRadius: 8, overflow: 'hidden' }}
-                    />
-                </div>
-
-                <Divider style={{ margin: '8px 0' }}>CÁC PHƯƠNG ÁN XỬ LÝ GỢI Ý</Divider>
-
-                <div className="options-container">
-                    {/* Option 1: Rebuild team */}
-                    <Card size="small" className="option-card" style={{ borderLeftColor: '#1890ff', marginBottom: 12 }}>
-                        <Row align="middle" gutter={16}>
-                            <Col flex="auto">
-                                <Space align="start">
-                                    <RocketOutlined style={{ color: '#1890ff', fontSize: 18, marginTop: 4 }} />
-                                    <div>
-                                        <Text strong>Tái cấu trúc đội hình tối ưu</Text>
-                                        <div style={{ color: '#64748b', fontSize: 13 }}>
-                                            {sameTeam ? 'Hệ thống không tìm thấy đội hình nào rảnh hơn vào giờ này.' : 'Tự động hoán đổi sang những nhân sự đang rảnh rỗi và gần điểm pickup nhất.'}
+                        <Card size="small" style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                            <Row gutter={[12, 12]} align="stretch">
+                                <Col span={8}>
+                                    <div className="dashboard-item">
+                                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Nhân sự đáp ứng</Text>
+                                        <Title level={4} style={{ margin: 0, color: getStaffingColor(staffingLevel) }}>
+                                            {Math.round(staffingRatio * 100)}%
+                                        </Title>
+                                        <Progress
+                                            percent={Math.round(staffingRatio * 100)}
+                                            strokeColor={getStaffingColor(staffingLevel)}
+                                            showInfo={false}
+                                            size="small"
+                                            style={{ margin: 0 }}
+                                        />
+                                    </div>
+                                </Col>
+                                <Col span={8}>
+                                    <div className="dashboard-item">
+                                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Dự kiến</Text>
+                                        <Title level={4} style={{ margin: 0 }}>
+                                            {(feasibility.estimatedDuration / 60).toFixed(1)}h
+                                        </Title>
+                                        <Tag icon={<ClockCircleOutlined />} color={feasibility.durationExceeded ? 'red' : 'blue'} style={{ margin: 0, fontSize: 10 }}>
+                                            {feasibility.durationExceeded ? 'VƯỢT GIỚI HẠN' : 'TRONG TẦM'}
+                                        </Tag>
+                                    </div>
+                                </Col>
+                                <Col span={8}>
+                                    <div className="dashboard-item">
+                                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Xung đột</Text>
+                                        <div style={{ height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {hasConflict ? (
+                                                <Tooltip title={`Ảnh hưởng đơn tiếp theo khoảng ${Math.round(feasibility.maxDelayMinutes)} phút`}>
+                                                    <Tag color={getImpactColor(impactLevel)} icon={<WarningOutlined />} style={{ margin: 0, fontSize: 10 }}>
+                                                        CÓ ({impactLevel})
+                                                    </Tag>
+                                                </Tooltip>
+                                            ) : (
+                                                <Tag color="green" icon={<CheckCircleOutlined />} style={{ margin: 0, fontSize: 10 }}>AN TOÀN</Tag>
+                                            )}
                                         </div>
                                     </div>
-                                </Space>
-                            </Col>
-                            <Col>
-                                <Button
-                                    type="primary"
-                                    ghost
-                                    onClick={onRebuildTeam}
-                                    disabled={sameTeam}
-                                    icon={<CheckCircleOutlined />}
-                                >
-                                    Áp dụng
-                                </Button>
-                            </Col>
-                        </Row>
-                    </Card>
+                                </Col>
+                            </Row>
+                        </Card>
 
-                    {/* Option 2: Alternative Time Slots */}
-                    <Card size="small" className="option-card" style={{ borderLeftColor: '#44624a', marginBottom: 12 }}>
-                        <div style={{ marginBottom: 8 }}>
-                            <Space>
-                                <CalendarOutlined style={{ color: '#44624a', fontSize: 18 }} />
-                                <Text strong>Đổi sang khung giờ có đủ nhân sự</Text>
-                            </Space>
-                        </div>
-                        {data.nextAvailableSlots?.length > 0 ? (
-                            <Space wrap size={[8, 8]} style={{ paddingLeft: 26 }}>
-                                {data.nextAvailableSlots.map((s, i) => (
-                                    <Tag
-                                        key={i}
-                                        color="#f0fdf4"
-                                        className="time-slot-tag"
-                                        style={{
-                                            cursor: 'pointer',
-                                            padding: '6px 12px',
-                                            borderRadius: 6,
-                                            color: '#166534',
-                                            border: '1px solid #bcf0da'
-                                        }}
-                                        onClick={() => onPickAlternativeTime(s)}
-                                    >
-                                        <ClockCircleOutlined style={{ marginRight: 6 }} />
-                                        {dayjs(s).format('HH:mm [Ngày] DD/MM')}
-                                    </Tag>
-                                ))}
-                            </Space>
-                        ) : (
-                            <div style={{ paddingLeft: 26 }}>
-                                <Text type="secondary" italic style={{ fontSize: 13 }}>Không tìm thấy khung giờ trống khả thi trong 48h tới.</Text>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <TeamOutlined style={{ color: '#1890ff' }} />
+                                <Text strong>Chi tiết nhân sự thực tế:</Text>
                             </div>
-                        )}
-                    </Card>
-
-                    {/* Option 3: External Staff */}
-                    <Card size="small" className="option-card" style={{ borderLeftColor: isMissingDriver ? '#d9d9d9' : '#52c41a', marginBottom: 12 }}>
-                        <Row align="middle" gutter={16}>
-                            <Col flex="auto">
-                                <Space align="start">
-                                    <TeamOutlined style={{ color: isMissingDriver ? '#bfbfbf' : '#52c41a', fontSize: 18, marginTop: 4 }} />
-                                    <div>
-                                        <Text strong style={{ color: isMissingDriver ? '#bfbfbf' : 'inherit' }}>Sử dụng nhân viên thuê ngoài (Tạp vụ)</Text>
-                                        <div style={{ color: '#64748b', fontSize: 13 }}>
-                                            Bù đắp phần nhân sự thiếu hụt bằng cộng tác viên. Hệ thống sẽ ghi nhận chi phí thuê ngoài cho đơn này.
-                                        </div>
-                                    </div>
-                                </Space>
-                            </Col>
-                            <Col>
-                                <Tooltip title={isMissingDriver ? "Chỉ hỗ trợ thuê tạp vụ ngoài. Không thể áp dụng cho tài xế." : ""}>
-                                    <Button
-                                        style={isMissingDriver ? {} : { borderColor: '#52c41a', color: '#52c41a' }}
-                                        onClick={onExternalStaff}
-                                        loading={submitting}
-                                        disabled={isMissingDriver}
-                                    >
-                                        Thuê ngoài
-                                    </Button>
-                                </Tooltip>
-                            </Col>
-                        </Row>
-                    </Card>
-
-                    {/* Final Action: Force Dispatch */}
-                    <div style={{ marginTop: 24 }}>
-                        {isMissingDriver ? (
-                            <Alert
-                                type="error"
-                                message="Hành động bị vô hiệu hóa (Thiếu Tài xế)"
-                                description="Mỗi xe tải bắt buộc phải có 1 Tài xế phụ trách. Xe không thể tự di chuyển. Vui lòng dời lịch hoặc tìm kiếm Tài xế khác."
-                                showIcon
-                            />
-                        ) : decision === 'BLOCK' ? (
-                            <Alert
-                                type="error"
-                                message="Hành động bị vô hiệu hóa"
-                                description="Vui lòng chọn dời lịch hoặc tái cấu trúc đội hình. Bạn không thể cưỡng ép thực hiện một ca vận chuyển không an toàn."
-                                showIcon
-                            />
-                        ) : (
-                            <Card
+                            <Table
+                                dataSource={resourceData}
+                                columns={resourceColumns}
+                                pagination={false}
                                 size="small"
-                                style={{
-                                    background: decision === 'REQUIRE_CUSTOMER' ? '#fffbeb' : '#fef2f2',
-                                    border: `1px solid ${decision === 'REQUIRE_CUSTOMER' ? '#fef3c7' : '#fee2e2'}`,
-                                    borderRadius: 12
-                                }}
-                            >
-                                <Row gutter={16} align="middle">
-                                    <Col flex="auto">
-                                        <div style={{ marginBottom: 4 }}>
-                                            <ExclamationCircleOutlined style={{ color: decision === 'REQUIRE_CUSTOMER' ? '#d97706' : '#dc2626', marginRight: 8 }} />
-                                            <Text strong type={decision === 'REQUIRE_CUSTOMER' ? 'warning' : 'danger'}>
-                                                {decision === 'REQUIRE_CUSTOMER' ? 'Gửi đề xuất rủi ro cho Khách hàng' : 'Cưỡng ép điều phối (Chấp nhận rủi ro)'}
-                                            </Text>
+                                bordered
+                                style={{ borderRadius: 8, overflow: 'hidden' }}
+                            />
+                        </div>
+                    </Space>
+                </Col>
+
+                {/* ================= RIGHT COLUMN: ACTIONS ================= */}
+                <Col span={13}>
+                    <div style={{ paddingLeft: 8, borderLeft: '1px solid #f0f0f0', height: '100%' }}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong style={{ fontSize: 14, color: '#44624a' }}>CÁC PHƯƠNG ÁN XỬ LÝ GỢI Ý</Text>
+                        </div>
+
+                        {/* Option 1: Rebuild team */}
+                        <Card size="small" className="option-card" style={{ borderLeftColor: '#1890ff', marginBottom: 12 }}>
+                            <Row align="middle" gutter={12}>
+                                <Col flex="auto">
+                                    <Space align="start">
+                                        <RocketOutlined style={{ color: '#1890ff', fontSize: 16, marginTop: 4 }} />
+                                        <div>
+                                            <Text strong>Tái cấu trúc đội hình</Text>
+                                            <div style={{ color: '#64748b', fontSize: 12 }}>
+                                                {sameTeam ? 'Hệ thống không tìm thấy đội hình nào rảnh hơn vào giờ này.' : 'Hoán đổi sang nhân sự đang rảnh rỗi và gần điểm lấy hàng.'}
+                                            </div>
                                         </div>
-                                        <div style={{ fontSize: 12, color: '#475569' }}>
-                                            {decision === 'REQUIRE_CUSTOMER'
-                                                ? 'Sau khi bạn gửi, khách hàng sẽ nhận được yêu cầu xác nhận rủi ro trễ ca trên ứng dụng.'
-                                                : 'Lưu ý: Lựa chọn này có thể dẫn đến khiếu nại về chất lượng và thời gian do thiếu nhân sự hoặc trễ dây chuyền.'}
-                                        </div>
-                                        <Checkbox
-                                            style={{ marginTop: 12 }}
-                                            checked={understoodRisk}
-                                            onChange={e => setUnderstoodRisk(e.target.checked)}
+                                    </Space>
+                                </Col>
+                                <Col>
+                                    <Button type="primary" ghost onClick={onRebuildTeam} disabled={sameTeam} size="small">
+                                        Áp dụng
+                                    </Button>
+                                </Col>
+                            </Row>
+                        </Card>
+
+                        {/* Option 2: Alternative Time Slots */}
+                        <Card size="small" className="option-card" style={{ borderLeftColor: '#44624a', marginBottom: 12 }}>
+                            <div style={{ marginBottom: 8 }}>
+                                <Space>
+                                    <CalendarOutlined style={{ color: '#44624a', fontSize: 16 }} />
+                                    <Text strong>Đổi sang khung giờ có đủ nhân sự</Text>
+                                </Space>
+                            </div>
+                            {data.nextAvailableSlots?.length > 0 ? (
+                                <Space wrap size={[8, 8]} style={{ paddingLeft: 24 }}>
+                                    {data.nextAvailableSlots.map((s, i) => (
+                                        <Tag
+                                            key={i}
+                                            color="#f0fdf4"
+                                            className="time-slot-tag"
+                                            style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 6, color: '#166534', border: '1px solid #bcf0da' }}
+                                            onClick={() => onPickAlternativeTime(s)}
                                         >
-                                            <Text style={{ fontSize: 12 }}>Tôi đã đánh giá kỹ và chấp nhận rủi ro vận hành.</Text>
-                                        </Checkbox>
-                                    </Col>
-                                    <Col>
+                                            <ClockCircleOutlined style={{ marginRight: 4 }} />
+                                            {dayjs(s).format('HH:mm - DD/MM')}
+                                        </Tag>
+                                    ))}
+                                </Space>
+                            ) : (
+                                <div style={{ paddingLeft: 24 }}>
+                                    <Text type="secondary" italic style={{ fontSize: 12 }}>Không tìm thấy khung giờ trống khả thi trong 48h tới.</Text>
+                                </div>
+                            )}
+                        </Card>
+
+                        {/* Option 3: External Staff */}
+                        <Card size="small" className="option-card" style={{ borderLeftColor: isMissingDriver ? '#d9d9d9' : '#52c41a', marginBottom: 16 }}>
+                            <Row align="middle" gutter={12}>
+                                <Col flex="auto">
+                                    <Space align="start">
+                                        <TeamOutlined style={{ color: isMissingDriver ? '#bfbfbf' : '#52c41a', fontSize: 16, marginTop: 4 }} />
+                                        <div>
+                                            <Text strong style={{ color: isMissingDriver ? '#bfbfbf' : 'inherit' }}>Sử dụng nhân sự thuê ngoài</Text>
+                                            <div style={{ color: '#64748b', fontSize: 12 }}>
+                                                Bù đắp phần thiếu hụt bằng cộng tác viên tạp vụ.
+                                            </div>
+                                        </div>
+                                    </Space>
+                                </Col>
+                                <Col>
+                                    <Tooltip title={isMissingDriver ? "Chỉ hỗ trợ thuê tạp vụ ngoài. Không thể áp dụng cho tài xế." : ""}>
                                         <Button
-                                            type="primary"
-                                            danger={decision !== 'REQUIRE_CUSTOMER'}
-                                            style={decision === 'REQUIRE_CUSTOMER' ? { background: '#faad14', borderColor: '#faad14' } : {}}
-                                            onClick={onForceProceed}
+                                            size="small"
+                                            style={isMissingDriver ? {} : { borderColor: '#52c41a', color: '#52c41a' }}
+                                            onClick={onExternalStaff}
                                             loading={submitting}
-                                            disabled={!understoodRisk}
-                                            size="large"
-                                            icon={<RocketOutlined />}
+                                            disabled={isMissingDriver}
                                         >
-                                            {decision === 'REQUIRE_CUSTOMER' ? 'Gửi đề xuất' : 'Force Dispatch'}
+                                            Thuê ngoài
                                         </Button>
-                                    </Col>
-                                </Row>
-                            </Card>
-                        )}
+                                    </Tooltip>
+                                </Col>
+                            </Row>
+                        </Card>
+
+                        {/* Final Action: Force Dispatch */}
+                        <div>
+                            {isMissingDriver ? (
+                                <Alert
+                                    type="error"
+                                    message={<Text strong style={{ fontSize: 13 }}>Cưỡng ép bị chặn (Thiếu Tài xế)</Text>}
+                                    description={<span style={{ fontSize: 12 }}>Bắt buộc phải có 1 Tài xế phụ trách phương tiện.</span>}
+                                    showIcon
+                                />
+                            ) : decision === 'BLOCK' ? (
+                                <Alert
+                                    type="error"
+                                    message={<Text strong style={{ fontSize: 13 }}>Cưỡng ép bị chặn</Text>}
+                                    description={<span style={{ fontSize: 12 }}>Không thể thực hiện một ca vận chuyển không an toàn.</span>}
+                                    showIcon
+                                />
+                            ) : (
+                                <Card
+                                    size="small"
+                                    style={{ background: decision === 'REQUIRE_CUSTOMER' ? '#fffbeb' : '#fef2f2', border: `1px solid ${decision === 'REQUIRE_CUSTOMER' ? '#fef3c7' : '#fee2e2'}`, borderRadius: 8 }}
+                                >
+                                    <Row gutter={12} align="middle">
+                                        <Col flex="auto">
+                                            <div style={{ marginBottom: 4 }}>
+                                                <ExclamationCircleOutlined style={{ color: decision === 'REQUIRE_CUSTOMER' ? '#d97706' : '#dc2626', marginRight: 6 }} />
+                                                <Text strong type={decision === 'REQUIRE_CUSTOMER' ? 'warning' : 'danger'}>
+                                                    {decision === 'REQUIRE_CUSTOMER' ? 'Đề xuất khách hàng' : 'Cưỡng ép điều phối'}
+                                                </Text>
+                                            </div>
+                                            <Checkbox checked={understoodRisk} onChange={e => setUnderstoodRisk(e.target.checked)}>
+                                                <Text style={{ fontSize: 12 }}>Tôi chấp nhận rủi ro vận hành.</Text>
+                                            </Checkbox>
+                                        </Col>
+                                        <Col>
+                                            <Button
+                                                type="primary"
+                                                danger={decision !== 'REQUIRE_CUSTOMER'}
+                                                style={decision === 'REQUIRE_CUSTOMER' ? { background: '#faad14', borderColor: '#faad14' } : {}}
+                                                onClick={onForceProceed}
+                                                loading={submitting}
+                                                disabled={!understoodRisk}
+                                                icon={<RocketOutlined />}
+                                            >
+                                                {decision === 'REQUIRE_CUSTOMER' ? 'Gửi đề xuất' : 'Cưỡng ép'}
+                                            </Button>
+                                        </Col>
+                                    </Row>
+                                </Card>
+                            )}
+                        </div>
                     </div>
-                </div>
-            </Space>
+                </Col>
+            </Row>
         </Modal>
     );
 };
