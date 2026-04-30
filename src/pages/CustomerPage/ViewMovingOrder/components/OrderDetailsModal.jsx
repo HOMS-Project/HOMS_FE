@@ -132,41 +132,81 @@ const OrderDetailsModal = ({
           )}
 
           {/* TRUCK RENTAL DETAILS */}
-          {ticket.moveType === 'TRUCK_RENTAL' && (
-            <div style={{ fontSize: 14 }}>
-              <Row gutter={16}>
-                <Col span={24}>
-                  <div style={{ background: '#e6f4ff', border: '1px solid #91caff', borderRadius: 10, padding: '14px 18px', marginBottom: 14, height: '100%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                      <div style={{ background: '#1677ff', borderRadius: 6, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <CarOutlined style={{ color: '#fff', fontSize: 13 }} />
-                        <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>Thông tin thuê xe tải</span>
-                      </div>
-                    </div>
-                    <Row gutter={[10, 10]}>
-                      {[
-                        { icon: <CarOutlined />, label: 'Loại xe', value: ticket.rentalDetails?.truckType || ticket.truckType || 'Không xác định' },
-                        { icon: <ClockCircleOutlined />, label: 'Thời gian thuê', value: ticket.rentalDetails?.rentalDurationHours ? `${ticket.rentalDetails.rentalDurationHours} giờ` : 'Không xác định' },
-                        { icon: <TeamOutlined />, label: 'Tổng nhân sự', value: `${1 + (ticket.rentalDetails?.extraStaffCount || 0)} người` },
-                        { icon: <InboxOutlined />, label: 'Đóng gói', value: ticket.rentalDetails?.needsPacking ? 'Có' : 'Không' },
-                        { icon: <ToolOutlined />, label: 'Tháo lắp', value: ticket.rentalDetails?.needsAssembling ? 'Có' : 'Không' },
-                      ].map((item, i) => (
-                        <Col span={4} md={4} sm={8} xs={12} key={i}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 4, padding: '8px 4px', background: '#fff', borderRadius: 8, border: '1px solid #bae0ff', height: '100%' }}>
-                            <span style={{ color: '#1677ff', fontSize: 18 }}>{item.icon}</span>
-                            <div>
-                              <div style={{ fontSize: 11, color: '#888' }}>{item.label}</div>
-                              <div style={{ fontWeight: 700, color: '#1677ff', fontSize: 13, lineHeight: '1.2' }}>{item.value}</div>
-                            </div>
-                          </div>
-                        </Col>
-                      ))}
-                    </Row>
-                  </div>
-                </Col>
-              </Row>
+         {ticket.moveType === 'TRUCK_RENTAL' && (
+  <div style={{ fontSize: 14 }}>
+    <Row gutter={16}>
+      <Col span={24}>
+        <div style={{ background: '#e6f4ff', border: '1px solid #91caff', borderRadius: 10, padding: '14px 18px', marginBottom: 14, height: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <div style={{ background: '#1677ff', borderRadius: 6, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <CarOutlined style={{ color: '#fff', fontSize: 13 }} />
+              <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>Thông tin thuê xe tải</span>
             </div>
-          )}
+          </div>
+          <Row gutter={[10, 10]}>
+            {[
+              { 
+                icon: <CarOutlined />, 
+                label: 'Loại xe', 
+                value: translateTruckType(ticket.rentalDetails?.truckType || ticket.truckType || survey?.suggestedVehicle) 
+              },
+              { 
+                icon: <ClockCircleOutlined />, 
+                label: 'Thời gian thuê', 
+                value: (ticket.rentalDetails?.estimatedHours || survey?.estimatedHours) 
+                  ? `${ticket.rentalDetails?.estimatedHours || survey?.estimatedHours} giờ` 
+                  : 'Không xác định' 
+              },
+              { 
+                icon: <TeamOutlined />, 
+                label: 'Tổng nhân sự', 
+                value: `${1 + (ticket.rentalDetails?.extraStaffCount || 0)} người` 
+              },
+              { 
+                icon: <InboxOutlined />, 
+                label: 'Đóng gói', 
+                value: ticket.rentalDetails?.needsPacking ? 'Có' : 'Không' 
+              },
+              { 
+                icon: <ToolOutlined />, 
+                label: 'Tháo lắp', 
+                value: ticket.rentalDetails?.needsAssembling ? 'Có' : 'Không' 
+              },
+            ].map((item, i) => (
+              <Col span={4} md={4} sm={8} xs={12} key={i}>
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  textAlign: 'center', 
+                  gap: 4, 
+                  padding: '8px 4px', 
+                  background: '#fff', 
+                  borderRadius: 8, 
+                  border: '1px solid #bae0ff', 
+                  height: '100%' 
+                }}>
+                  <span style={{ color: '#1677ff', fontSize: 18 }}>{item.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#888' }}>{item.label}</div>
+                    <div style={{ 
+                      fontWeight: 700, 
+                      color: '#1677ff', 
+                      fontSize: 13, 
+                      lineHeight: '1.2' 
+                    }}>
+                      {item.value}
+                    </div>
+                  </div>
+                </div>
+              </Col>
+            ))}
+          </Row>
+        </div>
+      </Col>
+    </Row>
+  </div>
+)}
 
           {/* SURVEY & PRICING */}
           {ticket.moveType !== 'TRUCK_RENTAL' && survey && pricing && (
