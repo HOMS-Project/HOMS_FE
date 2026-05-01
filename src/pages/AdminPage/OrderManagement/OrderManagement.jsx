@@ -24,6 +24,7 @@ const OrderManagement = () => {
   const [limit, setLimit] = useState(5);
   const [total, setTotal] = useState(0);
   const [metrics, setMetrics] = useState(null);
+  const [charts, setCharts] = useState(null);
 
   // derive source filter from active tab
   const sourceFilter = activeTab === 'web' ? 'WEB' : 'FACEBOOK';
@@ -74,11 +75,13 @@ const OrderManagement = () => {
         setPage(resp.page || params.page || 1);
         setLimit(resp.limit || params.limit || limit);
         if (resp.metrics) setMetrics(resp.metrics);
+        if (resp.charts) setCharts(resp.charts);
       } else {
         // fallback: empty
         setOrdersData([]);
         setTotal(0);
         setMetrics(null);
+        setCharts(null);
       }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -120,6 +123,9 @@ const OrderManagement = () => {
   }, [filtered, metrics]);
 
   const timeseries = useMemo(() => {
+    if (charts && Array.isArray(charts.timeseries)) {
+      return charts.timeseries.map(t => ({ date: dayjs(t.date).format('DD MMM'), count: t.count, value: t.value }));
+    }
     // group by day
     const groups = {};
     filtered.forEach(o => {
@@ -129,13 +135,16 @@ const OrderManagement = () => {
       groups[d].value += o.totalPrice || 0;
     });
     return Object.values(groups).reverse();
-  }, [filtered]);
+  }, [filtered, charts]);
 
   const statusDistribution = useMemo(() => {
+    if (charts && Array.isArray(charts.statusDistribution)) {
+      return charts.statusDistribution.map(s => ({ name: s.name, value: s.value }));
+    }
     const map = {};
     filtered.forEach(o => { map[o.status] = (map[o.status] || 0) + 1; });
     return Object.keys(map).map(k => ({ name: k, value: map[k] }));
-  }, [filtered]);
+  }, [filtered, charts]);
 
 
   const columns = [
