@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Table, Button, Tag, Modal, Form, Select, message, Space, Card, Typography, DatePicker, Divider,
-  Row, Col, InputNumber, Checkbox, Alert, Input, Image
+  Row, Col, InputNumber, Checkbox, Alert, Input, Image, Tooltip
 } from "antd";
 import {
   CheckCircleOutlined, CloseCircleOutlined, RobotOutlined, UserSwitchOutlined, CalendarOutlined, ClockCircleOutlined
@@ -534,83 +534,101 @@ const SurveySchedulingPage = () => {
     },
     {
       title: "Hành động",
+      width: 120, // using less width since it's just circular icons now
+      fixed: "right",
       render: (_, record) => {
         const isAi = isAiGeneratedTicket(record.notes);
 
         return (
-          <Space size="small" direction="vertical">
+          <Space size="small">
             {/* --- ĐỐI VỚI TRẠNG THÁI CREATED --- */}
             {record.status === "CREATED" && (
               <>
                 {!isAi && record.moveType === 'TRUCK_RENTAL' ? (
-                  <Button
-                    type="primary"
-                    style={{ background: "#44624a", borderColor: "#44624a" }}
-                    icon={<DollarCircleOutlined />}
-                    onClick={() => openTruckRentalQuoteModal(record)}
-                  >
-                    Báo giá
-                  </Button>
+                  <Tooltip title="Báo giá">
+                    <Button
+                      type="primary"
+                      shape="circle"
+                      style={{ background: "#44624a", borderColor: "#44624a" }}
+                      icon={<DollarCircleOutlined />}
+                      onClick={() => openTruckRentalQuoteModal(record)}
+                    />
+                  </Tooltip>
                 ) : (
-                  <Button
-                    type="primary"
-                    style={{ background: "#44624a", borderColor: "#44624a" }}
-                    icon={<CheckCircleOutlined />}
-                    onClick={() => handleDirectApprove(record)}
-                  >
-                    Duyệt đơn
-                  </Button>
+                  <Tooltip title="Duyệt đơn">
+                    <Button
+                      type="primary"
+                      shape="circle"
+                      style={{ background: "#44624a", borderColor: "#44624a" }}
+                      icon={<CheckCircleOutlined />}
+                      onClick={() => handleDirectApprove(record)}
+                    />
+                  </Tooltip>
                 )}
-                <Button danger icon={<CloseCircleOutlined />} onClick={() => handleCancelTicket(record)}>
-                  Từ chối
-                </Button>
+                <Tooltip title="Từ chối">
+                  <Button 
+                    danger 
+                    shape="circle"
+                    icon={<CloseCircleOutlined />} 
+                    onClick={() => handleCancelTicket(record)} 
+                  />
+                </Tooltip>
               </>
             )}
             {/* --- STATE: WAITING_REVIEW --- */}
             {record.status === "WAITING_REVIEW" && (
               <>
                 {record.moveType === 'TRUCK_RENTAL' ? (
-                  <Button
-                    type="primary"
-                    style={{ background: "#44624a", borderColor: "#44624a" }}
-                    icon={<DollarCircleOutlined />}
-                    onClick={() => openTruckRentalQuoteModal(record)}
-                  >
-                    Xem xét & Báo giá
-                  </Button>
+                  <Tooltip title="Xem xét & Báo giá">
+                    <Button
+                      type="primary"
+                      shape="circle"
+                      style={{ background: "#44624a", borderColor: "#44624a" }}
+                      icon={<DollarCircleOutlined />}
+                      onClick={() => openTruckRentalQuoteModal(record)}
+                    />
+                  </Tooltip>
                 ) : (
-                  <Button
-                    type="primary"
-                    style={{
-                      background: isAi ? "#722ed1" : "#1890ff",
-                      borderColor: isAi ? "#722ed1" : "#1890ff"
-                    }}
-                    icon={isAi ? <RobotOutlined /> : <EyeOutlined />}
-                    onClick={() => openAiReviewModal(record)}
-                  >
-                    {isAi ? "Xem DL AI & Báo giá" : "Xem xét & Báo giá"}
-                  </Button>
+                  <Tooltip title={isAi ? "Xem DL AI & Báo giá" : "Xem xét & Báo giá"}>
+                    <Button
+                      type="primary"
+                      shape="circle"
+                      style={{
+                        background: isAi ? "#722ed1" : "#1890ff",
+                        borderColor: isAi ? "#722ed1" : "#1890ff"
+                      }}
+                      icon={isAi ? <RobotOutlined /> : <EyeOutlined />}
+                      onClick={() => openAiReviewModal(record)}
+                    />
+                  </Tooltip>
                 )}
               </>
             )}
 
             {/* --- STATE: WAITING_SURVEY --- */}
             {record.status === "WAITING_SURVEY" && record.proposedSurveyTimes?.length > 0 && (
-              <Button
-                type="primary"
-                style={{ background: "#44624a", borderColor: "#8ba888" }}
-                icon={<CheckCircleOutlined />}
-                onClick={() => openAcceptProposedModal(record)}
-              >
-                Xem đề xuất khách
-              </Button>
+              <Tooltip title="Xem đề xuất khách">
+                <Button
+                  type="primary"
+                  shape="circle"
+                  style={{ background: "#44624a", borderColor: "#8ba888" }}
+                  icon={<CalendarOutlined />}
+                  onClick={() => openAcceptProposedModal(record)}
+                />
+              </Tooltip>
             )}
 
             {/* --- STATE: ASSIGNMENT_FAILED --- */}
             {record.status === "ASSIGNMENT_FAILED" && (
-              <Button type="primary" danger icon={<UserSwitchOutlined />} onClick={() => openManualAssignModal(record)}>
-                Phân công thủ công
-              </Button>
+              <Tooltip title="Phân công thủ công">
+                <Button 
+                  type="primary" 
+                  danger 
+                  shape="circle"
+                  icon={<UserSwitchOutlined />} 
+                  onClick={() => openManualAssignModal(record)} 
+                />
+              </Tooltip>
             )}
           </Space>
         );

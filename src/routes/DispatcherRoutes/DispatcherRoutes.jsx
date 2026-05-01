@@ -1,15 +1,13 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Spin } from "antd";
-
-// Import Layout vào đây
 import DispatcherLayout from "../../components/DispatcherLayout";
 import ProtectedRoute from "../../components/ProtectRoute/ProtectedRoute";
 
 const DispatcherDashboard = lazy(() => import("../../pages/DispatcherPage/DispatcherDashboard"));
 const SurveySchedulingScreen = lazy(() => import("../../pages/DispatcherPage/SurveySchedulingPage"));
 const SurveyCalendar = lazy(() => import("../../pages/DispatcherPage/SurveyCalendar"));
-const SurveyInput = lazy(() => import("../../pages/DispatcherPage/SurveyInput"));
+const SurveyInput = lazy(() => import("../../pages/DispatcherPage/SurveyInput/SurveyInput"));
 const ResourceAllocation = lazy(() => import("../../pages/DispatcherPage/ResourceAllocation"));
 const DispatchedOrders = lazy(() => import("../../pages/DispatcherPage/DispatchedOrders"));
 const VideoChat = lazy(() => import("../../pages/VideoChat/VideoChat"));
