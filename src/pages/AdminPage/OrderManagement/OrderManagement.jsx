@@ -185,7 +185,13 @@ const OrderManagement = () => {
     { title: 'Tổng tiền', dataIndex: 'totalPrice', key: 'totalPrice', render: v => <span style={{ fontWeight: 700 }}>{currency(v)}</span> },
     { title: 'Hành động', key: 'action', render: (_, record) => (
       <Space>
-        <Button size="small" onClick={() => { setDetailOrder(record); setDetailVisible(true); }}>Xem</Button>
+        <Button
+          size="small"
+          onClick={() => { setDetailOrder(record); setDetailVisible(true); }}
+          style={{ background: '#fff', color: primaryColor, border: `1px solid ${primaryColor}` }}
+        >
+          Xem
+        </Button>
       </Space>
     ) }
   ];
