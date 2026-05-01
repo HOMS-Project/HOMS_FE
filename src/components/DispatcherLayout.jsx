@@ -66,6 +66,7 @@ const DispatcherLayout = () => {
       key: '/dispatcher/assigned-orders',
       icon: <ShareAltOutlined />,
       label: 'Theo dõi điều phối',
+      generalOnly: true,
     },
     {
       key: '/dispatcher/video-chat',

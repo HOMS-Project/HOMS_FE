@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
-
+import Unauthorized from "../../pages/Exception/Unauthorized/Unauthorized";
 const ProtectedRoute = ({ children, allowedRoles }) => {
 const { user, isAuthenticated, loading } = useSelector((state) => state.auth);
   const location = useLocation();
@@ -22,7 +22,7 @@ const { user, isAuthenticated, loading } = useSelector((state) => state.auth);
   // (ví dụ: user.role, user.role.name, user.roleId...)
   
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    return <Unauthorized />;
   }
 
   // 3. Hợp lệ -> Cho phép truy cập vào component con
