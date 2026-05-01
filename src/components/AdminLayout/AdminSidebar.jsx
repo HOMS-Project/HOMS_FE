@@ -1,6 +1,6 @@
 import React from 'react';
 import { Layout, Menu } from 'antd';
-import { AreaChartOutlined, UserOutlined, CarOutlined, FileTextOutlined, DollarOutlined, FileDoneOutlined, StarOutlined, GiftOutlined, EnvironmentOutlined, ExclamationCircleOutlined, ToolOutlined } from '@ant-design/icons';
+import { AreaChartOutlined, UserOutlined, CarOutlined, FileTextOutlined, DollarOutlined, FileDoneOutlined, StarOutlined, GiftOutlined, EnvironmentOutlined, ExclamationCircleOutlined, ToolOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '../../assets/images/logo.png'; // Using standard logo if available, or just text
 
@@ -27,14 +27,24 @@ const AdminSidebar = ({ collapsed, onCollapse }) => {
             label: 'Quản lý phương tiện',
         },
         {
-            key: '/admin/reports',
-            icon: <ExclamationCircleOutlined />,
-            label: 'Báo cáo sự cố & Bồi thường',
+            key: '/admin/orders',
+            icon: <ShoppingCartOutlined />,
+            label: 'Quản lý đơn hàng',
         },
         {
             key: '/admin/contracts',
             icon: <FileDoneOutlined />,
             label: 'Quản lý hợp đồng',
+        },
+        {
+            key: '/admin/invoices',
+            icon: <FileTextOutlined />,
+            label: 'Hóa đơn & Doanh thu',
+        },
+        {
+            key: '/admin/routes',
+            icon: <EnvironmentOutlined />,
+            label: 'Quản lý lộ trình',
         },
         {
             key: '/admin/pricing',
@@ -46,20 +56,10 @@ const AdminSidebar = ({ collapsed, onCollapse }) => {
             icon: <StarOutlined />,
             label: 'Đánh giá & Phản hồi',
         },
-         {
-            key: '/admin/orders',
-            icon: <FileDoneOutlined />,
-            label: 'Quản lý đơn hàng',
-        },
         {
-            key: '/admin/invoices',
-            icon: <FileTextOutlined />,
-            label: 'Hóa đơn & Doanh thu',
-        },
-        {
-            key: '/admin/routes',
-            icon: <EnvironmentOutlined />,
-            label: 'Quản lý lộ trình',
+            key: '/admin/reports',
+            icon: <ExclamationCircleOutlined />,
+            label: 'Báo cáo sự cố & Bồi thường',
         },
         {
             key: '/admin/promotions',
