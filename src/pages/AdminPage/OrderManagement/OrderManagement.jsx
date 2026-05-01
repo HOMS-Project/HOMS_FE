@@ -4,6 +4,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ShopOutlined, FacebookOutlined, FilterOutlined, SearchOutlined, ShoppingCartOutlined, DollarCircleOutlined, LineChartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import adminOrderService from '../../../services/admin/adminOrderService';
+import { Card as AntCard } from 'antd';
 
 const { TabPane } = Tabs;
 const { RangePicker } = DatePicker;
@@ -139,12 +140,28 @@ const OrderManagement = () => {
 
   const statusDistribution = useMemo(() => {
     if (charts && Array.isArray(charts.statusDistribution)) {
-      return charts.statusDistribution.map(s => ({ name: s.name, value: s.value }));
+      return charts.statusDistribution.map(s => ({ name: s.name, value: s.value, notes: s.notes || [] }));
     }
     const map = {};
     filtered.forEach(o => { map[o.status] = (map[o.status] || 0) + 1; });
     return Object.keys(map).map(k => ({ name: k, value: map[k] }));
   }, [filtered, charts]);
+
+  // Custom tooltip for pie status chart
+  const PieTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const data = payload[0].payload; // our data contains name, value, notes
+    return (
+      <div style={{ background: '#fff', padding: 12, border: '1px solid #eee', borderRadius: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>{data.name} — {data.value}</div>
+        {data.notes && data.notes.length ? (
+          <div style={{ fontSize: 12, color: '#444' }}>
+            {data.notes.map((n, i) => <div key={i} style={{ marginBottom: 6 }}>• {n}</div>)}
+          </div>
+        ) : <div style={{ fontSize: 12, color: '#888' }}>Không có ghi chú mẫu</div>}
+      </div>
+    );
+  };
 
 
   const columns = [
@@ -302,6 +319,7 @@ const OrderManagement = () => {
                   <div style={{ height: 220 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
+                        <Tooltip content={<PieTooltip />} />
                         <Pie data={statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={40} outerRadius={70} paddingAngle={4}>
                           {statusDistribution.map((_, i) => <Cell key={i} fill={['#82ca9d','#ffd591','#ffd6e7','#d3f6ff','#ff7875'][i % 5]} />)}
                         </Pie>
@@ -411,6 +429,7 @@ const OrderManagement = () => {
                   <div style={{ height: 220 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
+                        <Tooltip content={<PieTooltip />} />
                         <Pie data={statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={40} outerRadius={70}>
                           {statusDistribution.map((_, i) => <Cell key={i} fill={['#7bb4ff','#ffd591','#ffd6e7','#d3f6ff','#ff9fb1'][i % 5]} />)}
                         </Pie>
