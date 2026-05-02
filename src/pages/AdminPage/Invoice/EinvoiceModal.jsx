@@ -130,7 +130,10 @@ const EinvoiceModal = ({ visible, invoiceId, onClose }) => {
                         </Col>
                         <Col span={12}>
                             <div style={{ fontSize: 13, fontWeight: 600 }}>Địa chỉ</div>
-                            <div style={{ marginTop: 6 }}><div><strong>Nhận:</strong> {data.delivery?.address || '—'}</div><div style={{ marginTop: 6 }}><strong>Lấy:</strong> {data.pickup?.address || '—'}</div></div>
+                            <div style={{ marginTop: 6 }}>
+                                <div><strong>Nhận:</strong> {data.delivery?.address || '—'}</div>
+                                {data.pickup && data.pickup.address ? <div style={{ marginTop: 6 }}><strong>Lấy:</strong> {data.pickup.address}</div> : null}
+                            </div>
                         </Col>
                     </Row>
 
