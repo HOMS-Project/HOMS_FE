@@ -45,7 +45,20 @@ const EinvoiceModal = ({ visible, invoiceId, onClose }) => {
     };
 
     const columns = [
-        { title: 'Mục', dataIndex: 'description', key: 'description' },
+        {
+            title: 'Mục',
+            dataIndex: 'description',
+            key: 'description',
+            render: (text, record) => {
+                // Prefer the provided serviceName for clarity when the item description is missing
+                // or is the generic "Dịch vụ vận chuyển" label.
+                const desc = (text || '').toString();
+                if (data && data.serviceName && (!desc || desc.trim() === '' || desc.trim() === 'Dịch vụ vận chuyển')) {
+                    return data.serviceName;
+                }
+                return desc || '—';
+            }
+        },
         { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', width: 80, align: 'right' },
         { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', width: 140, align: 'right', render: v => formatCurrency(v) },
         { title: 'Thành tiền', dataIndex: 'total', key: 'total', width: 160, align: 'right', render: v => formatCurrency(v) }
@@ -79,6 +92,7 @@ const EinvoiceModal = ({ visible, invoiceId, onClose }) => {
                             )}
                             <div>
                                 <div style={{ fontSize: 18, fontWeight: 800 }}>{data.company?.name || 'HOMS'}</div>
+                                {data.serviceName ? <div style={{ marginTop: 6, color: '#237804', fontWeight: 700 }}>{data.serviceName}</div> : null}
                                 {/* show address if provided and not the placeholder; otherwise show email in the address slot */}
                                 {(() => {
                                     const companyEmail = data.company?.email || 'homsmovinghouse@gmail.com';
@@ -120,7 +134,13 @@ const EinvoiceModal = ({ visible, invoiceId, onClose }) => {
                         </Col>
                     </Row>
 
+                    {/* small style override so the table borders follow the primary color theme */}
+                    <style>{`.einvoice-table .ant-table-thead > tr > th, .einvoice-table .ant-table-tbody > tr > td { border-color: ${hexToRgba(primaryColor, 0.12)} !important; }
+.einvoice-table .ant-table-bordered .ant-table-container { border-color: ${hexToRgba(primaryColor, 0.12)} !important; }
+.einvoice-table .ant-table-thead > tr > th { background: rgba(0,0,0,0.02); }
+`}</style>
                     <Table
+                        className="einvoice-table"
                         columns={columns}
                         dataSource={(Array.isArray(data.items) ? data.items : []).map((it, idx) => ({ ...it, key: it.id || idx }))}
                         rowKey={r => r.id || r.key}
