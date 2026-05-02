@@ -177,23 +177,26 @@ const OrderManagement = () => {
     { title: 'Mã đơn', dataIndex: 'code', key: 'code', render: c => <strong>{c}</strong> },
     { title: 'Ngày', dataIndex: 'createdAt', key: 'createdAt', render: d => dayjs(d).format('DD/MM/YYYY HH:mm') },
     { title: 'Khách hàng', dataIndex: 'customer', key: 'customer' },
-    { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: s => {
+    {
+      title: 'Trạng thái', dataIndex: 'status', key: 'status', render: s => {
         const color = s === 'CONVERTED' ? 'green' : s === 'CANCELLED' ? 'red' : 'gold';
         return <Tag color={color}>{s}</Tag>;
       }
     },
     { title: 'Tổng tiền', dataIndex: 'totalPrice', key: 'totalPrice', render: v => <span style={{ fontWeight: 700 }}>{currency(v)}</span> },
-    { title: 'Hành động', key: 'action', render: (_, record) => (
-      <Space>
-        <Button
-          size="small"
-          onClick={() => { setDetailOrder(record); setDetailVisible(true); }}
-          style={{ background: '#fff', color: primaryColor, border: `1px solid ${primaryColor}` }}
-        >
-          Xem
-        </Button>
-      </Space>
-    ) }
+    {
+      title: 'Hành động', key: 'action', render: (_, record) => (
+        <Space>
+          <Button
+            size="small"
+            onClick={() => { setDetailOrder(record); setDetailVisible(true); }}
+            style={{ background: '#fff', color: primaryColor, border: `1px solid ${primaryColor}` }}
+          >
+            Xem
+          </Button>
+        </Space>
+      )
+    }
   ];
 
   return (
@@ -254,14 +257,14 @@ const OrderManagement = () => {
             <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
               <Col xs={24} lg={6}>
                 <Select allowClear style={{ width: '100%' }} placeholder="Trạng thái" value={statusFilter} onChange={setStatusFilter}>
-                  <Select.Option value="CREATED">CREATED</Select.Option>
-                  <Select.Option value="QUOTED">QUOTED</Select.Option>
-                  <Select.Option value="ACCEPTED">ACCEPTED</Select.Option>
-                  <Select.Option value="CONVERTED">CONVERTED</Select.Option>
-                  <Select.Option value="CANCELLED">CANCELLED</Select.Option>
+                  <Select.Option value="CREATED">Chờ xử lý</Select.Option>
+                  <Select.Option value="QUOTED">Đã báo giá</Select.Option>
+                  <Select.Option value="ACCEPTED">Đã nhận</Select.Option>
+                  <Select.Option value="CONVERTED">Đã hoàn thành</Select.Option>
+                  <Select.Option value="CANCELLED">Đã huỷ</Select.Option>
                 </Select>
               </Col>
-              
+
               <Col xs={24} lg={8}>
                 <RangePicker value={dateRange} onChange={(r) => setDateRange(r)} style={{ width: '100%' }} />
               </Col>
@@ -336,7 +339,7 @@ const OrderManagement = () => {
                       <PieChart>
                         <Tooltip content={<PieTooltip />} />
                         <Pie data={statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={40} outerRadius={70} paddingAngle={4}>
-                          {statusDistribution.map((_, i) => <Cell key={i} fill={['#82ca9d','#ffd591','#ffd6e7','#d3f6ff','#ff7875'][i % 5]} />)}
+                          {statusDistribution.map((_, i) => <Cell key={i} fill={['#82ca9d', '#ffd591', '#ffd6e7', '#d3f6ff', '#ff7875'][i % 5]} />)}
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
@@ -351,7 +354,7 @@ const OrderManagement = () => {
                   columns={columns}
                   dataSource={filtered}
                   rowKey={(r) => r._id || r.key || r.code}
-                  pagination={{ current: page, pageSize: limit, total, showSizeChanger: true, pageSizeOptions: ['5','10','20'] }}
+                  pagination={{ current: page, pageSize: limit, total, showSizeChanger: true, pageSizeOptions: ['5', '10', '20'] }}
                   loading={loading}
                   onChange={(pg) => { if (pg && pg.current) setPage(pg.current); if (pg && pg.pageSize) setLimit(pg.pageSize); }}
                 />
@@ -371,7 +374,7 @@ const OrderManagement = () => {
                   <Select.Option value="CANCELLED">CANCELLED</Select.Option>
                 </Select>
               </Col>
-              
+
               <Col xs={24} lg={8}>
                 <RangePicker value={dateRange} onChange={(r) => setDateRange(r)} style={{ width: '100%' }} />
               </Col>
@@ -433,7 +436,7 @@ const OrderManagement = () => {
                         <YAxis axisLine={false} tickLine={false} />
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f5ff" />
                         <Tooltip formatter={(v) => `${v}`} />
-                        <Bar dataKey="count" fill="#3b5998" radius={[4,4,0,0]} />
+                        <Bar dataKey="count" fill="#3b5998" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -446,7 +449,7 @@ const OrderManagement = () => {
                       <PieChart>
                         <Tooltip content={<PieTooltip />} />
                         <Pie data={statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={40} outerRadius={70}>
-                          {statusDistribution.map((_, i) => <Cell key={i} fill={['#7bb4ff','#ffd591','#ffd6e7','#d3f6ff','#ff9fb1'][i % 5]} />)}
+                          {statusDistribution.map((_, i) => <Cell key={i} fill={['#7bb4ff', '#ffd591', '#ffd6e7', '#d3f6ff', '#ff9fb1'][i % 5]} />)}
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
