@@ -214,35 +214,31 @@ const LoginForm = () => {
       </Button>
 
       <Divider>Hoặc</Divider>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {/* GOOGLE */}
-        <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-          <div style={{ width: "100%" }}>
-            <GoogleLogin
-              width="100%"
-              onSuccess={async (credentialResponse) => {
-                try {
-                  const googleToken = credentialResponse.credential;
-                  const res = await loginGoogle(googleToken);
-                  const responseData = res.data.data || res.data;
-                  const { user, accessToken, expiresInMs } = responseData;
-                  handleLoginSuccess(user, accessToken, expiresInMs);
-                } catch (err) {
-                  message.error("Đăng nhập Google thất bại");
-                }
-              }}
-              onError={() => {
-                message.error("Google login failed");
-              }}
-            />
-          </div>
+        <div style={{ width: "100%" }}>
+          <GoogleLogin
+            width="100%"
+            logo_alignment="center"
+            onSuccess={async (credentialResponse) => {
+              try {
+                const googleToken = credentialResponse.credential;
+                const res = await loginGoogle(googleToken);
+                const responseData = res.data.data || res.data;
+                const { user, accessToken, expiresInMs } = responseData;
+                handleLoginSuccess(user, accessToken, expiresInMs);
+              } catch (err) {
+                message.error("Đăng nhập Google thất bại");
+              }
+            }}
+            onError={() => {
+              message.error("Google login failed");
+            }}
+          />
         </div>
 
-        {/* DIVIDER DỌC */}
-        <Divider type="vertical" style={{ height: 40 }} />
-
         {/* FACEBOOK */}
-        <div style={{ flex: 1 }}>
+        <div style={{ width: "100%" }}>
           <FacebookLogin
             appId={appId || "NHAP_APP_ID"}
             onInit={() => {
@@ -253,7 +249,6 @@ const LoginForm = () => {
             onSuccess={async (response) => {
               console.log("FB Response:", response);
               try {
-
                 const res = await loginFacebook(response.accessToken);
                 const responseData = res.data.data || res.data;
                 const { user, accessToken, expiresInMs } = responseData;
