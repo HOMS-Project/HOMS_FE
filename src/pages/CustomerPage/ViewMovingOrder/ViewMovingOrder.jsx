@@ -17,7 +17,7 @@ import SurveyTimeModal from "../../../components/MovingOrder/SurveyTimeModal";
 import RateServiceModal from "../../../components/ServiceRating/RateServiceModal";
 import CancelTicketModal from "../../../components/MovingOrder/CancelTicketModal";
 import RescheduleSurveyModal from "../../../components/MovingOrder/RescheduleSurveyModal";
-
+import { useSocket } from "../../../contexts/SocketContext";
 // Sub-components
 import OrderHero from "./components/OrderHero";
 import FilterTabs from "./components/FilterTabs";
@@ -33,7 +33,7 @@ const { confirm } = Modal;
 const ViewMovingOrder = () => {
   const location = useLocation();
   const { user, isAuthenticated } = useSelector((state) => state.auth);
-
+const { socket } = useSocket();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("ALL");
@@ -398,14 +398,14 @@ const ViewMovingOrder = () => {
 
   // refresh tickets
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const fetchTickets = useCallback(async (isManual = false) => {
+  const fetchTickets = useCallback(async (isManual = false, isSilent = false) => {
     if (!isAuthenticated || !user) {
       setLoading(false);
       return;
     }
 
     if (isManual) setIsRefreshing(true);
-
+    if (!isSilent) setLoading(true); 
     try {
       const currentUserId = user._id || user.id;
       const response = await api.get(`/request-tickets`, {
@@ -449,13 +449,47 @@ const ViewMovingOrder = () => {
     fetchTickets();
   }, [fetchTickets]);
 
-  // Tự động cuộn lên đầu khi có đơn mới nạp vào
+  
   useEffect(() => {
     if (tickets.length > 0) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [tickets.length]);
+ const debounceTimer = useRef(null);
 
+  useEffect(() => {
+    const handleRealtimeUpdate = () => {
+      console.log("⚡ Nhận được tín hiệu có dữ liệu mới, đang Auto-Reload...");
+     
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      
+      debounceTimer.current = setTimeout(() => {
+        fetchTickets(false,true);
+      }, 500); 
+    };
+
+  
+    window.addEventListener('TRIGGER_REFRESH_TICKETS', handleRealtimeUpdate);
+
+
+    if (socket && isAuthenticated) {
+      socket.on("new_notification", handleRealtimeUpdate);
+      socket.on("ticket_updated", handleRealtimeUpdate);
+      socket.on("invoice_updated", handleRealtimeUpdate);
+      socket.on("payment_success", handleRealtimeUpdate);
+    }
+
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      window.removeEventListener('TRIGGER_REFRESH_TICKETS', handleRealtimeUpdate);
+      if (socket) {
+        socket.off("new_notification", handleRealtimeUpdate);
+        socket.off("ticket_updated", handleRealtimeUpdate);
+        socket.off("invoice_updated", handleRealtimeUpdate);
+        socket.off("payment_success", handleRealtimeUpdate);
+      }
+    };
+  }, [socket, isAuthenticated, fetchTickets]);
   /* ── filter logic ── */
   const matchFilter = (t, key) => {
     const ticketStatus = t.status;

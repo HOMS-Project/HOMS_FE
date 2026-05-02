@@ -61,6 +61,10 @@ useEffect(() => {
   fetchNotifications();
 
 }, [user]);
+  useEffect(() => {
+    
+    window.dispatchEvent(new Event('TRIGGER_REFRESH_TICKETS'));
+  }, [notifications]);
  const handleNotificationClick = async (notification) => {
   try {
     await markNotificationRead(notification._id);
