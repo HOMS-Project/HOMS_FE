@@ -122,18 +122,18 @@ const InsufficientResourcesModal = ({
                 />
             );
         }
-        if (decision === 'REQUIRE_CUSTOMER') {
-            return (
-                <Alert
-                    type="warning"
-                    showIcon
-                    icon={<WarningOutlined />}
-                    message={<Text strong style={{ fontSize: 15 }}>CẦN DUYỆT</Text>}
-                    description="Nhân sự < 50%. Chỉ có thể gửi đề xuất để khách hàng xác nhận."
-                    style={{ borderRadius: 8, borderLeftWidth: 4 }}
-                />
-            );
-        }
+        // if (decision === 'REQUIRE_CUSTOMER') {
+        //     return (
+        //         <Alert
+        //             type="warning"
+        //             showIcon
+        //             icon={<WarningOutlined />}
+        //             message={<Text strong style={{ fontSize: 15 }}>CẦN DUYỆT</Text>}
+        //             description="Nhân sự < 50%. Chỉ có thể gửi đề xuất để khách hàng xác nhận."
+        //             style={{ borderRadius: 8, borderLeftWidth: 4 }}
+        //         />
+        //     );
+        // }
         return (
             <Alert
                 type="warning"
@@ -374,14 +374,13 @@ const InsufficientResourcesModal = ({
                             ) : (
                                 <Card
                                     size="small"
-                                    style={{ background: decision === 'REQUIRE_CUSTOMER' ? '#fffbeb' : '#fef2f2', border: `1px solid ${decision === 'REQUIRE_CUSTOMER' ? '#fef3c7' : '#fee2e2'}`, borderRadius: 8 }}
-                                >
+                                    style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 8 }}>
                                     <Row gutter={12} align="middle">
                                         <Col flex="auto">
                                             <div style={{ marginBottom: 4 }}>
-                                                <ExclamationCircleOutlined style={{ color: decision === 'REQUIRE_CUSTOMER' ? '#d97706' : '#dc2626', marginRight: 6 }} />
-                                                <Text strong type={decision === 'REQUIRE_CUSTOMER' ? 'warning' : 'danger'}>
-                                                    {decision === 'REQUIRE_CUSTOMER' ? 'Đề xuất khách hàng' : 'Cưỡng ép điều phối'}
+                                                <ExclamationCircleOutlined style={{ color: '#dc2626', marginRight: 6 }} />
+                                                <Text strong type={'danger'}>
+                                                    Cưỡng ép điều phối
                                                 </Text>
                                             </div>
                                             <Checkbox checked={understoodRisk} onChange={e => setUnderstoodRisk(e.target.checked)}>
@@ -391,14 +390,15 @@ const InsufficientResourcesModal = ({
                                         <Col>
                                             <Button
                                                 type="primary"
-                                                danger={decision !== 'REQUIRE_CUSTOMER'}
-                                                style={decision === 'REQUIRE_CUSTOMER' ? { background: '#faad14', borderColor: '#faad14' } : {}}
+                                                danger
+                                                // style={decision === 'REQUIRE_CUSTOMER' ? { background: '#faad14', borderColor: '#faad14' } : {}}
                                                 onClick={onForceProceed}
                                                 loading={submitting}
                                                 disabled={!understoodRisk}
                                                 icon={<RocketOutlined />}
                                             >
-                                                {decision === 'REQUIRE_CUSTOMER' ? 'Gửi đề xuất' : 'Cưỡng ép'}
+                                                {/* {decision === 'REQUIRE_CUSTOMER' ? 'Gửi đề xuất' : 'Cưỡng ép'} */}
+                                                Cưỡng ép
                                             </Button>
                                         </Col>
                                     </Row>
