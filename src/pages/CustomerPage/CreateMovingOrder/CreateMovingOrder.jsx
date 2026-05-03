@@ -666,6 +666,7 @@ const MovingInformationPage = () => {
                     <Button
                         type="primary"
                         size="large"
+                        className="shimmer-btn"
                         onClick={handleNext}
                         loading={isSubmitting}
                         disabled={isSubmitting}

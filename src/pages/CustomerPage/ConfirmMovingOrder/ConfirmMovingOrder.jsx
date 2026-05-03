@@ -28,7 +28,7 @@ const ConfirmMovingOrder = () => {
 
     // Enforce Online method by default
     const [selectedMethod, setSelectedMethod] = useState('online');
-    const [selectedDate, setSelectedDate] = useState(null);
+    const [selectedDate, setSelectedDate] = useState(dayjs());
     const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
     const [isConfirmed, setIsConfirmed] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -239,8 +239,9 @@ const ConfirmMovingOrder = () => {
 
     const onDateSelect = (date) => {
         setSelectedDate(date);
-        // Reset time selection when date changes
+        // Reset time selection and confirmation when date changes
         setSelectedTimeIndex(null);
+        setIsConfirmed(false);
     };
 
     // Disable past dates and dates after moving date
@@ -378,7 +379,7 @@ const ConfirmMovingOrder = () => {
                             <Calendar
                                 fullscreen={false}
                                 onSelect={onDateSelect}
-                                {...(selectedDate && { value: selectedDate })}
+                                value={selectedDate}
                                 disabledDate={disabledDate}
                             />
 
@@ -389,7 +390,12 @@ const ConfirmMovingOrder = () => {
                                         <div
                                             key={index}
                                             className={`time-slot ${selectedTimeIndex === index ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-                                            onClick={() => !isDisabled && setSelectedTimeIndex(index)}
+                                            onClick={() => {
+                                                if (!isDisabled) {
+                                                    setSelectedTimeIndex(index);
+                                                    setIsConfirmed(false);
+                                                }
+                                            }}
                                             style={{
                                                 cursor: isDisabled ? 'not-allowed' : 'pointer',
                                                 opacity: isDisabled ? 0.5 : 1
@@ -451,7 +457,7 @@ const ConfirmMovingOrder = () => {
                             <Button
                                 type="primary"
                                 size="large"
-                                className={`confirm-button ${!isConfirmed || !selectedMethod || !selectedDate || selectedTimeIndex === null ? 'disabled' : ''}`}
+                                className={`confirm-button shimmer-btn ${!isConfirmed || !selectedMethod || !selectedDate || selectedTimeIndex === null ? 'disabled' : ''}`}
                                 onClick={handleConfirm}
                                 disabled={!isConfirmed || !selectedMethod || !selectedDate || selectedTimeIndex === null}
                             >
