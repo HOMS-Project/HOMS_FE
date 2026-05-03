@@ -408,19 +408,6 @@ const SignContract = () => {
             </div>
 
             <div style={{ padding: '40px', backgroundColor: '#fff' }}>
-              {/* Tiêu đề pháp lý */}
-              <div style={{ textAlign: 'center', marginBottom: 30, fontFamily: '"Times New Roman", serif' }}>
-                <Text strong style={{ fontSize: 18, display: 'block' }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</Text>
-                <Text strong style={{ fontSize: 16, display: 'block', textDecoration: 'underline' }}>
-                  Độc lập - Tự do - Hạnh phúc
-                </Text>
-                <Title level={3} style={{ marginTop: 30, marginBottom: 10, fontFamily: '"Times New Roman", serif' }}>
-                  HỢP ĐỒNG CUNG CẤP DỊCH VỤ VẬN CHUYỂN
-                </Title>
-                <Text style={{ fontStyle: 'italic', color: '#666' }}>
-                  Số: {contract.contractNumber} / HĐVC
-                </Text>
-              </div>
 
               {/* Nội dung hợp đồng */}
               <div
