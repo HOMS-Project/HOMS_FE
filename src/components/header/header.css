@@ -45,17 +45,47 @@
   /* Dịch logo sang trái 30px so với vị trí cũ */
 }
 
-/* --- CẬP NHẬT THANH TÌM KIẾM --- */
+/* --- PREMIUM SEARCH BAR --- */
 .header-search {
-  width: 600px;
-  border: 1px solid #c8c2c2;
-  padding: 8px 0;
+  width: 560px;
+  background: #f7f8f6 !important;
+  border: 1.5px solid #d8e2da !important;
+  border-radius: 24px !important;
+  padding: 6px 16px !important;
   font-size: 14px;
+  color: #333;
+  box-shadow: 0 2px 8px rgba(45, 79, 54, 0.06), inset 0 1px 3px rgba(0,0,0,0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-.header-search:hover,
-.header-search:focus {
-  border-bottom-color: #44624A;
+.header-search .ant-input {
+  background: transparent !important;
+  font-size: 13.5px;
+  color: #2D4F36;
+  letter-spacing: 0.01em;
+}
+
+.header-search .ant-input::placeholder {
+  color: #a0b0a5;
+  font-style: italic;
+}
+
+.header-search .ant-input-prefix {
+  color: #8BA888;
+  margin-right: 8px;
+  font-size: 15px;
+}
+
+.header-search:hover {
+  border-color: #8BA888 !important;
+  box-shadow: 0 4px 14px rgba(45, 79, 54, 0.12), inset 0 1px 3px rgba(0,0,0,0.04) !important;
+}
+
+.header-search:focus-within {
+  border-color: #44624A !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(68, 98, 74, 0.15), 0 4px 16px rgba(45, 79, 54, 0.1) !important;
+  transform: scaleX(1.015);
 }
 
 /* Nút liên hệ mới */
