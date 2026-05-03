@@ -85,6 +85,7 @@ const LandingPage = () => {
         }
     };
 
+    const [hoveredService, setHoveredService] = useState(null);
     const [dbTestimonials, setDbTestimonials] = useState([]);
 
     useEffect(() => {
@@ -162,6 +163,28 @@ const LandingPage = () => {
         fetchRatings();
     }, []);
 
+    // IntersectionObserver cho hiệu ứng reveal khi cuộn
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.15,
+            rootMargin: '0px 0px -50px 0px'
+        });
+
+        const revealElements = document.querySelectorAll('.reveal');
+        revealElements.forEach(el => observer.observe(el));
+
+        return () => {
+            revealElements.forEach(el => observer.unobserve(el));
+        };
+    }, []);
+
     // States for Quick Estimate
     const [estimateModalVisible, setEstimateModalVisible] = useState(false);
     const [estimateLoading, setEstimateLoading] = useState(false);
@@ -233,25 +256,19 @@ const LandingPage = () => {
             id: 1,
             icon: <HomeOutlined />,
             title: 'Chuyển nhà trọn gói',
-            description: 'Dịch vụ chuyển nhà toàn diện với đội ngũ chuyên nghiệp'
-        },
-        {
-            id: 2,
-            icon: <ShoppingOutlined />,
-            title: 'Chuyển văn phòng',
-            description: 'Chuyển văn phòng an toàn, nhanh chóng, không ảnh hưởng kinh doanh'
+            description: 'Giải pháp chuyển nhà toàn diện từ A-Z. Đội ngũ HOMS sẽ đảm nhận mọi công đoạn: khảo sát, đóng gói đồ đạc bằng vật liệu chuyên dụng, tháo lắp thiết bị điện tử/nội thất, vận chuyển và sắp xếp lại toàn bộ tại nhà mới. Giúp bạn tiết kiệm tối đa thời gian, công sức với quy trình chuẩn hóa và an toàn tuyệt đối.'
         },
         {
             id: 3,
             icon: <ShoppingCartOutlined />,
             title: 'Chuyển đồ đạc',
-            description: 'Vận chuyển đồ đạc riêng lẻ với bảo hiểm toàn diện'
+            description: 'Dịch vụ vận chuyển chuyên biệt dành cho các món đồ cồng kềnh, thiết bị có giá trị cao hoặc đồ đạc đơn lẻ. Bao gồm các khâu bọc lót, đóng gói tiêu chuẩn, bốc xếp cẩn thận và vận chuyển bằng phương tiện phù hợp, đảm bảo mọi tài sản được đưa đến tận nơi nguyên vẹn nhất.'
         },
         {
             id: 4,
             icon: <ShoppingOutlined />,
             title: 'Thuê xe tải',
-            description: 'Dịch vụ thuê xe tải linh hoạt theo nhu cầu của bạn'
+            description: 'Dịch vụ cho thuê xe tải vận chuyển linh hoạt với đa dạng tải trọng, đáp ứng mọi quy mô chuyên chở. Đi kèm tài xế chuyên nghiệp, thông thạo đường xá và hỗ trợ tận tình trong việc sắp xếp hàng hóa lên xuống xe, đảm bảo lộ trình an toàn và đúng tiến độ cam kết.'
         },
     ];
 
@@ -449,7 +466,7 @@ const LandingPage = () => {
 
                 {/* Services Section */}
                 <section id="services-section" className="services-section">
-                    <div className="section-container">
+                    <div className="section-container reveal">
                         <div className="section-heading-group">
                             <span className="section-badge">Dịch Vụ</span>
                             <h2 className="section-title">Giải Pháp Chuyển Nhà Thông Minh</h2>
@@ -457,29 +474,40 @@ const LandingPage = () => {
                             <p className="section-subtitle">Đội ngũ chuyên nghiệp, giá cạnh tranh và bảo hiểm toàn diện cho mọi nhu cầu vận chuyển của bạn.</p>
                         </div>
 
-                        <Row gutter={[24, 24]}>
+                        <Row gutter={[24, 24]} className="services-row">
                             {servicesData.map((service) => (
-                                <Col key={service.id} xs={24} sm={12} md={12} lg={12}>
-                                    <Card
-                                        className="service-card"
-                                        hoverable
-                                        bodyStyle={{ padding: '32px 28px', textAlign: 'center' }}
+                                <Col key={service.id} xs={24} sm={12} md={8} lg={8} className="service-col">
+                                    <div 
+                                        className="service-card-wrapper"
+                                        onMouseEnter={() => setHoveredService(service)}
+                                        onMouseLeave={() => setHoveredService(null)}
                                     >
-                                        <div className="service-icon-wrapper">
-                                            {service.icon}
-                                        </div>
-                                        <h3>{service.title}</h3>
-                                        <p>{service.description}</p>
-                                    </Card>
+                                        <Card
+                                            className="service-card"
+                                            hoverable
+                                            bodyStyle={{ padding: '32px 28px', textAlign: 'center' }}
+                                        >
+                                            <div className="service-icon-wrapper">
+                                                {service.icon}
+                                            </div>
+                                            <h3 className="service-title-text">{service.title}</h3>
+                                        </Card>
+                                    </div>
                                 </Col>
                             ))}
                         </Row>
+                        
+                        <div className="service-detail-container">
+                            <p className={`service-detail-text ${hoveredService ? 'show' : ''}`}>
+                                {hoveredService ? hoveredService.description : ''}
+                            </p>
+                        </div>
                     </div>
                 </section>
 
                 {/* Why Choose Us Section */}
                 <section className="why-choose-us-section">
-                    <div className="section-container">
+                    <div className="section-container reveal">
                         <div className="section-heading-group">
                             <span className="section-badge">Cam Kết</span>
                             <h2 className="section-title">Tại Sao Chọn Chúng Tôi?</h2>
@@ -508,7 +536,7 @@ const LandingPage = () => {
 
                 {/* Process Section */}
                 <section id="process-section" className="process-section">
-                    <div className="section-container">
+                    <div className="section-container reveal">
                         <div className="section-heading-group">
                             <span className="section-badge">Quy Trình</span>
                             <h2 className="section-title">Các Bước Vận Chuyển</h2>
@@ -537,7 +565,7 @@ const LandingPage = () => {
 
                 {/* Testimonials Section */}
                 <section id="testimonials-section" className="testimonials-section">
-                    <div className="section-container">
+                    <div className="section-container reveal">
                         <div className="section-heading-group" style={{ marginBottom: '48px' }}>
                             <span className="section-badge" style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)' }}>Khách Hàng Nói Gì</span>
                             <h2 className="section-title section-title--white">Đánh Giá Từ Khách Hàng</h2>
@@ -608,7 +636,7 @@ const LandingPage = () => {
 
                 {/* Contact & Map Section */}
                 <section id="contact-section" className="contact-section">
-                    <div className="section-container">
+                    <div className="section-container reveal">
                         {/* Wrapper tạo khung bo tròn chung */}
                         <div className="contact-box-wrapper">
                             <Row gutter={0} style={{ display: 'flex', flexWrap: 'wrap' }}>
@@ -654,20 +682,25 @@ const LandingPage = () => {
                                             </Form.Item>
 
                                             <Form.Item>
-                                                <Button
-                                                    type="primary"
-                                                    htmlType="submit"
-                                                    block
-                                                    style={{
-                                                        background: '#2D4F36',
-                                                        borderColor: '#2D4F36',
-                                                        borderRadius: '8px',
-                                                        height: '45px',
-                                                        fontWeight: 'bold'
-                                                    }}
-                                                >
-                                                    Gửi Thông Tin
-                                                </Button>
+                                                <button type="submit" className="fly-submit-btn">
+                                                    <div className="svg-wrapper-1">
+                                                        <div className="svg-wrapper">
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                viewBox="0 0 24 24"
+                                                                width="24"
+                                                                height="24"
+                                                            >
+                                                                <path fill="none" d="M0 0h24v24H0z"></path>
+                                                                <path
+                                                                    fill="currentColor"
+                                                                    d="M1.946 9.315c-.522-.174-.527-.455.01-.634l19.087-6.362c.529-.176.832.12.684.638l-5.454 19.086c-.15.529-.455.547-.679.045L12 14l6-8-8 6-8.054-2.685z"
+                                                                ></path>
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                    <span>Gửi Thông Tin</span>
+                                                </button>
                                             </Form.Item>
                                         </Form>
 

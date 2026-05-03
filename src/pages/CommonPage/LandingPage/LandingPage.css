@@ -356,14 +356,45 @@ body {
   border: 1.5px solid #E8EDEA !important;
   background: #fff !important;
   text-align: center;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease !important;
+  transition: transform 400ms ease, box-shadow 400ms ease, border-color 400ms ease, filter 400ms ease !important;
   height: 100%;
 }
 
 .service-card:hover {
-  transform: translateY(-10px) !important;
+  transform: scale(1.1) !important;
   box-shadow: 0 20px 48px rgba(45, 79, 54, 0.14) !important;
   border-color: #8BA888 !important;
+  z-index: 10;
+  position: relative;
+}
+
+/* Blur effect for non-hovered cards */
+.services-row:hover .service-col:not(:hover) .service-card {
+  filter: blur(10px) !important;
+  transform: scale(0.9) !important;
+}
+
+/* Service Detail Container */
+.service-detail-container {
+  text-align: center;
+  margin-top: 40px;
+  min-height: 50px;
+}
+
+.service-detail-text {
+  font-size: 1.2rem;
+  color: #2D4F36;
+  font-weight: 500;
+  opacity: 0.5;
+  transition: all 400ms ease;
+  margin: 0;
+}
+
+.service-detail-text.show {
+  opacity: 1;
+  transform: translateY(-5px);
+  color: #44624A;
+  font-weight: bold;
 }
 
 .service-icon-wrapper {
@@ -411,11 +442,19 @@ body {
   border-radius: 18px !important;
   border: 1.5px solid #E8EDEA !important;
   background: #F7F8F6 !important;
-  text-align: center;
+  text-align: center !important;
+  display: block !important;
   transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease !important;
   overflow: hidden;
   position: relative;
   height: 100%;
+}
+
+.why-card .ant-card-body {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .why-card::before {
@@ -457,6 +496,7 @@ body {
   font-size: 1rem !important;
   font-weight: 700 !important;
   margin-bottom: 8px !important;
+  text-align: center !important;
 }
 
 .why-card p {
@@ -464,6 +504,7 @@ body {
   font-size: 0.88rem !important;
   margin: 0 !important;
   line-height: 1.6 !important;
+  text-align: center !important;
 }
 
 /* ====================================================
@@ -965,6 +1006,67 @@ body {
 
 .testimonial-card:nth-child(3) {
   animation-delay: 0.19s;
+}
+
+/* ====================================================
+   FLY SUBMIT BUTTON
+   ==================================================== */
+.fly-submit-btn {
+  font-family: inherit;
+  font-size: 16px;
+  background: #2D4F36;
+  color: white;
+  padding: 0.7em 1em;
+  padding-left: 0.9em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0 auto;
+  transition: all 0.2s;
+  cursor: pointer;
+  width: 170px;
+  height: 45px;
+  font-weight: bold;
+}
+
+.fly-submit-btn span {
+  display: block;
+  margin-left: 0.3em;
+  transition: all 0.3s ease-in-out;
+}
+
+.fly-submit-btn svg {
+  display: block;
+  transform-origin: center center;
+  transition: transform 0.3s ease-in-out;
+}
+
+.fly-submit-btn:hover .svg-wrapper {
+  animation: fly-1 0.6s ease-in-out infinite alternate;
+}
+
+.fly-submit-btn:hover svg {
+  transform: translateX(1.2em) rotate(45deg) scale(1.1);
+}
+
+.fly-submit-btn:hover span {
+  transform: translateX(8em);
+}
+
+.fly-submit-btn:active {
+  transform: scale(0.95);
+}
+
+@keyframes fly-1 {
+  from {
+    transform: translateY(0.1em);
+  }
+  to {
+    transform: translateY(-0.1em);
+  }
 }
 
 /* ====================================================
