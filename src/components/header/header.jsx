@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {  Layout, Row, Col, Button, Input, Drawer, Menu, Avatar, Dropdown, Badge, Popover, List, Typography } from "antd";
-import { MenuOutlined, SearchOutlined, RightOutlined, BellOutlined, MenuUnfoldOutlined, MenuFoldOutlined } from "@ant-design/icons";
+import { MenuOutlined, SearchOutlined, RightOutlined, BellOutlined, MenuUnfoldOutlined, MenuFoldOutlined, HomeOutlined } from "@ant-design/icons";
 import "./header.css";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import useNotificationSocket from "../../hooks/useNotificationSocket";
@@ -23,6 +23,7 @@ const { user, loading } = useSelector((state) => state.auth);
   useNotificationSocket(user, setNotifications, setUnreadCount);
   // Danh sách menu mới theo yêu cầu
   const navItems = [
+    { key: "home", label: <HomeOutlined style={{ fontSize: '22px', color: '#ffffff' }} />, path: "/" },
     { key: "dashboard", label: "Bảng Điều Khiển", path: "/customer/dashboard" },
     { key: "services", label: "Các Dịch Vụ", path: "/customer/service-packages" },
     { key: "orders", label: "Đơn Chuyển", path: "/customer/order" },
@@ -244,7 +245,10 @@ const handleLogout = () => {
                       trigger="click"
                     >
                       <Badge count={unreadCount} overflowCount={99} size="small">
-                        <BellOutlined style={{ fontSize: '20px', cursor: 'pointer', color: '#2D4F36' }} />
+                        <BellOutlined 
+                          className={unreadCount > 0 ? "bell-shake" : ""} 
+                          style={{ fontSize: '20px', cursor: 'pointer', color: '#2D4F36' }} 
+                        />
                       </Badge>
                     </Popover>
                   <Dropdown
@@ -329,7 +333,7 @@ const handleLogout = () => {
               {navItems.map((item) => (
                 <li
                   key={item.key}
-                  className={`nav-item ${activeMenu === item.key ? "active" : ""}`}
+                  className={`nav-item ${activeMenu === item.key ? "active" : ""} ${item.key === 'home' ? 'nav-home' : ''}`}
                   onClick={() => handleMenuClick(item.key, item.path)}
                 >
                   {item.label}

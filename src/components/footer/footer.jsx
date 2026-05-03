@@ -45,10 +45,8 @@ const AppFooter = () => {
             <h4 className="footer-heading">Dịch Vụ</h4>
             <ul className="footer-links">
               <li><a href="#services-section">Chuyển nhà trọn gói</a></li>
-              <li><a href="#services-section">Chuyển văn phòng</a></li>
               <li><a href="#services-section">Chuyển đồ đạc</a></li>
               <li><a href="#services-section">Thuê xe tải</a></li>
-              <li><a href="#services-section">Hoàn trả mặt bằng</a></li>
             </ul>
           </Col>
 
@@ -62,7 +60,7 @@ const AppFooter = () => {
               </div>
               <div className="contact-item">
                 <MailOutlined className="contact-icon" /> 
-                <span>contact@homs.vn</span>
+                <span>homsmovinghouse@gmail.com</span>
               </div>
               <div className="contact-item">
                 <EnvironmentOutlined className="contact-icon" /> 
