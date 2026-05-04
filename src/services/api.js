@@ -33,6 +33,7 @@ const PUBLIC_ENDPOINTS = [
   '/public/best-moving-time',
   '/public/ratings',
   '/public/recent-orders',
+  '/public/contact',
   '/csrf-token',
 ];
 let csrfToken = null;
