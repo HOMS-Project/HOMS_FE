@@ -500,6 +500,19 @@ const LandingPage = () => {
                                 </Col>
                             ))}
                         </Row>
+
+                        <p style={{
+                            textAlign: 'center',
+                            color: '#8BA888',
+                            fontSize: '13px',
+                            marginTop: '8px',
+                            marginBottom: '0',
+                            letterSpacing: '0.3px',
+                            fontStyle: 'italic',
+                            opacity: 0.85
+                        }}>
+                            ✦ Di chuột vào thẻ để xem chi tiết dịch vụ
+                        </p>
                         
                         <div className="service-detail-container">
                             <p className={`service-detail-text ${hoveredService ? 'show' : ''}`}>
@@ -534,6 +547,19 @@ const LandingPage = () => {
                                 </Col>
                             ))}
                         </Row>
+
+                        <p style={{
+                            textAlign: 'center',
+                            color: '#8BA888',
+                            fontSize: '13px',
+                            marginTop: '8px',
+                            marginBottom: '0',
+                            letterSpacing: '0.3px',
+                            fontStyle: 'italic',
+                            opacity: 0.85
+                        }}>
+                            ✦ Di chuột vào thẻ để xem chi tiết cam kết
+                        </p>
                     </div>
                 </section>
 
